@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
+import { shellBg, shellText } from '../lib/themeClasses';
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -44,7 +45,7 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[color:var(--ex-shell-bg)] text-white">
+    <div className={`min-h-screen ${shellBg} ${shellText}`}>
       <AdminHeader
         onToggleSidebar={() => setSidebarOpen((current) => !current)}
         sidebarOpen={sidebarOpen}

@@ -8,8 +8,8 @@
 .profile-header-banner {
   text-align: center;
   padding: 40px 20px;
-  background: linear-gradient(135deg, #01351c 0%, #01692c 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--ex-primary-strong) 0%, var(--ex-primary) 100%);
+  color: var(--ex-surface);
   border-radius: 12px;
   margin-bottom: 30px;
 }
@@ -34,7 +34,7 @@
 
 /* Profile Completion Card */
 .profile-completion-card {
-  background: white;
+  background: var(--ex-surface);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--ex-overlay-scrim) 10%, transparent);
@@ -52,7 +52,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--ex-text);
 }
 
 .completion-percentage {
@@ -63,7 +63,7 @@
 
 .completion-bar {
   height: 8px;
-  background: #e0e0e0;
+  background: var(--ex-line);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -77,13 +77,13 @@
 
 .completion-message {
   font-size: 14px;
-  color: #6c757d;
+  color: var(--ex-text-muted);
   margin: 12px 0;
 }
 
 /* Modern Card */
 .modern-card {
-  background: white;
+  background: var(--ex-surface);
   border-radius: 12px;
   box-shadow: 0 2px 12px color-mix(in srgb, var(--ex-overlay-scrim) 8%, transparent);
   overflow: hidden;
@@ -99,8 +99,8 @@
   align-items: center;
   gap: 32px;
   padding: 40px;
-  background: linear-gradient(to bottom, #f8f9fa 0%, var(--ex-shell-text) 100%);
-  border-bottom: 1px solid #e0e0e0;
+  background: linear-gradient(to bottom, var(--ex-page-bg) 0%, var(--ex-shell-text) 100%);
+  border-bottom: 1px solid var(--ex-line);
 }
 
 .profile-avatar-section {
@@ -116,14 +116,14 @@
   object-fit: cover;
   object-position: center;
   display: block;
-  border: 4px solid white;
+  border: 4px solid var(--ex-surface);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--ex-overlay-scrim) 15%, transparent);
-  background-color: #f5f5f5;
+  background-color: var(--ex-surface-low);
 }
 
 .profile-avatar-large.placeholder {
-  background: linear-gradient(135deg, #01351c 0%, #01692c 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--ex-primary-strong) 0%, var(--ex-primary) 100%);
+  color: var(--ex-surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -146,8 +146,8 @@
 
 .change-photo-btn {
   padding: 6px 12px;
-  background: rgba(1, 53, 28, 0.9);
-  color: white;
+  background: color-mix(in srgb, var(--ex-primary-strong) 90%, transparent);
+  color: var(--ex-surface);
   border: none;
   border-radius: 20px;
   font-size: 12px;
@@ -156,7 +156,7 @@
 }
 
 .change-photo-btn:hover {
-  background: rgba(1, 53, 28, 1);
+  background: var(--ex-primary-strong);
 }
 
 .profile-basic-info {
@@ -166,13 +166,13 @@
 .profile-name {
   font-size: 32px;
   font-weight: 700;
-  color: #333;
+  color: var(--ex-text);
   margin: 0 0 8px;
 }
 
 .profile-username {
   font-size: 18px;
-  color: #6c757d;
+  color: var(--ex-text-muted);
   margin: 0 0 16px;
 }
 
@@ -213,41 +213,41 @@
 
 .member-since {
   font-size: 14px;
-  color: #6c757d;
+  color: var(--ex-text-muted);
   margin: 8px 0 0;
 }
 
 /* Bio Section */
 .profile-bio-section {
   padding: 24px 40px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--ex-line);
 }
 
 .profile-bio-section h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--ex-text);
   margin: 0 0 12px;
 }
 
 .profile-bio-section p {
   font-size: 15px;
   line-height: 1.6;
-  color: #495057;
+  color: var(--ex-text-muted);
   margin: 0;
 }
 
 /* Statistics Section */
 .profile-statistics {
   padding: 24px 40px;
-  border-bottom: 1px solid #e3e8e5;
-  background: linear-gradient(135deg, #f6fbf8 0%, var(--ex-shell-text) 100%);
+  border-bottom: 1px solid var(--ex-line);
+  background: linear-gradient(135deg, var(--ex-page-bg) 0%, var(--ex-shell-text) 100%);
 }
 
 .profile-statistics h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #01351c;
+  color: var(--ex-primary-strong);
   margin: 0 0 20px;
 }
 
@@ -262,20 +262,20 @@
   padding: 16px 14px;
   background: var(--ex-shell-text);
   border-radius: 12px;
-  border: 1px solid #e2e6e3;
+  border: 1px solid var(--ex-line);
   transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
 .stat-item:hover {
   transform: translateY(-1px);
-  border-color: #c7d1cc;
+  border-color: var(--ex-line-strong);
 }
 
 .stat-number {
   display: block;
   font-size: 28px;
   font-weight: 700;
-  color: #0f3d26;
+  color: var(--ex-primary-strong);
   margin-bottom: 4px;
   line-height: 1;
   text-shadow: none;
@@ -284,7 +284,7 @@
 .stat-label {
   display: block;
   font-size: 12px;
-  color: #01692c;
+  color: var(--ex-primary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   font-weight: 600;
@@ -299,7 +299,7 @@
 
 .profile-section {
   padding: 32px 40px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--ex-line);
 }
 
 .profile-section:last-child {
@@ -309,17 +309,17 @@
 .profile-section h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--ex-text);
   margin: 0 0 20px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid var(--ex-line);
 }
 
 .profile-info-row {
   display: flex;
   align-items: flex-start;
   padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--ex-surface-low);
 }
 
 .profile-info-row:last-child {
@@ -329,7 +329,7 @@
 .profile-info-label {
   flex: 0 0 200px;
   font-weight: 600;
-  color: #495057;
+  color: var(--ex-text-muted);
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -342,7 +342,7 @@
 
 .profile-info-value {
   flex: 1;
-  color: #212529;
+  color: var(--ex-text);
   font-size: 15px;
   word-break: break-word;
 }
@@ -350,7 +350,121 @@
 .user-id {
   font-family: 'Courier New', monospace;
   font-size: 12px;
-  color: #6c757d;
+  color: var(--ex-text-muted);
+}
+
+/* Dealer Info Section */
+.dealer-info-section {
+  background: #f0f7ff;
+  border-left: 4px solid #4A90E2;
+}
+
+.verified-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.verification-pending {
+  padding: 12px;
+  background: #fff3cd;
+  border-radius: 8px;
+  color: #856404;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+/* Social Links */
+.social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.social-link {
+  padding: 10px 20px;
+  background: var(--ex-page-bg);
+  border: 1px solid var(--ex-line);
+  border-radius: 8px;
+  color: var(--ex-text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+
+.social-link:hover {
+  background: var(--ex-surface-low);
+  border-color: var(--ex-line-strong);
+  color: var(--ex-text);
+}
+
+.user-id {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--ex-text-muted);
+}
+
+/* Dealer Info Section */
+.dealer-info-section {
+  background: #f0f7ff;
+  border-left: 4px solid #4A90E2;
+}
+
+.verified-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.verification-pending {
+  padding: 12px;
+  background: #fff3cd;
+  border-radius: 8px;
+  color: #856404;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+/* Social Links */
+.social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.social-link {
+  padding: 10px 20px;
+  background: var(--ex-page-bg);
+  border: 1px solid var(--ex-line);
+  border-radius: 8px;
+  color: var(--ex-text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+
+.social-link:hover {
+  background: var(--ex-surface-low);
+  border-color: var(--ex-line-strong);
+  color: var(--ex-text);
 }
 
 /* Dealer Info Section */
@@ -394,10 +508,10 @@
 
 .social-link {
   padding: 10px 20px;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: var(--ex-page-bg);
+  border: 1px solid var(--ex-line);
   border-radius: 8px;
-  color: #495057;
+  color: var(--ex-text-muted);
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
@@ -406,9 +520,9 @@
 }
 
 .social-link:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
-  color: #212529;
+  background: var(--ex-surface-low);
+  border-color: var(--ex-line-strong);
+  color: var(--ex-text);
 }
 
 /* Status Badge */
@@ -446,8 +560,8 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 32px 40px;
-  background: #f8f9fa;
-  border-top: 1px solid #e0e0e0;
+  background: var(--ex-page-bg);
+  border-top: 1px solid var(--ex-line);
 }
 
 /* Button Styles */
@@ -465,28 +579,28 @@
 }
 
 .profile-container .btn-primary {
-  background: #01351c;
-  color: white;
+  background: var(--ex-primary-strong);
+  color: var(--ex-surface);
 }
 
 .profile-container .btn-primary:hover {
-  background: #012513;
-  box-shadow: 0 4px 8px rgba(1, 53, 28, 0.2);
+  background: var(--ex-primary-strong);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--ex-primary-strong) 20%, transparent);
 }
 
 .profile-container .btn-secondary {
-  background: #6c757d;
-  color: white;
+  background: var(--ex-text-muted);
+  color: var(--ex-surface);
 }
 
 .profile-container .btn-secondary:hover {
-  background: #5a6268;
+  background: var(--ex-text-muted);
   box-shadow: 0 4px 8px color-mix(in srgb, var(--ex-shell-text-muted) 20%, transparent);
 }
 
 .profile-container .btn-success {
   background: #28a745;
-  color: white;
+  color: var(--ex-surface);
 }
 
 .profile-container .btn-success:hover {
@@ -496,7 +610,7 @@
 
 .profile-container .btn-danger {
   background: #dc3545;
-  color: white;
+  color: var(--ex-surface);
 }
 
 .profile-container .btn-danger:hover {
@@ -546,9 +660,9 @@
 }
 
 .profile-container .loading-spinner {
-  border: 4px solid rgba(1, 53, 28, 0.1);
+  border: 4px solid color-mix(in srgb, var(--ex-primary-strong) 10%, transparent);
   border-radius: 50%;
-  border-top: 4px solid #01351c;
+  border-top: 4px solid var(--ex-primary-strong);
   width: 50px;
   height: 50px;
   animation: spin 1s linear infinite;
@@ -561,7 +675,7 @@
 }
 
 .profile-container .loading-container p {
-  color: #6c757d;
+  color: var(--ex-text-muted);
   font-size: 16px;
 }
 

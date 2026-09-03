@@ -44,9 +44,9 @@ const marketplaceInsights = [
 const heroImage = '/hero.avif';
 const ctaImage = '/images/bottom-landing.avif';
 const primaryHeroButtonClass =
-  'group border-0 bg-gradient-to-r from-[color:var(--ex-primary)] via-[color:var(--ex-primary-strong)] to-[color:var(--ex-primary-strong)] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[color:var(--ex-primary)] hover:to-[color:var(--ex-primary-strong)]';
+  'group border-0 bg-gradient-to-r from-[color:var(--ex-primary)] via-[color:var(--ex-primary-strong)] to-[color:var(--ex-primary-strong)] text-[color:var(--ex-shell-on-accent)] shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[color:var(--ex-primary-strong)] hover:via-[color:var(--ex-primary)] hover:to-[color:var(--ex-primary-strong)]';
 const secondaryHeroButtonClass =
-  'group border border-white/15 bg-[rgba(255,255,255,0.06)] text-white hover:bg-[rgba(255,255,255,0.12)] hover:text-white';
+  'group border border-[color:var(--ex-line-strong)] bg-[color:var(--ex-surface-low)] text-[color:var(--ex-text)] hover:bg-[color:var(--ex-surface-high)] hover:text-[color:var(--ex-text)]';
 
 const normalizeMarketplaceItem = (categoryKey, item) => {
   const image =

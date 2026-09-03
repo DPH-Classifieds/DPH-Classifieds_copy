@@ -99,14 +99,14 @@
 }
 
 .about-v2-button-primary {
-  background: linear-gradient(135deg, #0b6b4c 0%, #004e37 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
+  color: var(--ex-shell-text);
   box-shadow: 0 16px 28px color-mix(in srgb, var(--ex-shell-on-accent) 22%, transparent);
 }
 
 .about-v2-button-secondary {
   background: transparent;
-  border-color: rgba(227, 242, 229, 0.18);
+  border-color: color-mix(in srgb, var(--ex-shell-text) 18%, transparent);
   color: var(--ab-text);
 }
 
@@ -137,7 +137,7 @@
   display: block;
   margin-bottom: 8px;
   font-size: 2rem;
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .about-v2-stat-card span {

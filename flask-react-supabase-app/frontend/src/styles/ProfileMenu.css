@@ -40,8 +40,8 @@
   min-height: 34px;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ex-shell-accent) 0%, #004e37 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--ex-shell-accent) 0%, var(--ex-primary-strong) 100%);
+  color: var(--ex-shell-text);
   display: grid;
   place-items: center;
   font-weight: 600;
@@ -130,7 +130,7 @@
 
 .user-role {
   font-size: 12px;
-  color: #666;
+  color: var(--ex-text-muted);
   margin-top: 3px;
   font-weight: 500;
 }

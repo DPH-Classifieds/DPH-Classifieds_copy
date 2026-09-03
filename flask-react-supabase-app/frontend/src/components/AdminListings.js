@@ -95,8 +95,8 @@ const TypeBadge = ({ type }) => {
     plates: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
     part: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
     parts: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    buying_request: 'bg-white/5 text-white/60 border-white/10',
-    buying_requests: 'bg-white/5 text-white/60 border-white/10',
+    buying_request: 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]',
+    buying_requests: 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]',
     draft: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
     drafts: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
   };
@@ -106,7 +106,7 @@ const TypeBadge = ({ type }) => {
     draft: 'Draft', drafts: 'Draft',
     buying_request: 'Request', buying_requests: 'Request',
   };
-  const cls = map[t] || 'bg-white/5 text-white/50 border-white/10';
+  const cls = map[t] || 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.10em] border ${cls}`}>
       {labelMap[t] || type}
@@ -123,24 +123,24 @@ const StatusBadge = ({ status }) => {
     pending_auto_review: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
     suspended: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
     rejected: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
-    removed: 'bg-white/5 text-white/40 border-white/10',
-    sold: 'bg-white/5 text-white/40 border-white/10',
-    deleted: 'bg-white/5 text-white/40 border-white/10',
+    removed: 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]',
+    sold: 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]',
+    deleted: 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]',
     expired: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
   };
   const label = s === 'pending_auto_review' ? 'Auto Review' : status;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[s] || 'bg-white/5 text-white/40 border-white/10'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[s] || 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]'}`}>
       {label}
     </span>
   );
 };
 
 const SkeletonRow = () => (
-  <tr className="border-b border-white/[0.04] animate-pulse">
+  <tr className="border-b border-[color:var(--ex-shell-line)] animate-pulse">
     {[...Array(9)].map((_, i) => (
       <td key={i} className="px-4 py-3">
-        <div className="h-3 bg-white/5 rounded-full w-full" />
+        <div className="h-3 bg-[color:var(--ex-shell-surface)] rounded-full w-full" />
       </td>
     ))}
   </tr>
@@ -750,7 +750,7 @@ const AdminListings = () => {
             className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
               isActive
                 ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                : 'bg-white/[0.04] text-white/50 border-white/10 hover:text-white/70 hover:bg-white/[0.07]'
+                : 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)] hover:text-[color:var(--ex-shell-text-muted)] hover:bg-[color:var(--ex-shell-surface-strong)]'
             }`}
           >
             {opt.label}
@@ -778,11 +778,11 @@ const AdminListings = () => {
             }}
           >
             {toastType === 'success' ? (
-              <CheckCircle2 size={18} className="text-white flex-shrink-0" />
+              <CheckCircle2 size={18} className="text-[color:var(--ex-shell-text)] flex-shrink-0" />
             ) : (
-              <XCircle size={18} className="text-white flex-shrink-0" />
+              <XCircle size={18} className="text-[color:var(--ex-shell-text)] flex-shrink-0" />
             )}
-            <p className="text-sm font-semibold text-white">{toastMessage}</p>
+            <p className="text-sm font-semibold text-[color:var(--ex-shell-text)]">{toastMessage}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -790,11 +790,11 @@ const AdminListings = () => {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-white">Listings</h1>
-          <p className="text-sm text-white/50 mt-1">Moderate cars, bikes, plates, and parts across the platform.</p>
+          <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">Listings</h1>
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">Moderate cars, bikes, plates, and parts across the platform.</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/[0.06] text-white/60 border border-white/10">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] border border-[color:var(--ex-shell-line)]">
             {listingSummary.visible} shown
           </span>
           {listingSummary.pendingCount > 0 && (
@@ -822,8 +822,8 @@ const AdminListings = () => {
           { label: 'Views', value: listingSummary.views },
         ].map((kpi) => (
           <GlassCard key={kpi.label} className="flex flex-col gap-1">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{kpi.label}</p>
-            <p className="text-2xl font-semibold text-white">{kpi.value.toLocaleString()}</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">{kpi.label}</p>
+            <p className="text-2xl font-semibold text-[color:var(--ex-shell-text)]">{kpi.value.toLocaleString()}</p>
           </GlassCard>
         ))}
       </div>
@@ -835,10 +835,10 @@ const AdminListings = () => {
           placeholder="Search by ID or title…"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
         />
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Type</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">Type</p>
           <ChipFilter
             options={TYPE_OPTIONS}
             activeKeys={effectiveTypes}
@@ -847,7 +847,7 @@ const AdminListings = () => {
           />
         </div>
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Status</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">Status</p>
           <ChipFilter
             options={STATUS_OPTIONS}
             activeKeys={effectiveStatuses}
@@ -856,7 +856,7 @@ const AdminListings = () => {
           />
         </div>
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Source</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">Source</p>
           <ChipFilter
             options={SOURCE_OPTIONS}
             activeKeys={effectiveSources}
@@ -871,7 +871,7 @@ const AdminListings = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
+              <tr className="border-b border-[color:var(--ex-shell-line)]">
                 <th className="px-4 py-3 text-left">
                   <input
                     type="checkbox"
@@ -883,7 +883,7 @@ const AdminListings = () => {
                   />
                 </th>
                 {['Thumbnail', 'Listing', 'Type', 'Status', 'Seller', 'Views', 'Created', 'Actions'].map((h, idx) => (
-                  <th key={`${h}-${idx}`} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium whitespace-nowrap">
+                  <th key={`${h}-${idx}`} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -935,7 +935,7 @@ const AdminListings = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03 }}
                         onClick={isDraftRow ? undefined : () => navigate(`/admin/listings/${lt}/${listing.id}`)}
-                        className={`border-b border-white/[0.04] transition-colors group ${isDraftRow ? '' : 'hover:bg-white/[0.04] cursor-pointer'}`}
+                        className={`border-b border-[color:var(--ex-shell-line)] transition-colors group ${isDraftRow ? '' : 'hover:bg-[color:var(--ex-shell-surface)] cursor-pointer'}`}
                       >
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           {!isDraftRow ? (
@@ -944,7 +944,7 @@ const AdminListings = () => {
                               checked={isSelected}
                               onChange={() => toggleRowSelected(listing)}
                               aria-label="Select listing"
-                              className="w-4 h-4 rounded border-white/20 bg-white/[0.04] accent-emerald-500 cursor-pointer"
+                              className="w-4 h-4 rounded border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] accent-emerald-500 cursor-pointer"
                             />
                           ) : (
                             <span className="inline-block w-4 h-4" />
@@ -959,20 +959,20 @@ const AdminListings = () => {
                               onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-lg bg-white/[0.04] flex items-center justify-center">
-                              <Car size={20} className="text-white/20" />
+                            <div className="w-12 h-12 rounded-lg bg-[color:var(--ex-shell-surface)] flex items-center justify-center">
+                              <Car size={20} className="text-[color:var(--ex-shell-text-muted)]" />
                             </div>
                           )}
                         </td>
                         <td className="px-4 py-3 max-w-[180px]">
-                          <p className="text-white/80 font-medium truncate text-sm">{title}</p>
-                          <p className="text-white/30 text-xs font-mono mt-0.5">{(listing.id || '').slice(0, 8)}</p>
+                          <p className="text-[color:var(--ex-shell-text)] font-medium truncate text-sm">{title}</p>
+                          <p className="text-[color:var(--ex-shell-text-muted)] text-xs font-mono mt-0.5">{(listing.id || '').slice(0, 8)}</p>
                         </td>
                         <td className="px-4 py-3"><TypeBadge type={lt} /></td>
                         <td className="px-4 py-3"><StatusBadge status={displayStatus} /></td>
                         <td className="px-4 py-3 max-w-[260px]">
                           <p
-                            className="text-white/70 text-sm truncate leading-snug"
+                            className="text-[color:var(--ex-shell-text-muted)] text-sm truncate leading-snug"
                             title={seller}
                           >
                             {seller}
@@ -985,10 +985,10 @@ const AdminListings = () => {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-white/60 text-sm">{views.toLocaleString()}</p>
+                          <p className="text-[color:var(--ex-shell-text-muted)] text-sm">{views.toLocaleString()}</p>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-white/40 text-xs whitespace-nowrap">{relTime(listing.created_at)}</p>
+                          <p className="text-[color:var(--ex-shell-text-muted)] text-xs whitespace-nowrap">{relTime(listing.created_at)}</p>
                         </td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
@@ -1003,7 +1003,7 @@ const AdminListings = () => {
                                     const pub = typeMap[lt] || lt;
                                     window.open(`/${pub}/${listing.id}`, '_blank', 'noopener');
                                   }}
-                                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors"
                                 >
                                   <Eye size={15} />
                                 </button>
@@ -1011,7 +1011,7 @@ const AdminListings = () => {
                                   title="Open admin detail view"
                                   aria-label="Open admin detail view"
                                   onClick={(e) => { e.stopPropagation(); navigate(`/admin/listings/${lt}/${listing.id}`); }}
-                                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors"
                                 >
                                   <BarChart3 size={15} />
                                 </button>
@@ -1024,7 +1024,7 @@ const AdminListings = () => {
                                     setSelectedListing(listing);
                                     setShowStatusModal(true);
                                   }}
-                                  className="p-1.5 rounded-lg hover:bg-indigo-500/20 text-white/50 hover:text-indigo-300 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-indigo-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-indigo-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <Sliders size={15} />
@@ -1041,7 +1041,7 @@ const AdminListings = () => {
                                     setSelectedListing(listing);
                                     setShowExpiryModal(true);
                                   }}
-                                  className="p-1.5 rounded-lg hover:bg-sky-500/20 text-white/50 hover:text-sky-300 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-sky-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-sky-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <Calendar size={15} />
@@ -1058,7 +1058,7 @@ const AdminListings = () => {
                                       title: getListingTitle(listing),
                                     });
                                   }}
-                                  className="p-1.5 rounded-lg hover:bg-amber-500/20 text-white/50 hover:text-amber-300 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-amber-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-amber-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <Star size={15} />
@@ -1071,7 +1071,7 @@ const AdminListings = () => {
                                     : 'Send renewal nudge to owner (email + SMS)'}
                                 aria-label="Send renewal nudge to owner"
                                 onClick={(e) => { e.stopPropagation(); handleSendNudge(listing); }}
-                                className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-emerald-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <Send size={15} />
@@ -1087,7 +1087,7 @@ const AdminListings = () => {
                                   setRenewReason('');
                                   setShowRenewModal(true);
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-emerald-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <RefreshCw size={15} />
@@ -1099,7 +1099,7 @@ const AdminListings = () => {
                                   title="Approve listing"
                                   aria-label="Approve listing"
                                   onClick={(e) => { e.stopPropagation(); setSelectedListing(listing); setShowApproveConfirm(true); }}
-                                  className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-emerald-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <CheckCircle2 size={15} />
@@ -1115,7 +1115,7 @@ const AdminListings = () => {
                                     setShowRejectConfirm(false);
                                     setShowRejectModal(true);
                                   }}
-                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-white/50 hover:text-rose-300 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-rose-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <XCircle size={15} />
@@ -1133,7 +1133,7 @@ const AdminListings = () => {
                                     setShowDeleteConfirm(false);
                                     setShowDeleteModal(true);
                                   }}
-                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-white/50 hover:text-rose-300 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-rose-300 transition-colors"
                                   disabled={actionLoading}
                                 >
                                   <Trash2 size={15} />
@@ -1186,15 +1186,15 @@ const AdminListings = () => {
             <GlassCard className="w-full max-w-md space-y-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-emerald-300">Confirm Approval</h2>
-                <button onClick={() => { setShowApproveConfirm(false); setSelectedListing(null); }} className="text-white/40 hover:text-white/80 transition-colors">
+                <button onClick={() => { setShowApproveConfirm(false); setSelectedListing(null); }} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors">
                   <XCircle size={18} />
                 </button>
               </div>
-              <p className="text-sm text-white/70">
-                Approve <strong className="text-white">{getListingTitle(selectedListing)}</strong> and publish it live?
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                Approve <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong> and publish it live?
               </p>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowApproveConfirm(false); setSelectedListing(null); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                <button onClick={() => { setShowApproveConfirm(false); setSelectedListing(null); }} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                   Cancel
                 </button>
                 <button onClick={approveSelectedListing} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-2 text-sm">
@@ -1218,37 +1218,37 @@ const AdminListings = () => {
               {!showRejectConfirm ? (
                 <>
                   <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-white">Reject Listing</h2>
-                    <button onClick={() => { setShowRejectModal(false); setSelectedListing(null); }} className="text-white/40 hover:text-white/80 transition-colors">
+                    <h2 className="text-base font-semibold text-[color:var(--ex-shell-text)]">Reject Listing</h2>
+                    <button onClick={() => { setShowRejectModal(false); setSelectedListing(null); }} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors">
                       <XCircle size={18} />
                     </button>
                   </div>
-                  <p className="text-sm text-white/70">
-                    <strong className="text-white">{getListingTitle(selectedListing)}</strong> will be rejected and the seller notified.
+                  <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                    <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong> will be rejected and the seller notified.
                   </p>
                   <div className="space-y-3">
-                    <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Rejection reason</label>
+                    <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">Rejection reason</label>
                     <select
                       value={selectedRejectIndex}
                       onChange={(e) => setSelectedRejectIndex(e.target.value)}
-                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                     >
                       <option value="">Select a reason…</option>
                       {LISTING_REJECTION_REASONS.map((reason, index) => (
                         <option key={index} value={index}>{reason.reason}</option>
                       ))}
                     </select>
-                    <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Additional notes (optional)</label>
+                    <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">Additional notes (optional)</label>
                     <textarea
                       value={rejectionNote}
                       onChange={(e) => setRejectionNote(e.target.value)}
                       placeholder="Optional notes for the seller…"
                       rows={3}
-                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                      className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => { setShowRejectModal(false); setSelectedListing(null); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                    <button onClick={() => { setShowRejectModal(false); setSelectedListing(null); }} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                       Cancel
                     </button>
                     <button
@@ -1265,12 +1265,12 @@ const AdminListings = () => {
                   <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-rose-300">Confirm Rejection</h2>
                   </div>
-                  <p className="text-sm text-white/70">
-                    Are you sure you want to reject <strong className="text-white">{getListingTitle(selectedListing)}</strong>?
+                  <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                    Are you sure you want to reject <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong>?
                     The seller will be notified.
                   </p>
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => setShowRejectConfirm(false)} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                    <button onClick={() => setShowRejectConfirm(false)} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                       Go Back
                     </button>
                     <button onClick={handleReject} disabled={actionLoading} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full px-4 py-2 text-sm">
@@ -1295,25 +1295,25 @@ const AdminListings = () => {
             <GlassCard className="w-full max-w-md space-y-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-emerald-300">Renew Listing</h2>
-                <button onClick={() => { setShowRenewModal(false); setRenewReason(''); setSelectedListing(null); }} className="text-white/40 hover:text-white/80 transition-colors">
+                <button onClick={() => { setShowRenewModal(false); setRenewReason(''); setSelectedListing(null); }} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors">
                   <XCircle size={18} />
                 </button>
               </div>
-              <p className="text-sm text-white/70">
-                Renew <strong className="text-white">{getListingTitle(selectedListing)}</strong> on behalf of the owner?
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                Renew <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong> on behalf of the owner?
               </p>
               <div className="space-y-3">
-                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Reason (optional)</label>
+                <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">Reason (optional)</label>
                 <textarea
                   value={renewReason}
                   onChange={(e) => setRenewReason(e.target.value)}
                   placeholder="Internal note for the audit log…"
                   rows={3}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
                 />
               </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowRenewModal(false); setRenewReason(''); setSelectedListing(null); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                <button onClick={() => { setShowRenewModal(false); setRenewReason(''); setSelectedListing(null); }} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                   Cancel
                 </button>
                 <button onClick={handleRenewSingle} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-2 text-sm">
@@ -1336,25 +1336,25 @@ const AdminListings = () => {
             <GlassCard className="w-full max-w-md space-y-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-emerald-300">Renew {selectedIds.size} Selected</h2>
-                <button onClick={() => { setShowBulkRenewModal(false); setBulkRenewReason(''); }} className="text-white/40 hover:text-white/80 transition-colors">
+                <button onClick={() => { setShowBulkRenewModal(false); setBulkRenewReason(''); }} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors">
                   <XCircle size={18} />
                 </button>
               </div>
-              <p className="text-sm text-white/70">
-                Renew <strong className="text-white">{selectedIds.size}</strong> listing{selectedIds.size === 1 ? '' : 's'} on behalf of their owners?
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                Renew <strong className="text-[color:var(--ex-shell-text)]">{selectedIds.size}</strong> listing{selectedIds.size === 1 ? '' : 's'} on behalf of their owners?
               </p>
               <div className="space-y-3">
-                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Reason (optional)</label>
+                <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">Reason (optional)</label>
                 <textarea
                   value={bulkRenewReason}
                   onChange={(e) => setBulkRenewReason(e.target.value)}
                   placeholder="Internal note for the audit log…"
                   rows={3}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
                 />
               </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowBulkRenewModal(false); setBulkRenewReason(''); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                <button onClick={() => { setShowBulkRenewModal(false); setBulkRenewReason(''); }} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                   Cancel
                 </button>
                 <button onClick={handleBulkRenew} disabled={actionLoading || selectedIds.size === 0} className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-50">
@@ -1378,37 +1378,37 @@ const AdminListings = () => {
               {!showDeleteConfirm ? (
                 <>
                   <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-white">Remove Listing</h2>
-                    <button onClick={() => { setShowDeleteModal(false); setSelectedListing(null); }} className="text-white/40 hover:text-white/80 transition-colors">
+                    <h2 className="text-base font-semibold text-[color:var(--ex-shell-text)]">Remove Listing</h2>
+                    <button onClick={() => { setShowDeleteModal(false); setSelectedListing(null); }} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors">
                       <XCircle size={18} />
                     </button>
                   </div>
-                  <p className="text-sm text-white/70">
-                    <strong className="text-white">{getListingTitle(selectedListing)}</strong> will be permanently removed. The owner will be emailed.
+                  <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                    <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong> will be permanently removed. The owner will be emailed.
                   </p>
                   <div className="space-y-3">
-                    <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Removal reason</label>
+                    <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">Removal reason</label>
                     <select
                       value={deleteReason}
                       onChange={(e) => setDeleteReason(e.target.value)}
-                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                     >
                       <option value="">Select a reason…</option>
                       {ADMIN_DELETE_REASONS.map((reason) => (
                         <option key={reason} value={reason}>{reason}</option>
                       ))}
                     </select>
-                    <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Additional details (optional)</label>
+                    <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">Additional details (optional)</label>
                     <textarea
                       value={deleteReasonDetails}
                       onChange={(e) => setDeleteReasonDetails(e.target.value)}
                       placeholder="Internal notes…"
                       rows={3}
-                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                      className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => { setShowDeleteModal(false); setSelectedListing(null); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                    <button onClick={() => { setShowDeleteModal(false); setSelectedListing(null); }} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                       Cancel
                     </button>
                     <button
@@ -1426,15 +1426,15 @@ const AdminListings = () => {
               ) : (
                 <>
                   <h2 className="text-base font-semibold text-rose-300">Confirm Permanent Removal</h2>
-                  <p className="text-sm text-white/70">
-                    This cannot be undone. <strong className="text-white">{getListingTitle(selectedListing)}</strong> will be permanently deleted and the owner emailed.
+                  <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                    This cannot be undone. <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong> will be permanently deleted and the owner emailed.
                   </p>
-                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
-                    <p className="text-[10px] uppercase tracking-[0.10em] text-white/40 mb-1">Reason</p>
-                    <p className="text-sm text-white/80">{deleteReason}{deleteReasonDetails ? `: ${deleteReasonDetails}` : ''}</p>
+                  <div className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl p-3">
+                    <p className="text-[10px] uppercase tracking-[0.10em] text-[color:var(--ex-shell-text-muted)] mb-1">Reason</p>
+                    <p className="text-sm text-[color:var(--ex-shell-text)]">{deleteReason}{deleteReasonDetails ? `: ${deleteReasonDetails}` : ''}</p>
                   </div>
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => setShowDeleteConfirm(false)} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                    <button onClick={() => setShowDeleteConfirm(false)} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                       Go Back
                     </button>
                     <button onClick={handleDeleteListing} disabled={actionLoading} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full px-4 py-2 text-sm">
@@ -1461,33 +1461,33 @@ const AdminListings = () => {
                 <h2 className="text-base font-semibold text-sky-300">Set Expiry Date</h2>
                 <button
                   onClick={() => { setShowExpiryModal(false); setExpiryDate(''); setSelectedListing(null); }}
-                  className="text-white/40 hover:text-white/80 transition-colors"
+                  className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors"
                 >
                   <XCircle size={18} />
                 </button>
               </div>
-              <p className="text-sm text-white/70">
-                <strong className="text-white">{getListingTitle(selectedListing)}</strong>
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong>
               </p>
               {selectedListing.expires_at && (
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-[color:var(--ex-shell-text-muted)]">
                   Current expiry: {new Date(selectedListing.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               )}
               <div className="space-y-2">
-                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">New expiry date</label>
+                <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">New expiry date</label>
                 <input
                   type="date"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
                   min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500/40 [color-scheme:dark]"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:ring-2 focus:ring-sky-500/40 [color-scheme:dark]"
                 />
               </div>
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => { setShowExpiryModal(false); setExpiryDate(''); setSelectedListing(null); }}
-                  className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10"
+                  className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]"
                 >
                   Cancel
                 </button>
@@ -1517,23 +1517,23 @@ const AdminListings = () => {
                 <h2 className="text-base font-semibold text-indigo-300">Change Listing Status</h2>
                 <button
                   onClick={() => { setShowStatusModal(false); setPendingStatusValue(''); setSelectedListing(null); }}
-                  className="text-white/40 hover:text-white/80 transition-colors"
+                  className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors"
                 >
                   <XCircle size={18} />
                 </button>
               </div>
-              <p className="text-sm text-white/70">
-                <strong className="text-white">{getListingTitle(selectedListing)}</strong> — current status:{' '}
-                <span className="text-white/60 capitalize">
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                <strong className="text-[color:var(--ex-shell-text)]">{getListingTitle(selectedListing)}</strong> — current status:{' '}
+                <span className="text-[color:var(--ex-shell-text-muted)] capitalize">
                   {String(selectedListing.display_status || selectedListing.listing_state || selectedListing.status || '').toLowerCase()}
                 </span>
               </p>
               <div className="space-y-2">
-                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">New status</label>
+                <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">New status</label>
                 <select
                   value={pendingStatusValue}
                   onChange={(e) => setPendingStatusValue(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 >
                   <option value="">Select new status…</option>
                   {getStatusOptions(
@@ -1556,7 +1556,7 @@ const AdminListings = () => {
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => { setShowStatusModal(false); setPendingStatusValue(''); setSelectedListing(null); }}
-                  className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10"
+                  className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]"
                 >
                   Cancel
                 </button>
@@ -1581,9 +1581,9 @@ const AdminListings = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-5 py-3 rounded-2xl shadow-2xl bg-[rgba(10,15,20,0.97)] border border-white/20 backdrop-blur-md"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-5 py-3 rounded-2xl shadow-2xl bg-[rgba(10,15,20,0.97)] border border-[color:var(--ex-shell-line)] backdrop-blur-md"
           >
-            <span className="text-sm text-white/60 font-medium pr-1">
+            <span className="text-sm text-[color:var(--ex-shell-text-muted)] font-medium pr-1">
               {selectedIds.size} selected
             </span>
             {bulkHasPending && (
@@ -1626,7 +1626,7 @@ const AdminListings = () => {
             </button>
             <button
               onClick={clearSelection}
-              className="bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full px-3 py-1.5 text-sm border border-white/10"
+              className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-3 py-1.5 text-sm border border-[color:var(--ex-shell-line)]"
             >
               Clear
             </button>
@@ -1647,19 +1647,19 @@ const AdminListings = () => {
             <GlassCard className="w-full max-w-md space-y-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-rose-300">Delete {selectedIds.size} Listings</h2>
-                <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteReason(''); }} className="text-white/40 hover:text-white/80 transition-colors">
+                <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteReason(''); }} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors">
                   <XCircle size={18} />
                 </button>
               </div>
-              <p className="text-sm text-white/70">
-                Permanently remove <strong className="text-white">{selectedIds.size}</strong> listing{selectedIds.size === 1 ? '' : 's'}. This cannot be undone.
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+                Permanently remove <strong className="text-[color:var(--ex-shell-text)]">{selectedIds.size}</strong> listing{selectedIds.size === 1 ? '' : 's'}. This cannot be undone.
               </p>
               <div className="space-y-2">
-                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Removal reason</label>
+                <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">Removal reason</label>
                 <select
                   value={bulkDeleteReason}
                   onChange={(e) => setBulkDeleteReason(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-rose-500/40"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:ring-2 focus:ring-rose-500/40"
                 >
                   <option value="">Select a reason…</option>
                   {ADMIN_DELETE_REASONS.map((r) => (
@@ -1668,7 +1668,7 @@ const AdminListings = () => {
                 </select>
               </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteReason(''); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteReason(''); }} className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]">
                   Cancel
                 </button>
                 <button

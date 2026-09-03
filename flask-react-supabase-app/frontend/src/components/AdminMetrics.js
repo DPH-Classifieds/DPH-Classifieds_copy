@@ -65,14 +65,14 @@ const formatBytes = (value) => {
 
 /** Underline-tab bar */
 const TabBar = ({ tabs, active, onChange }) => (
-  <div className="flex gap-1 border-b border-white/[0.06] mb-6">
+  <div className="flex gap-1 border-b border-[color:var(--ex-shell-line)] mb-6">
     {tabs.map((t) => (
       <button
         key={t}
         type="button"
         onClick={() => onChange(t)}
         className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-          active === t ? 'text-white' : 'text-white/40 hover:text-white/70'
+          active === t ? 'text-[color:var(--ex-shell-text)]' : 'text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text-muted)]'
         }`}
       >
         {t}
@@ -86,7 +86,7 @@ const TabBar = ({ tabs, active, onChange }) => (
 
 /** Section title */
 const SectionTitle = ({ children }) => (
-  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
+  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">
     {children}
   </p>
 );
@@ -101,23 +101,23 @@ const HealthPill = ({ status }) => {
   if (ok)      return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full"><CheckCircle size={10} /> Healthy</span>;
   if (degraded) return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full"><AlertCircle size={10} /> Degraded</span>;
   if (down)    return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full"><XCircle size={10} /> Down</span>;
-  return <span className="text-[11px] text-white/30 px-2 py-0.5 rounded-full border border-white/10">Unknown</span>;
+  return <span className="text-[11px] text-[color:var(--ex-shell-text-muted)] px-2 py-0.5 rounded-full border border-[color:var(--ex-shell-line)]">Unknown</span>;
 };
 
 /** Generic key-value row list inside a GlassCard section */
 const KvList = ({ items, emptyLabel = 'No data' }) => {
   if (!items || items.length === 0) {
-    return <p className="text-sm text-white/30">{emptyLabel}</p>;
+    return <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{emptyLabel}</p>;
   }
   return (
     <div className="space-y-2">
       {items.map(({ label, value, note }) => (
-        <div key={label} className="flex items-start justify-between gap-3 py-1.5 border-b border-white/[0.04] last:border-0">
+        <div key={label} className="flex items-start justify-between gap-3 py-1.5 border-b border-[color:var(--ex-shell-line)] last:border-0">
           <div>
-            <p className="text-sm text-white/70">{label}</p>
-            {note && <p className="text-[11px] text-white/30">{note}</p>}
+            <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{label}</p>
+            {note && <p className="text-[11px] text-[color:var(--ex-shell-text-muted)]">{note}</p>}
           </div>
-          <p className="text-sm font-semibold text-white tabular-nums flex-shrink-0">{value}</p>
+          <p className="text-sm font-semibold text-[color:var(--ex-shell-text)] tabular-nums flex-shrink-0">{value}</p>
         </div>
       ))}
     </div>
@@ -129,14 +129,14 @@ const BarRow = ({ label, value, maxValue }) => {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 4;
   return (
     <div className="flex items-center gap-3 py-1.5">
-      <p className="text-sm text-white/60 w-32 flex-shrink-0 truncate">{label}</p>
-      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+      <p className="text-sm text-[color:var(--ex-shell-text-muted)] w-32 flex-shrink-0 truncate">{label}</p>
+      <div className="flex-1 h-1.5 bg-[color:var(--ex-shell-surface-strong)] rounded-full overflow-hidden">
         <div
           className="h-full bg-emerald-500/60 rounded-full transition-all duration-700"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-sm font-semibold tabular-nums text-white/70 w-16 text-right flex-shrink-0">
+      <p className="text-sm font-semibold tabular-nums text-[color:var(--ex-shell-text-muted)] w-16 text-right flex-shrink-0">
         {formatNumber(value)}
       </p>
     </div>
@@ -295,8 +295,8 @@ const AdminMetrics = () => {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div className="animate-pulse bg-white/[0.06] rounded-lg h-9 w-56" />
-          <div className="animate-pulse bg-white/[0.06] rounded-full h-8 w-36" />
+          <div className="animate-pulse bg-[color:var(--ex-shell-surface-strong)] rounded-lg h-9 w-56" />
+          <div className="animate-pulse bg-[color:var(--ex-shell-surface-strong)] rounded-full h-8 w-36" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -312,11 +312,11 @@ const AdminMetrics = () => {
     return (
       <div className="space-y-6">
         <GlassCard className="text-center py-16">
-          <p className="text-white text-lg font-medium mb-2">Metrics unavailable</p>
-          <p className="text-white/50 text-sm mb-6">{error}</p>
+          <p className="text-[color:var(--ex-shell-text)] text-lg font-medium mb-2">Metrics unavailable</p>
+          <p className="text-[color:var(--ex-shell-text-muted)] text-sm mb-6">{error}</p>
           <button
             type="button"
-            className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/15 transition-colors"
+            className="px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text)] text-sm hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
             onClick={() => window.location.reload()}
           >
             Retry
@@ -338,8 +338,8 @@ const AdminMetrics = () => {
         className="flex items-center justify-between gap-4 flex-wrap"
       >
         <div>
-          <h1 className="text-3xl font-semibold text-white">Platform metrics</h1>
-          <p className="text-sm text-white/40 mt-1">
+          <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">Platform metrics</h1>
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">
             Analytics, unit economics, demand intelligence and system health.
           </p>
         </div>
@@ -529,7 +529,7 @@ const AdminMetrics = () => {
               </div>
 
               {financialMetrics.notes?.[0] && (
-                <p className="text-sm text-white/30 italic">{financialMetrics.notes[0]}</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)] italic">{financialMetrics.notes[0]}</p>
               )}
 
               {/* LTV / CAC detail */}
@@ -568,7 +568,7 @@ const AdminMetrics = () => {
                       );
                     })() : (
                       <span
-                        className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/40 border border-white/10"
+                        className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] border border-[color:var(--ex-shell-line)]"
                         title={userMetrics.data_source_note || 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN plus CLOUDFLARE_ZONE_IDS on the backend to switch to Cloudflare edge data.'}
                       >
                         Source: in-app tracker
@@ -602,9 +602,9 @@ const AdminMetrics = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Segment views */}
                 <div>
-                  <p className="text-sm text-white/40 mb-3">
+                  <p className="text-sm text-[color:var(--ex-shell-text-muted)] mb-3">
                     Segment views
-                    <span className="ml-2 text-[11px] text-white/20">{carMetrics.total_listings || 0} listings</span>
+                    <span className="ml-2 text-[11px] text-[color:var(--ex-shell-text-muted)]">{carMetrics.total_listings || 0} listings</span>
                   </p>
                   {(carMetrics.segment_views || []).length === 0 ? (
                     <EmptyState icon={BarChart3} title="No segment data" description="Car segment analytics will appear here." />
@@ -624,7 +624,7 @@ const AdminMetrics = () => {
 
                 {/* Price distribution */}
                 <div>
-                  <p className="text-sm text-white/40 mb-3">Price distribution</p>
+                  <p className="text-sm text-[color:var(--ex-shell-text-muted)] mb-3">Price distribution</p>
                   {(carMetrics.price_bands || []).length === 0 ? (
                     <EmptyState icon={BarChart3} title="No price band data" description="Price distribution will appear here." />
                   ) : (
@@ -656,14 +656,14 @@ const AdminMetrics = () => {
                 </div>
               )}
 
-              <div className="border-t border-white/[0.06] pt-6">
+              <div className="border-t border-[color:var(--ex-shell-line)] pt-6">
                 <SectionTitle>Plate demand</SectionTitle>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Plate segment views */}
                   <div>
-                    <p className="text-sm text-white/40 mb-3">
+                    <p className="text-sm text-[color:var(--ex-shell-text-muted)] mb-3">
                       Demand by segment
-                      <span className="ml-2 text-[11px] text-white/20">{plateMetrics.total_listings || 0} listings</span>
+                      <span className="ml-2 text-[11px] text-[color:var(--ex-shell-text-muted)]">{plateMetrics.total_listings || 0} listings</span>
                     </p>
                     {(plateMetrics.segment_views || []).length === 0 ? (
                       <EmptyState icon={BarChart3} title="No plate segment data" description="Plate analytics will appear here." />
@@ -683,7 +683,7 @@ const AdminMetrics = () => {
 
                   {/* Plate price bands */}
                   <div>
-                    <p className="text-sm text-white/40 mb-3">Price distribution</p>
+                    <p className="text-sm text-[color:var(--ex-shell-text-muted)] mb-3">Price distribution</p>
                     {(plateMetrics.price_bands || []).length === 0 ? (
                       <EmptyState icon={BarChart3} title="No plate price data" description="Plate price bands will appear here." />
                     ) : (
@@ -744,13 +744,13 @@ const AdminMetrics = () => {
                   >
                     <GlassCard>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{label}</p>
-                        <Icon size={14} className="text-white/30" />
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">{label}</p>
+                        <Icon size={14} className="text-[color:var(--ex-shell-text-muted)]" />
                       </div>
                       <div className="mb-2">
                         <HealthPill status={status} />
                       </div>
-                      {note && <p className="text-[11px] text-white/30 mt-1">{note}</p>}
+                      {note && <p className="text-[11px] text-[color:var(--ex-shell-text-muted)] mt-1">{note}</p>}
                     </GlassCard>
                   </motion.div>
                 ))}
@@ -815,9 +815,9 @@ const AdminMetrics = () => {
                     { label: 'Click rate',     value: summary.click_rate    != null ? `${summary.click_rate}%` : '—' },
                     { label: 'Bounce rate',    value: summary.bounce_rate   != null ? `${summary.bounce_rate}%` : '—' },
                   ].map(({ label, value }) => (
-                    <div key={label} className="rounded-xl bg-white/[0.04] border border-white/10 p-4 text-center">
+                    <div key={label} className="rounded-xl bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] p-4 text-center">
                       <p className="text-2xl font-bold text-emerald-400 tabular-nums">{value}</p>
-                      <p className="text-xs text-white/50 mt-1">{label}</p>
+                      <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-1">{label}</p>
                     </div>
                   ))}
                 </div>
@@ -835,7 +835,7 @@ const AdminMetrics = () => {
                               className="w-full bg-emerald-500/60 rounded-sm transition-all group-hover:bg-emerald-400"
                               style={{ height: `${Math.max((d.count / max) * 88, 2)}px` }}
                             />
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white/70 bg-black/70 px-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-[color:var(--ex-shell-text-muted)] bg-black/70 px-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">
                               {d.date}: {d.count}
                             </div>
                           </div>
@@ -852,7 +852,7 @@ const AdminMetrics = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-white/40 text-xs border-b border-white/10">
+                          <tr className="text-[color:var(--ex-shell-text-muted)] text-xs border-b border-[color:var(--ex-shell-line)]">
                             <th className="text-left py-2 pr-4">Email type</th>
                             <th className="text-right py-2 px-3">Sent</th>
                             <th className="text-right py-2 px-3">Opened</th>
@@ -863,13 +863,13 @@ const AdminMetrics = () => {
                         </thead>
                         <tbody>
                           {byType.map(row => (
-                            <tr key={row.type} className="border-b border-white/5 hover:bg-white/[0.03]">
-                              <td className="py-2 pr-4 text-white/80 font-mono text-xs">{row.type}</td>
-                              <td className="text-right py-2 px-3 text-white tabular-nums">{row.sent}</td>
+                            <tr key={row.type} className="border-b border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface)]">
+                              <td className="py-2 pr-4 text-[color:var(--ex-shell-text)] font-mono text-xs">{row.type}</td>
+                              <td className="text-right py-2 px-3 text-[color:var(--ex-shell-text)] tabular-nums">{row.sent}</td>
                               <td className="text-right py-2 px-3 text-emerald-400 tabular-nums">{row.opened}</td>
                               <td className="text-right py-2 px-3 text-emerald-400 tabular-nums">{row.clicked}</td>
-                              <td className="text-right py-2 px-3 text-white/60 tabular-nums">{row.open_rate}%</td>
-                              <td className="text-right py-2 pl-3 text-white/60 tabular-nums">{row.click_rate}%</td>
+                              <td className="text-right py-2 px-3 text-[color:var(--ex-shell-text-muted)] tabular-nums">{row.open_rate}%</td>
+                              <td className="text-right py-2 pl-3 text-[color:var(--ex-shell-text-muted)] tabular-nums">{row.click_rate}%</td>
                             </tr>
                           ))}
                         </tbody>
@@ -879,7 +879,7 @@ const AdminMetrics = () => {
                 )}
 
                 {byType.length === 0 && (
-                  <p className="text-white/40 text-sm text-center py-8">
+                  <p className="text-[color:var(--ex-shell-text-muted)] text-sm text-center py-8">
                     No email data yet for this period. Run the migration then send some emails.
                   </p>
                 )}
@@ -907,9 +907,9 @@ const AdminMetrics = () => {
                     { label: 'Backend',  value: summary.backend  ?? '—' },
                     { label: 'Frontend', value: summary.frontend ?? '—' },
                   ].map(({ label, value }) => (
-                    <div key={label} className="rounded-xl bg-white/[0.04] border border-white/10 p-4 text-center">
+                    <div key={label} className="rounded-xl bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] p-4 text-center">
                       <p className="text-2xl font-bold text-rose-400 tabular-nums">{value}</p>
-                      <p className="text-xs text-white/50 mt-1">{label}</p>
+                      <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-1">{label}</p>
                     </div>
                   ))}
                 </div>
@@ -920,16 +920,16 @@ const AdminMetrics = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-white/40 text-xs border-b border-white/10">
+                          <tr className="text-[color:var(--ex-shell-text-muted)] text-xs border-b border-[color:var(--ex-shell-line)]">
                             <th className="text-left py-2 pr-4">Context</th>
                             <th className="text-right py-2 pl-3">Count</th>
                           </tr>
                         </thead>
                         <tbody>
                           {byCtx.map(row => (
-                            <tr key={row.context} className="border-b border-white/5 hover:bg-white/[0.03]">
-                              <td className="py-2 pr-4 text-white/80 font-mono text-xs">{row.context}</td>
-                              <td className="text-right py-2 pl-3 text-white tabular-nums">{row.count}</td>
+                            <tr key={row.context} className="border-b border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface)]">
+                              <td className="py-2 pr-4 text-[color:var(--ex-shell-text)] font-mono text-xs">{row.context}</td>
+                              <td className="text-right py-2 pl-3 text-[color:var(--ex-shell-text)] tabular-nums">{row.count}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -944,7 +944,7 @@ const AdminMetrics = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-white/40 text-xs border-b border-white/10">
+                          <tr className="text-[color:var(--ex-shell-text-muted)] text-xs border-b border-[color:var(--ex-shell-line)]">
                             <th className="text-left py-2 pr-4">When</th>
                             <th className="text-left py-2 px-3">Context</th>
                             <th className="text-left py-2 px-3">Code</th>
@@ -954,12 +954,12 @@ const AdminMetrics = () => {
                         </thead>
                         <tbody>
                           {recent.map((row, i) => (
-                            <tr key={i} className="border-b border-white/5 hover:bg-white/[0.03] align-top">
-                              <td className="py-2 pr-4 text-white/50 tabular-nums whitespace-nowrap">{String(row.created_at || '').replace('T', ' ').slice(0, 16)}</td>
-                              <td className="py-2 px-3 text-white/80 font-mono text-xs whitespace-nowrap">{row.context}</td>
+                            <tr key={i} className="border-b border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface)] align-top">
+                              <td className="py-2 pr-4 text-[color:var(--ex-shell-text-muted)] tabular-nums whitespace-nowrap">{String(row.created_at || '').replace('T', ' ').slice(0, 16)}</td>
+                              <td className="py-2 px-3 text-[color:var(--ex-shell-text)] font-mono text-xs whitespace-nowrap">{row.context}</td>
                               <td className="py-2 px-3 text-amber-300 font-mono text-xs whitespace-nowrap">{row.error_code || '—'}</td>
-                              <td className="py-2 px-3 text-white/60 text-xs">{row.source}</td>
-                              <td className="py-2 pl-3 text-white/70 text-xs break-words max-w-md">{row.message}</td>
+                              <td className="py-2 px-3 text-[color:var(--ex-shell-text-muted)] text-xs">{row.source}</td>
+                              <td className="py-2 pl-3 text-[color:var(--ex-shell-text-muted)] text-xs break-words max-w-md">{row.message}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -969,7 +969,7 @@ const AdminMetrics = () => {
                 )}
 
                 {recent.length === 0 && (
-                  <p className="text-white/40 text-sm text-center py-8">
+                  <p className="text-[color:var(--ex-shell-text-muted)] text-sm text-center py-8">
                     No errors recorded for this period. 🎉 (Run the app_errors migration if you expected data.)
                   </p>
                 )}
@@ -986,7 +986,7 @@ const AdminMetrics = () => {
           <div className="flex flex-wrap gap-3">
             <Link
               to="/admin"
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface-strong)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)] hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
             >
               <ChevronLeft size={12} /> Dashboard
             </Link>
@@ -998,7 +998,7 @@ const AdminMetrics = () => {
               <Link
                 key={href}
                 to={href}
-                className="inline-flex items-center text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+                className="inline-flex items-center text-xs font-medium px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface-strong)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)] hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
               >
                 {label}
               </Link>

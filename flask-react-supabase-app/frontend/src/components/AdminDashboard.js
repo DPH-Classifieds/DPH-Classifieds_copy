@@ -101,12 +101,12 @@ const relTime = (ts) => {
 /** Small inline badge */
 const Badge = ({ children, color = 'white' }) => {
   const cls = {
-    white:   'text-white/60 bg-white/[0.06] border-white/10',
+    white:   'text-[color:var(--ex-shell-text-muted)] bg-[color:var(--ex-shell-surface-strong)] border-[color:var(--ex-shell-line)]',
     emerald: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
     amber:   'text-amber-300 bg-amber-500/10 border-amber-500/20',
     rose:    'text-rose-300 bg-rose-500/10 border-rose-500/20',
     blue:    'text-blue-300 bg-blue-500/10 border-blue-500/20',
-  }[color] || 'text-white/60 bg-white/[0.06] border-white/10';
+  }[color] || 'text-[color:var(--ex-shell-text-muted)] bg-[color:var(--ex-shell-surface-strong)] border-[color:var(--ex-shell-line)]';
   return (
     <span className={`inline-block text-[10px] font-semibold uppercase tracking-[0.10em] px-2 py-0.5 rounded-full border ${cls}`}>
       {children}
@@ -429,8 +429,8 @@ const AdminDashboard = () => {
       <div className="space-y-6 p-1">
         {/* hero skeleton */}
         <div className="flex items-center justify-between">
-          <div className="animate-pulse bg-white/[0.06] rounded-lg h-9 w-56" />
-          <div className="animate-pulse bg-white/[0.06] rounded-full h-8 w-40" />
+          <div className="animate-pulse bg-[color:var(--ex-shell-surface-strong)] rounded-lg h-9 w-56" />
+          <div className="animate-pulse bg-[color:var(--ex-shell-surface-strong)] rounded-full h-8 w-40" />
         </div>
         {/* 8-tile skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -447,11 +447,11 @@ const AdminDashboard = () => {
     return (
       <div className="space-y-6 p-1">
         <GlassCard className="text-center py-16">
-          <p className="text-white text-lg font-medium mb-2">Dashboard unavailable</p>
-          <p className="text-white/50 text-sm mb-6">{error}</p>
+          <p className="text-[color:var(--ex-shell-text)] text-lg font-medium mb-2">Dashboard unavailable</p>
+          <p className="text-[color:var(--ex-shell-text-muted)] text-sm mb-6">{error}</p>
           <button
             type="button"
-            className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/15 transition-colors"
+            className="px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text)] text-sm hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
             onClick={() => window.location.reload()}
           >
             Retry
@@ -473,22 +473,22 @@ const AdminDashboard = () => {
         className="flex items-center justify-between gap-4 flex-wrap"
       >
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-3xl font-semibold text-white">Platform overview</h1>
+          <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">Platform overview</h1>
           {/* Live visitors pill */}
           <span
             className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
               liveVisitorsCount > 0
                 ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.25)]'
-                : 'text-white/40 bg-white/[0.04] border-white/[0.08]'
+                : 'text-[color:var(--ex-shell-text-muted)] bg-[color:var(--ex-shell-surface)] border-[color:var(--ex-shell-line)]'
             }`}
           >
-            <Radio size={10} className={liveVisitorsCount > 0 ? 'text-emerald-400 animate-pulse' : 'text-white/30'} />
+            <Radio size={10} className={liveVisitorsCount > 0 ? 'text-emerald-400 animate-pulse' : 'text-[color:var(--ex-shell-text-muted)]'} />
             Live: {liveVisitorsCount.toLocaleString('en-AE')} visitors
           </span>
         </div>
         <div className="flex items-center gap-2">
           {refreshing && !loading && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/60">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)]">
               <Loader2 size={11} className="animate-spin" />
               Updating…
             </span>
@@ -507,7 +507,7 @@ const AdminDashboard = () => {
             let label = 'platform_events';
             let tooltip = stats.data_source_note ||
               'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID on the backend to switch to edge truth.';
-            let tone = 'border-white/10 bg-white/[0.04] text-white/60';
+            let tone = 'border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)]';
             if (stats.data_source === 'cloudflare') {
               tone = 'border-orange-400/30 bg-orange-400/10 text-orange-200';
               if (cfSource === 'cf_rest') {
@@ -579,7 +579,7 @@ const AdminDashboard = () => {
 
       {/* ── 3. Pending review queue ──────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">
           Moderation queue
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -596,14 +596,14 @@ const AdminDashboard = () => {
               transition={{ delay: 0.20 + i * 0.04 }}
             >
               <GlassCard
-                className="cursor-pointer hover:bg-white/[0.06] transition-colors"
+                className="cursor-pointer hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
                 onClick={() => navigate(href)}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{label}</p>
-                  <Icon size={14} className="text-white/30" />
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">{label}</p>
+                  <Icon size={14} className="text-[color:var(--ex-shell-text-muted)]" />
                 </div>
-                <p className="text-2xl font-semibold tabular-nums text-white">
+                <p className="text-2xl font-semibold tabular-nums text-[color:var(--ex-shell-text)]">
                   {value.toLocaleString('en-AE')}
                 </p>
                 {value > 0 && (
@@ -617,7 +617,7 @@ const AdminDashboard = () => {
 
       {/* ── 3b. Listing lifecycle outcomes ──────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
-        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">
           Listing lifecycle
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -636,14 +636,14 @@ const AdminDashboard = () => {
               transition={{ delay: 0.26 + i * 0.04 }}
             >
               <GlassCard
-                className="cursor-pointer hover:bg-white/[0.06] transition-colors"
+                className="cursor-pointer hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
                 onClick={() => navigate(href)}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{label}</p>
-                  <Icon size={14} className="text-white/30" />
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">{label}</p>
+                  <Icon size={14} className="text-[color:var(--ex-shell-text-muted)]" />
                 </div>
-                <p className="text-2xl font-semibold tabular-nums text-white">
+                <p className="text-2xl font-semibold tabular-nums text-[color:var(--ex-shell-text)]">
                   {value.toLocaleString('en-AE')}
                 </p>
               </GlassCard>
@@ -658,7 +658,7 @@ const AdminDashboard = () => {
         {/* Lead activity chart */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
           <GlassCard>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-4">
               Lead activity
             </p>
             <TrendChart
@@ -674,17 +674,17 @@ const AdminDashboard = () => {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.29 }}>
           <GlassCard>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">
                 Live visitors
               </p>
               <span
                 className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
                   liveVisitorsCount > 0
                     ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
-                    : 'text-white/40 bg-white/[0.04] border-white/[0.08]'
+                    : 'text-[color:var(--ex-shell-text-muted)] bg-[color:var(--ex-shell-surface)] border-[color:var(--ex-shell-line)]'
                 }`}
               >
-                <Radio size={9} className={liveVisitorsCount > 0 ? 'text-emerald-400 animate-pulse' : 'text-white/30'} />
+                <Radio size={9} className={liveVisitorsCount > 0 ? 'text-emerald-400 animate-pulse' : 'text-[color:var(--ex-shell-text-muted)]'} />
                 Now: {liveVisitorsCount.toLocaleString('en-AE')}
               </span>
             </div>
@@ -694,7 +694,7 @@ const AdminDashboard = () => {
               showLegend={false}
               emptyLabel="Collecting live samples…"
             />
-            <p className="mt-2 text-[10px] text-white/30">
+            <p className="mt-2 text-[10px] text-[color:var(--ex-shell-text-muted)]">
               Rolling 30 min · refreshes every 15s
             </p>
           </GlassCard>
@@ -703,7 +703,7 @@ const AdminDashboard = () => {
         {/* Pending dealers */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.30 }}>
           <GlassCard className="flex flex-col h-full">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-4">
               Pending dealers
             </p>
 
@@ -721,13 +721,13 @@ const AdminDashboard = () => {
                   return (
                     <div
                       key={dealer.id}
-                      className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0"
+                      className="flex items-center gap-3 py-2 border-b border-[color:var(--ex-shell-line)] last:border-0"
                     >
                       {/* Initial circle */}
                       <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-[11px] font-semibold text-amber-300 flex-shrink-0">
                         {initial}
                       </div>
-                      <p className="text-sm text-white/70 flex-1 truncate">{email}</p>
+                      <p className="text-sm text-[color:var(--ex-shell-text-muted)] flex-1 truncate">{email}</p>
                       <Badge color="amber">Pending</Badge>
                       <Link
                         to={`/admin/dealers/${dealer.id}`}
@@ -744,7 +744,7 @@ const AdminDashboard = () => {
             {pendingDealers.length > 0 && (
               <Link
                 to="/admin/dealers?pending=true"
-                className="mt-4 pt-3 border-t border-white/[0.06] text-[11px] text-white/40 hover:text-white/70 transition-colors flex items-center gap-1"
+                className="mt-4 pt-3 border-t border-[color:var(--ex-shell-line)] text-[11px] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text-muted)] transition-colors flex items-center gap-1"
               >
                 View all pending <ChevronRight size={11} />
               </Link>
@@ -756,7 +756,7 @@ const AdminDashboard = () => {
       {/* ── 5. Recent listing activity ───────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
         <GlassCard>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-4">
             Recent listings
           </p>
           {history.length === 0 ? (
@@ -774,7 +774,7 @@ const AdminDashboard = () => {
                     ? `AED ${priceNum.toLocaleString('en-AE')}`
                     : null;
                 const rowClass =
-                  'flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0';
+                  'flex items-center gap-3 py-2 border-b border-[color:var(--ex-shell-line)] last:border-0';
                 const rowBody = (
                   <>
                     {entry.image_url ? (
@@ -782,20 +782,20 @@ const AdminDashboard = () => {
                         src={entry.image_url}
                         alt=""
                         loading="lazy"
-                        className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-white/5"
+                        className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-[color:var(--ex-shell-surface)]"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-md bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
-                        <ImageOff size={14} className="text-white/30" />
+                      <div className="w-10 h-10 rounded-md bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] flex items-center justify-center flex-shrink-0">
+                        <ImageOff size={14} className="text-[color:var(--ex-shell-text-muted)]" />
                       </div>
                     )}
                     <TypeBadge type={entry.listing_type} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/80 truncate">
+                      <p className="text-sm text-[color:var(--ex-shell-text)] truncate">
                         {entry.title || idLabel}
                       </p>
                       {(priceStr || entry.title) && (
-                        <p className="text-[11px] text-white/40 truncate">
+                        <p className="text-[11px] text-[color:var(--ex-shell-text-muted)] truncate">
                           {priceStr}
                           {priceStr && entry.title ? ' · ' : ''}
                           <span className="font-mono">{idLabel}</span>
@@ -813,7 +813,7 @@ const AdminDashboard = () => {
                     >
                       {entry.status || 'removed'}
                     </Badge>
-                    <span className="text-[11px] text-white/30 flex-shrink-0">
+                    <span className="text-[11px] text-[color:var(--ex-shell-text-muted)] flex-shrink-0">
                       {relTime(entry.created_at || entry.deleted_at)}
                     </span>
                   </>
@@ -828,7 +828,7 @@ const AdminDashboard = () => {
                     {href ? (
                       <Link
                         to={href}
-                        className={`${rowClass} hover:bg-white/[0.03] rounded-lg px-2 -mx-2 transition-colors cursor-pointer`}
+                        className={`${rowClass} hover:bg-[color:var(--ex-shell-surface)] rounded-lg px-2 -mx-2 transition-colors cursor-pointer`}
                       >
                         {rowBody}
                       </Link>
@@ -846,7 +846,7 @@ const AdminDashboard = () => {
       {/* ── 6. Open reports ─────────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
         <GlassCard>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-4">
             Open reports
           </p>
           {pendingReports.length === 0 ? (
@@ -859,13 +859,13 @@ const AdminDashboard = () => {
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.40 + i * 0.03 }}
-                  className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0"
+                  className="flex items-center gap-3 py-2 border-b border-[color:var(--ex-shell-line)] last:border-0"
                 >
                   <SeverityDot severity={report.severity} />
-                  <p className="text-sm text-white/70 flex-1 truncate">
+                  <p className="text-sm text-[color:var(--ex-shell-text-muted)] flex-1 truncate">
                     {report.title || report.reason || (report.details || '').slice(0, 60) || 'Report'}
                   </p>
-                  <span className="text-[11px] text-white/30 flex-shrink-0">
+                  <span className="text-[11px] text-[color:var(--ex-shell-text-muted)] flex-shrink-0">
                     {relTime(report.created_at)}
                   </span>
                   <Link
@@ -885,7 +885,7 @@ const AdminDashboard = () => {
       {dataHealth && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }}>
           <GlassCard>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-4">
               Data health
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -898,7 +898,7 @@ const AdminDashboard = () => {
                 return (
                   <div key={key} className="flex items-center gap-2">
                     <span className={`font-semibold ${color} w-4 text-center flex-shrink-0`}>{icon}</span>
-                    <span className="text-[11px] text-white/50 capitalize">{label}</span>
+                    <span className="text-[11px] text-[color:var(--ex-shell-text-muted)] capitalize">{label}</span>
                   </div>
                 );
               })}
@@ -911,11 +911,11 @@ const AdminDashboard = () => {
       {stats?.cropped_at_pct !== null && stats?.cropped_at_pct !== undefined && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
           <GlassCard>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-1">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-1">
               Modern crop rollout
             </p>
-            <p className="text-2xl font-semibold text-white">{stats.cropped_at_pct}%</p>
-            <p className="text-[11px] text-white/50 mt-1">
+            <p className="text-2xl font-semibold text-[color:var(--ex-shell-text)]">{stats.cropped_at_pct}%</p>
+            <p className="text-[11px] text-[color:var(--ex-shell-text-muted)] mt-1">
               of listing images use the unified cropper
             </p>
           </GlassCard>
@@ -925,10 +925,10 @@ const AdminDashboard = () => {
       {/* ── External analytics ──────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}>
         <GlassCard>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-1">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-1">
             External analytics
           </p>
-          <p className="text-sm text-white/40 mb-4">
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mb-4">
             Hosted dashboards for traffic, conversions, heatmaps and session recordings.
           </p>
           <div className="flex flex-wrap gap-3">
@@ -937,7 +937,7 @@ const AdminDashboard = () => {
                 href={GA4_DASHBOARD_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/80 hover:bg-white/10 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface-strong)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text)] hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
               >
                 GA4 Dashboard <ExternalLink size={11} />
               </a>
@@ -945,7 +945,7 @@ const AdminDashboard = () => {
               <button
                 type="button"
                 disabled
-                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/30 cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)] cursor-not-allowed"
                 title="Set REACT_APP_GA4_MEASUREMENT_ID in frontend/.env"
               >
                 GA4 — add measurement ID
@@ -956,7 +956,7 @@ const AdminDashboard = () => {
                 href={CLARITY_DASHBOARD_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/80 hover:bg-white/10 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface-strong)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text)] hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
               >
                 Clarity Dashboard <ExternalLink size={11} />
               </a>
@@ -964,7 +964,7 @@ const AdminDashboard = () => {
               <button
                 type="button"
                 disabled
-                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/30 cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)] cursor-not-allowed"
                 title="Set REACT_APP_CLARITY_PROJECT_ID in frontend/.env"
               >
                 Clarity — add project ID

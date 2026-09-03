@@ -13,21 +13,21 @@ const TABS = [
 ];
 
 const SkeletonCard = () => (
-  <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5 space-y-4 animate-pulse">
+  <div className="bg-[color:var(--ex-shell-surface)] backdrop-blur-xl border border-[color:var(--ex-shell-line)] rounded-2xl p-5 space-y-4 animate-pulse">
     <div className="flex items-center gap-3">
-      <div className="w-12 h-12 rounded-full bg-white/5 flex-shrink-0" />
+      <div className="w-12 h-12 rounded-full bg-[color:var(--ex-shell-surface)] flex-shrink-0" />
       <div className="flex-1 space-y-2">
-        <div className="h-3 bg-white/5 rounded-full w-3/4" />
-        <div className="h-2.5 bg-white/5 rounded-full w-1/2" />
+        <div className="h-3 bg-[color:var(--ex-shell-surface)] rounded-full w-3/4" />
+        <div className="h-2.5 bg-[color:var(--ex-shell-surface)] rounded-full w-1/2" />
       </div>
     </div>
     <div className="flex gap-2">
-      {[1, 2, 3].map((k) => <div key={k} className="h-6 bg-white/5 rounded-full flex-1" />)}
+      {[1, 2, 3].map((k) => <div key={k} className="h-6 bg-[color:var(--ex-shell-surface)] rounded-full flex-1" />)}
     </div>
     <div className="flex gap-2">
-      <div className="h-8 bg-white/5 rounded-full flex-1" />
-      <div className="h-8 w-8 bg-white/5 rounded-full" />
-      <div className="h-8 w-8 bg-white/5 rounded-full" />
+      <div className="h-8 bg-[color:var(--ex-shell-surface)] rounded-full flex-1" />
+      <div className="h-8 w-8 bg-[color:var(--ex-shell-surface)] rounded-full" />
+      <div className="h-8 w-8 bg-[color:var(--ex-shell-surface)] rounded-full" />
     </div>
   </div>
 );
@@ -53,7 +53,7 @@ const DocChip = ({ label, status }) => {
     approved: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
     pending: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
     denied: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
-    missing: 'bg-white/5 text-white/30 border-white/10',
+    missing: 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]',
   };
   const s = String(status || 'missing').toLowerCase();
   return (
@@ -171,8 +171,8 @@ const AdminDealers = () => {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-white">Dealer verification</h1>
-          <p className="text-sm text-white/50 mt-1">Review trade licenses and TRN certificates from pending dealer applicants.</p>
+          <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">Dealer verification</h1>
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">Review trade licenses and TRN certificates from pending dealer applicants.</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
@@ -192,8 +192,8 @@ const AdminDealers = () => {
           { label: 'Pending', value: dealerSummary.pending },
         ].map((kpi) => (
           <GlassCard key={kpi.label} className="flex flex-col gap-1">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{kpi.label}</p>
-            <p className="text-2xl font-semibold text-white">{kpi.value}</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">{kpi.label}</p>
+            <p className="text-2xl font-semibold text-[color:var(--ex-shell-text)]">{kpi.value}</p>
           </GlassCard>
         ))}
       </div>
@@ -242,14 +242,14 @@ const AdminDealers = () => {
                 <GlassCard className="space-y-4">
                   {/* Top: avatar + name */}
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-full bg-white/[0.07] flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg font-semibold text-white/60">{initial}</span>
+                    <div className="w-12 h-12 rounded-full bg-[color:var(--ex-shell-surface-strong)] flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg font-semibold text-[color:var(--ex-shell-text-muted)]">{initial}</span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-white font-semibold text-sm truncate">{companyName}</p>
-                      <p className="text-white/50 text-xs truncate">{dealer.email || '—'}</p>
+                      <p className="text-[color:var(--ex-shell-text)] font-semibold text-sm truncate">{companyName}</p>
+                      <p className="text-[color:var(--ex-shell-text-muted)] text-xs truncate">{dealer.email || '—'}</p>
                       {dealer.city || dealer.emirate ? (
-                        <p className="text-white/30 text-xs mt-0.5">
+                        <p className="text-[color:var(--ex-shell-text-muted)] text-xs mt-0.5">
                           {[dealer.city, dealer.emirate].filter(Boolean).join(', ')}
                         </p>
                       ) : null}
@@ -291,10 +291,10 @@ const AdminDealers = () => {
                           title="Approve dealer"
                           onClick={() => updateDealerStatus(dealer.id, true)}
                           disabled={loadingForRow}
-                          className="p-2 rounded-full hover:bg-emerald-500/20 text-white/40 hover:text-emerald-300 transition-colors border border-white/10"
+                          className="p-2 rounded-full hover:bg-emerald-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-emerald-300 transition-colors border border-[color:var(--ex-shell-line)]"
                         >
                           {loadingForRow ? (
-                            <span className="w-4 h-4 block border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                            <span className="w-4 h-4 block border-2 border-[color:var(--ex-shell-line)] border-t-[color:var(--ex-shell-text)] rounded-full animate-spin" />
                           ) : (
                             <CheckCircle2 size={16} />
                           )}
@@ -304,7 +304,7 @@ const AdminDealers = () => {
                           title="Reject dealer"
                           onClick={() => { setRejectDealerId(dealer.id); setShowRejectModal(true); }}
                           disabled={loadingForRow}
-                          className="p-2 rounded-full hover:bg-rose-500/20 text-white/40 hover:text-rose-300 transition-colors border border-white/10"
+                          className="p-2 rounded-full hover:bg-rose-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-rose-300 transition-colors border border-[color:var(--ex-shell-line)]"
                         >
                           <XCircle size={16} />
                         </button>
@@ -315,7 +315,7 @@ const AdminDealers = () => {
                         type="button"
                         title="View details"
                         onClick={() => navigate(`/admin/dealers/${dealer.id}`)}
-                        className="p-2 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors border border-white/10"
+                        className="p-2 rounded-full hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors border border-[color:var(--ex-shell-line)]"
                       >
                         <Eye size={16} />
                       </button>
@@ -340,22 +340,22 @@ const AdminDealers = () => {
           >
             <GlassCard className="w-full max-w-md space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-white">Reject Dealer</h2>
+                <h2 className="text-base font-semibold text-[color:var(--ex-shell-text)]">Reject Dealer</h2>
                 <button
                   onClick={() => { setShowRejectModal(false); setRejectDealerId(null); setRejectReasonIndex(''); setRejectNote(''); }}
-                  className="text-white/40 hover:text-white/80 transition-colors"
+                  className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors"
                 >
                   <XCircle size={18} />
                 </button>
               </div>
               <div className="space-y-3">
-                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">
                   Reason for rejection *
                 </label>
                 <select
                   value={rejectReasonIndex}
                   onChange={(e) => setRejectReasonIndex(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                 >
                   <option value="">Select a reason…</option>
                   {DEALER_REJECTION_REASONS.map((item, idx) => (
@@ -365,12 +365,12 @@ const AdminDealers = () => {
                 {rejectReasonIndex !== '' && (
                   <div className="p-3 rounded-xl bg-rose-500/[0.08] border border-rose-500/20">
                     <p className="text-[11px] font-semibold text-rose-300 uppercase tracking-[0.08em] mb-1">How to fix</p>
-                    <p className="text-xs text-white/70 leading-relaxed">
+                    <p className="text-xs text-[color:var(--ex-shell-text-muted)] leading-relaxed">
                       {DEALER_REJECTION_REASONS[Number(rejectReasonIndex)].fix}
                     </p>
                   </div>
                 )}
-                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium block">
                   Additional notes (optional)
                 </label>
                 <textarea
@@ -378,13 +378,13 @@ const AdminDealers = () => {
                   value={rejectNote}
                   onChange={(e) => setRejectNote(e.target.value)}
                   placeholder="Add any extra context…"
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
                 />
               </div>
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => { setShowRejectModal(false); setRejectDealerId(null); setRejectReasonIndex(''); setRejectNote(''); }}
-                  className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10"
+                  className="bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-full px-4 py-2 text-sm border border-[color:var(--ex-shell-line)]"
                 >
                   Cancel
                 </button>

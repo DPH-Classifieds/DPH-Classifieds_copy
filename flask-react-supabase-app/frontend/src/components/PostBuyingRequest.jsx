@@ -388,7 +388,7 @@ export default function PostBuyingRequest() {
             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); addReferenceImages(e.dataTransfer.files); }}
             className={`group rounded-2xl border border-dashed px-5 py-8 text-center transition ${
-              isDragging ? 'border-[var(--ex-primary)] bg-[var(--ex-primary)]/10' : 'border-[var(--ex-line-strong)] bg-[var(--ex-surface-low)] hover:border-[var(--ex-primary)]/70 hover:bg-white/[0.04]'
+              isDragging ? 'border-[var(--ex-primary)] bg-[var(--ex-primary)]/10' : 'border-[var(--ex-line-strong)] bg-[var(--ex-surface-low)] hover:border-[var(--ex-primary)]/70 hover:bg-[color:var(--ex-surface)]'
             }`}
           >
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--ex-primary)]/30 bg-[var(--ex-primary)]/10 text-2xl text-[var(--ex-primary)] transition group-hover:scale-105">↑</span>
@@ -402,7 +402,7 @@ export default function PostBuyingRequest() {
                 <div key={`${preview}-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-[var(--ex-line)] bg-[var(--ex-surface-low)]">
                   <img src={preview} alt={`Reference ${index + 1}`} className="h-full w-full object-cover" />
                   <span className="absolute bottom-2 left-2 rounded-md bg-[var(--ex-overlay-scrim)] px-2 py-1 text-[11px] text-[var(--ex-text)]">{index + 1}</span>
-                  <button type="button" onClick={() => removeReferenceImage(index)} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ex-overlay-scrim)] text-white transition hover:bg-red-500" aria-label={`Remove reference image ${index + 1}`}>×</button>
+                  <button type="button" onClick={() => removeReferenceImage(index)} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ex-overlay-scrim)] text-[color:var(--ex-shell-on-accent)] transition hover:bg-red-500" aria-label={`Remove reference image ${index + 1}`}>×</button>
                 </div>
               ))}
             </div>
@@ -413,7 +413,7 @@ export default function PostBuyingRequest() {
         <button
           type="submit"
           disabled={submitting || uploading}
-          className="mt-2 rounded-xl bg-[var(--ex-primary)] px-4 py-3 font-semibold text-white disabled:opacity-60"
+          className="mt-2 rounded-xl bg-[var(--ex-primary)] px-4 py-3 font-semibold text-[color:var(--ex-shell-on-accent)] disabled:opacity-60"
         >
           {uploading ? 'Uploading image…' : submitting ? 'Posting…' : 'Post Buying Request'}
         </button>

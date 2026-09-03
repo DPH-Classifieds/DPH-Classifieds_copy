@@ -87,13 +87,13 @@
 }
 
 .my-listings-container .btn-primary {
-  background: #01351c;
+  background: var(--ex-primary-strong);
   color: var(--ex-shell-text);
-  border-color: #01351c;
+  border-color: var(--ex-primary-strong);
 }
 
 .my-listings-container .btn-primary:hover {
-  background: #02572f;
+  background: var(--ex-primary);
   box-shadow: 0 14px 28px rgba(1, 53, 28, 0.28);
 }
 

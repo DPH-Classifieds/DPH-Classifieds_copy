@@ -88,7 +88,7 @@ const TypeBadge = ({ type }) => {
     plate: 'Plate', plates: 'Plate', part: 'Part', parts: 'Part', bug: 'Bug',
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.10em] border ${map[t] || 'bg-white/5 text-white/40 border-white/10'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.10em] border ${map[t] || 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]'}`}>
       {labelMap[t] || type}
     </span>
   );
@@ -100,7 +100,7 @@ const StatusBadge = ({ status }) => {
     pending:   'bg-amber-500/10 text-amber-300 border-amber-500/20',
     reviewed:  'bg-blue-500/10 text-blue-300 border-blue-500/20',
     resolved:  'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-    dismissed: 'bg-white/5 text-white/40 border-white/10',
+    dismissed: 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]',
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[s] || map.pending}`}>
@@ -115,11 +115,11 @@ const ReasonLabel = ({ reason }) => {
     fraud:         'text-rose-300',
     inappropriate: 'text-rose-300',
     spam:          'text-amber-300',
-    duplicate:     'text-white/40',
-    sold:          'text-white/40',
+    duplicate:     'text-[color:var(--ex-shell-text-muted)]',
+    sold:          'text-[color:var(--ex-shell-text-muted)]',
     bug:           'text-blue-300',
   };
-  const cls = Object.entries(map).find(([k]) => r.includes(k))?.[1] || 'text-white/60';
+  const cls = Object.entries(map).find(([k]) => r.includes(k))?.[1] || 'text-[color:var(--ex-shell-text-muted)]';
   return (
     <span className={`text-[11px] font-semibold uppercase tracking-[0.10em] ${cls}`}>
       {reason || '—'}
@@ -128,10 +128,10 @@ const ReasonLabel = ({ reason }) => {
 };
 
 const SkeletonRow = () => (
-  <tr className="border-b border-white/[0.04] animate-pulse">
+  <tr className="border-b border-[color:var(--ex-shell-line)] animate-pulse">
     {[...Array(7)].map((_, i) => (
       <td key={i} className="px-4 py-3">
-        <div className="h-3 bg-white/5 rounded-full w-full" />
+        <div className="h-3 bg-[color:var(--ex-shell-surface)] rounded-full w-full" />
       </td>
     ))}
   </tr>
@@ -147,7 +147,7 @@ const ChipFilter = ({ options, active, onSelect }) => (
         className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
           active === opt.key
             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-            : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-white/60'
+            : 'bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)]'
         }`}
       >
         {opt.label}
@@ -316,22 +316,22 @@ const AdminReports = () => {
         className="flex items-start justify-between flex-wrap gap-4"
       >
         <div>
-          <h1 className="text-3xl font-semibold text-white">Reports</h1>
-          <p className="text-sm text-white/50 mt-1">
+          <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">Reports</h1>
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">
             Track lead conversions, report volume, and listing deletion history.
           </p>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">
               {pendingCount} pending
             </span>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/[0.06] text-white/60 border border-white/10">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] border border-[color:var(--ex-shell-line)]">
               {reports.length} total
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {metricsLoading && !loading && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/60">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)]">
               <Loader2 size={11} className="animate-spin" />
               Updating…
             </span>
@@ -384,23 +384,23 @@ const AdminReports = () => {
         <GlassCard className="space-y-4">
           {/* Search */}
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ex-shell-text-muted)] pointer-events-none" />
             <input
               type="text"
               placeholder="Search by reason, details, or listing ID…"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg pl-9 pr-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             />
           </div>
           {/* Chips */}
           <div className="flex flex-wrap gap-6">
             <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Status</p>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">Status</p>
               <ChipFilter options={STATUS_CHIPS} active={statusFilter} onSelect={setStatusFilter} />
             </div>
             <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Type</p>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">Type</p>
               <ChipFilter options={TYPE_CHIPS} active={typeFilter} onSelect={setTypeFilter} />
             </div>
           </div>
@@ -417,11 +417,11 @@ const AdminReports = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/[0.06]">
+                <tr className="border-b border-[color:var(--ex-shell-line)]">
                   {['Severity', 'Listing', 'Reason', 'Reporter', 'Status', 'Filed', 'Actions'].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium whitespace-nowrap"
+                      className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium whitespace-nowrap"
                     >
                       {h}
                     </th>
@@ -471,7 +471,7 @@ const AdminReports = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.03 }}
                             onClick={() => setExpandedId(isExpanded ? null : report.id)}
-                            className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                            className="border-b border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface)] transition-colors cursor-pointer group"
                           >
                             {/* Severity */}
                             <td className="px-4 py-3">
@@ -485,7 +485,7 @@ const AdminReports = () => {
                                 const isBugReport = String(report.listing_type || '').toLowerCase() === 'bug';
                                 if (isBugReport || !listing) {
                                   return (
-                                    <div className="flex items-center gap-2 text-white/40">
+                                    <div className="flex items-center gap-2 text-[color:var(--ex-shell-text-muted)]">
                                       <Bug size={14} />
                                       <span className="text-sm">Bug report</span>
                                     </div>
@@ -506,22 +506,22 @@ const AdminReports = () => {
                                       <img
                                         src={listing.image_url}
                                         alt=""
-                                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5"
+                                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-[color:var(--ex-shell-surface)]"
                                       />
                                     ) : (
-                                      <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center flex-shrink-0">
-                                        <FallbackIcon size={16} className="text-white/30" />
+                                      <div className="w-10 h-10 rounded-lg bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] flex items-center justify-center flex-shrink-0">
+                                        <FallbackIcon size={16} className="text-[color:var(--ex-shell-text-muted)]" />
                                       </div>
                                     )}
                                     {/* Text */}
                                     <div className="min-w-0">
-                                      <p className="text-sm text-white font-medium truncate" title={title}>
+                                      <p className="text-sm text-[color:var(--ex-shell-text)] font-medium truncate" title={title}>
                                         {shortTitle || '—'}
                                       </p>
                                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                         <TypeBadge type={report.listing_type} />
                                         {priceStr && (
-                                          <span className="text-[11px] text-white/50">{priceStr}</span>
+                                          <span className="text-[11px] text-[color:var(--ex-shell-text-muted)]">{priceStr}</span>
                                         )}
                                         {listing.public_url && (
                                           <a
@@ -530,7 +530,7 @@ const AdminReports = () => {
                                             rel="noopener noreferrer"
                                             onClick={(e) => e.stopPropagation()}
                                             title="Open listing in new tab"
-                                            className="text-white/40 hover:text-emerald-300 transition-colors"
+                                            className="text-[color:var(--ex-shell-text-muted)] hover:text-emerald-300 transition-colors"
                                           >
                                             <ExternalLink size={12} />
                                           </a>
@@ -558,7 +558,7 @@ const AdminReports = () => {
                                   return (
                                     <span
                                       title={reporterEmail}
-                                      className="text-xs text-white/60 cursor-default"
+                                      className="text-xs text-[color:var(--ex-shell-text-muted)] cursor-default"
                                     >
                                       {short}
                                     </span>
@@ -567,7 +567,7 @@ const AdminReports = () => {
                                 return (
                                   <span
                                     title={reporterId || undefined}
-                                    className="font-mono text-xs text-white/40 cursor-default"
+                                    className="font-mono text-xs text-[color:var(--ex-shell-text-muted)] cursor-default"
                                   >
                                     {shortReporter}
                                   </span>
@@ -582,7 +582,7 @@ const AdminReports = () => {
 
                             {/* Filed */}
                             <td className="px-4 py-3">
-                              <p className="text-white/40 text-xs whitespace-nowrap">{relTime(report.created_at)}</p>
+                              <p className="text-[color:var(--ex-shell-text-muted)] text-xs whitespace-nowrap">{relTime(report.created_at)}</p>
                             </td>
 
                             {/* Actions */}
@@ -592,7 +592,7 @@ const AdminReports = () => {
                                   title="Mark resolved"
                                   disabled={isBusy || status === 'resolved'}
                                   onClick={() => updateReportStatus(report.id, 'resolved')}
-                                  className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                  className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-emerald-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                   <CheckCircle2 size={15} />
                                 </button>
@@ -600,7 +600,7 @@ const AdminReports = () => {
                                   title="Dismiss"
                                   disabled={isBusy || status === 'dismissed'}
                                   onClick={() => updateReportStatus(report.id, 'dismissed')}
-                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-white/50 hover:text-rose-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[color:var(--ex-shell-text-muted)] hover:text-rose-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                   <XCircle size={15} />
                                 </button>
@@ -611,7 +611,7 @@ const AdminReports = () => {
                           {/* Expandable detail drawer */}
                           <AnimatePresence>
                             {isExpanded && (
-                              <tr key={`${report.id}-detail`} className="border-b border-white/[0.04]">
+                              <tr key={`${report.id}-detail`} className="border-b border-[color:var(--ex-shell-line)]">
                                 <td colSpan={7} className="p-0">
                                   <motion.div
                                     initial={{ height: 0, opacity: 0 }}
@@ -620,7 +620,7 @@ const AdminReports = () => {
                                     transition={{ duration: 0.2 }}
                                     className="overflow-hidden"
                                   >
-                                    <div className={`px-6 py-4 bg-white/[0.02] border-l-4 ${expandedAccent} space-y-4`}>
+                                    <div className={`px-6 py-4 bg-[color:var(--ex-shell-surface)] border-l-4 ${expandedAccent} space-y-4`}>
                                       {/* Reported listing preview */}
                                       {(() => {
                                         const listing = report.listing;
@@ -658,38 +658,38 @@ const AdminReports = () => {
 
                                         return (
                                           <div>
-                                            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-2">
+                                            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-2">
                                               Reported listing
                                             </p>
-                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 flex gap-4 items-start">
+                                            <div className="rounded-xl border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] p-3 flex gap-4 items-start">
                                               {listing.image_url ? (
                                                 <img
                                                   src={listing.image_url}
                                                   alt=""
-                                                  className="w-28 h-28 rounded-lg object-cover flex-shrink-0 bg-white/5"
+                                                  className="w-28 h-28 rounded-lg object-cover flex-shrink-0 bg-[color:var(--ex-shell-surface)]"
                                                 />
                                               ) : (
-                                                <div className="w-28 h-28 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center flex-shrink-0">
-                                                  <ImageOff size={20} className="text-white/30" />
+                                                <div className="w-28 h-28 rounded-lg bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] flex items-center justify-center flex-shrink-0">
+                                                  <ImageOff size={20} className="text-[color:var(--ex-shell-text-muted)]" />
                                                 </div>
                                               )}
                                               <div className="flex-1 min-w-0 space-y-1.5">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                   <TypeBadge type={report.listing_type} />
                                                   {priceStr && (
-                                                    <span className="text-sm font-semibold text-white">{priceStr}</span>
+                                                    <span className="text-sm font-semibold text-[color:var(--ex-shell-text)]">{priceStr}</span>
                                                   )}
                                                 </div>
-                                                <p className="text-sm text-white font-medium leading-snug">
+                                                <p className="text-sm text-[color:var(--ex-shell-text)] font-medium leading-snug">
                                                   {listing.title || '—'}
                                                 </p>
                                                 {listing.seller_email && (
-                                                  <p className="flex items-center gap-1.5 text-xs text-white/50 break-all">
+                                                  <p className="flex items-center gap-1.5 text-xs text-[color:var(--ex-shell-text-muted)] break-all">
                                                     <User size={11} />
-                                                    Seller: <span className="text-white/70 font-mono">{listing.seller_email}</span>
+                                                    Seller: <span className="text-[color:var(--ex-shell-text-muted)] font-mono">{listing.seller_email}</span>
                                                   </p>
                                                 )}
-                                                <p className="font-mono text-[10px] text-white/30 break-all">
+                                                <p className="font-mono text-[10px] text-[color:var(--ex-shell-text-muted)] break-all">
                                                   {report.listing_id}
                                                 </p>
                                                 <div className="flex flex-wrap gap-2 pt-1">
@@ -708,7 +708,7 @@ const AdminReports = () => {
                                                       target="_blank"
                                                       rel="noopener noreferrer"
                                                       onClick={(e) => e.stopPropagation()}
-                                                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+                                                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-[color:var(--ex-shell-surface-strong)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)] hover:bg-[color:var(--ex-shell-surface-strong)] transition-colors"
                                                     >
                                                       View public page <ExternalLink size={11} />
                                                     </a>
@@ -723,20 +723,20 @@ const AdminReports = () => {
                                       {/* Details */}
                                       {report.details && (
                                         <div>
-                                          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-1.5">Details</p>
-                                          <p className="text-sm text-white/70 leading-relaxed">{report.details}</p>
+                                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-1.5">Details</p>
+                                          <p className="text-sm text-[color:var(--ex-shell-text-muted)] leading-relaxed">{report.details}</p>
                                         </div>
                                       )}
 
                                       {/* Reporter full ID */}
                                       <div>
-                                        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-1.5">Reporter ID</p>
-                                        <p className="font-mono text-xs text-white/50 select-all">{reporterId || '—'}</p>
+                                        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-1.5">Reporter ID</p>
+                                        <p className="font-mono text-xs text-[color:var(--ex-shell-text-muted)] select-all">{reporterId || '—'}</p>
                                       </div>
 
                                       {/* Admin note */}
                                       <div>
-                                        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-1.5">Admin note</p>
+                                        <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-1.5">Admin note</p>
                                         {status === 'pending' ? (
                                           <div className="flex gap-2 items-start">
                                             <textarea
@@ -746,7 +746,7 @@ const AdminReports = () => {
                                               onChange={(e) =>
                                                 setAdminNotes((prev) => ({ ...prev, [report.id]: e.target.value }))
                                               }
-                                              className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                                              className="flex-1 bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
                                             />
                                             <button
                                               onClick={() => saveAdminNote(report.id)}
@@ -757,7 +757,7 @@ const AdminReports = () => {
                                             </button>
                                           </div>
                                         ) : (
-                                          <p className="text-sm text-white/60 italic">{report.admin_note || 'No note.'}</p>
+                                          <p className="text-sm text-[color:var(--ex-shell-text-muted)] italic">{report.admin_note || 'No note.'}</p>
                                         )}
                                       </div>
                                     </div>
@@ -774,8 +774,8 @@ const AdminReports = () => {
             </table>
           </div>
           {!loading && (
-            <div className="px-4 py-3 border-t border-white/[0.06]">
-              <p className="text-xs text-white/30">{filtered.length} reports shown</p>
+            <div className="px-4 py-3 border-t border-[color:var(--ex-shell-line)]">
+              <p className="text-xs text-[color:var(--ex-shell-text-muted)]">{filtered.length} reports shown</p>
             </div>
           )}
         </GlassCard>
@@ -788,13 +788,13 @@ const AdminReports = () => {
         transition={{ duration: 0.3, delay: 0.25 }}
       >
         <GlassCard>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">Recent lead activity</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">Recent lead activity</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/[0.06]">
+                <tr className="border-b border-[color:var(--ex-shell-line)]">
                   {['Actor', 'Listing', 'Action', 'When'].map((h) => (
-                    <th key={h} className="pb-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium pr-6 whitespace-nowrap">
+                    <th key={h} className="pb-3 text-left text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium pr-6 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -803,16 +803,16 @@ const AdminReports = () => {
               <tbody>
                 {(leadMetrics?.recent_events || []).length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-white/30 text-sm">No lead events found.</td>
+                    <td colSpan={4} className="py-6 text-center text-[color:var(--ex-shell-text-muted)] text-sm">No lead events found.</td>
                   </tr>
                 ) : (leadMetrics?.recent_events || []).slice(0, 15).map((event) => (
-                  <tr key={event.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2.5 pr-6 text-white/60 text-xs">{getEventActorLabel(event)}</td>
-                    <td className="py-2.5 pr-6 text-white/50 text-xs font-mono">
+                  <tr key={event.id} className="border-b border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface)] transition-colors">
+                    <td className="py-2.5 pr-6 text-[color:var(--ex-shell-text-muted)] text-xs">{getEventActorLabel(event)}</td>
+                    <td className="py-2.5 pr-6 text-[color:var(--ex-shell-text-muted)] text-xs font-mono">
                       {event.listing_type} · {event.listing_id ? event.listing_id.slice(0, 8) : '—'}
                     </td>
-                    <td className="py-2.5 pr-6 text-white/60 text-xs">{event.action}</td>
-                    <td className="py-2.5 text-white/40 text-xs whitespace-nowrap">{relTime(event.created_at)}</td>
+                    <td className="py-2.5 pr-6 text-[color:var(--ex-shell-text-muted)] text-xs">{event.action}</td>
+                    <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs whitespace-nowrap">{relTime(event.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -828,13 +828,13 @@ const AdminReports = () => {
         transition={{ duration: 0.3, delay: 0.3 }}
       >
         <GlassCard>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">Removal history</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">Removal history</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/[0.06]">
+                <tr className="border-b border-[color:var(--ex-shell-line)]">
                   {['Type', 'Listing', 'Reason', 'Deleted by', 'When'].map((h) => (
-                    <th key={h} className="pb-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium pr-6 whitespace-nowrap">
+                    <th key={h} className="pb-3 text-left text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium pr-6 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -843,17 +843,17 @@ const AdminReports = () => {
               <tbody>
                 {history.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-white/30 text-sm">No deletion history found.</td>
+                    <td colSpan={5} className="py-6 text-center text-[color:var(--ex-shell-text-muted)] text-sm">No deletion history found.</td>
                   </tr>
                 ) : history.slice(0, 20).map((entry) => (
-                  <tr key={entry.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                  <tr key={entry.id} className="border-b border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface)] transition-colors">
                     <td className="py-2.5 pr-6"><TypeBadge type={entry.listing_type} /></td>
-                    <td className="py-2.5 pr-6 font-mono text-xs text-white/50">
+                    <td className="py-2.5 pr-6 font-mono text-xs text-[color:var(--ex-shell-text-muted)]">
                       {entry.listing_id ? entry.listing_id.slice(0, 8) : '—'}
                     </td>
-                    <td className="py-2.5 pr-6 text-white/60 text-xs">{entry.reason || '—'}</td>
-                    <td className="py-2.5 pr-6 text-white/50 text-xs">{entry.deleted_by_role || '—'}</td>
-                    <td className="py-2.5 text-white/40 text-xs whitespace-nowrap">{relTime(entry.created_at)}</td>
+                    <td className="py-2.5 pr-6 text-[color:var(--ex-shell-text-muted)] text-xs">{entry.reason || '—'}</td>
+                    <td className="py-2.5 pr-6 text-[color:var(--ex-shell-text-muted)] text-xs">{entry.deleted_by_role || '—'}</td>
+                    <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs whitespace-nowrap">{relTime(entry.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -161,24 +161,24 @@ const AutoReviewPanel = ({ listing, onRun, runLoading, runFeedback }) => {
             {isAwaitingWorker ? 'Awaiting Auto-Review' : 'Auto-Review: Manual Review Required'}
           </p>
           {decidedAt && (
-            <span className="ml-auto text-[11px] text-white/30">{new Date(decidedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="ml-auto text-[11px] text-[color:var(--ex-shell-text-muted)]">{new Date(decidedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
           )}
         </div>
 
         {isAwaitingWorker ? (
-          <p className="text-xs text-white/50">The auto-review worker has not yet processed this listing.</p>
+          <p className="text-xs text-[color:var(--ex-shell-text-muted)]">The auto-review worker has not yet processed this listing.</p>
         ) : reasonList.length === 0 ? (
-          <p className="text-xs text-white/50">Queued for manual review (no specific reasons recorded).</p>
+          <p className="text-xs text-[color:var(--ex-shell-text-muted)]">Queued for manual review (no specific reasons recorded).</p>
         ) : (
           <div className="space-y-2">
             {reasonList.map((reason) => {
               const info = AUTO_REVIEW_REASONS[reason] || { label: reason, detail: 'Review this item manually.' };
               return (
-                <div key={reason} className="flex gap-3 bg-white/[0.03] rounded-xl px-3 py-2.5 border border-white/[0.04]">
+                <div key={reason} className="flex gap-3 bg-[color:var(--ex-shell-surface)] rounded-xl px-3 py-2.5 border border-[color:var(--ex-shell-line)]">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-400/70 mt-1.5 shrink-0" />
                   <div>
                     <p className="text-xs font-semibold text-amber-200">{info.label}</p>
-                    <p className="text-[11px] text-white/50 mt-0.5">{info.detail}</p>
+                    <p className="text-[11px] text-[color:var(--ex-shell-text-muted)] mt-0.5">{info.detail}</p>
                   </div>
                 </div>
               );
@@ -206,28 +206,28 @@ const AutoReviewPanel = ({ listing, onRun, runLoading, runFeedback }) => {
 
 /* ── section label ────────────────────────────────────────────────────────── */
 const SectionLabel = ({ children }) => (
-  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">{children}</p>
+  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">{children}</p>
 );
 
 /* ── field row ────────────────────────────────────────────────────────────── */
 const FieldRow = ({ label, value }) => (
-  <div className="flex items-start justify-between gap-3 py-2 border-b border-white/[0.04] last:border-0">
-    <span className="text-xs text-white/40 shrink-0">{label}</span>
-    <span className="text-sm text-white/70 text-right break-all">{value}</span>
+  <div className="flex items-start justify-between gap-3 py-2 border-b border-[color:var(--ex-shell-line)] last:border-0">
+    <span className="text-xs text-[color:var(--ex-shell-text-muted)] shrink-0">{label}</span>
+    <span className="text-sm text-[color:var(--ex-shell-text-muted)] text-right break-all">{value}</span>
   </div>
 );
 
 /* ── loading skeleton ─────────────────────────────────────────────────────── */
 const Skeleton = () => (
-  <div className="text-white space-y-5 animate-pulse">
-    <div className="h-4 w-32 bg-white/[0.06] rounded-lg" />
-    <div className="h-9 w-64 bg-white/[0.06] rounded-xl" />
+  <div className="text-[color:var(--ex-shell-text)] space-y-5 animate-pulse">
+    <div className="h-4 w-32 bg-[color:var(--ex-shell-surface-strong)] rounded-lg" />
+    <div className="h-9 w-64 bg-[color:var(--ex-shell-surface-strong)] rounded-xl" />
     <div className="grid grid-cols-4 gap-4">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-28" />
+        <div key={i} className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-2xl p-5 h-28" />
       ))}
     </div>
-    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-64" />
+    <div className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-2xl p-5 h-64" />
   </div>
 );
 
@@ -247,11 +247,11 @@ const Modal = ({ show, onClose, title, children }) => (
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 8 }}
           transition={{ duration: 0.2 }}
-          className="bg-[#0f1117] border border-white/10 rounded-2xl p-7 max-w-lg w-full shadow-2xl"
+          className="bg-[#0f1117] border border-[color:var(--ex-shell-line)] rounded-2xl p-7 max-w-lg w-full shadow-2xl"
         >
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
-            <button onClick={onClose} className="text-white/40 hover:text-white transition p-1">
+            <h2 className="text-lg font-semibold text-[color:var(--ex-shell-text)]">{title}</h2>
+            <button onClick={onClose} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition p-1">
               <X size={18} />
             </button>
           </div>
@@ -649,13 +649,13 @@ const AdminListingDetail = () => {
 
   if (error && !data) {
     return (
-      <div className="text-white flex flex-col items-center justify-center py-24 gap-4">
+      <div className="text-[color:var(--ex-shell-text)] flex flex-col items-center justify-center py-24 gap-4">
         <XCircle size={48} className="text-rose-400/50" />
-        <p className="text-lg font-semibold text-white/70">Listing not available</p>
-        <p className="text-sm text-white/40">{error}</p>
+        <p className="text-lg font-semibold text-[color:var(--ex-shell-text-muted)]">Listing not available</p>
+        <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{error}</p>
         <button
           onClick={() => navigate('/admin/listings')}
-          className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-emerald-400 transition-colors mt-2"
+          className="inline-flex items-center gap-2 text-sm text-[color:var(--ex-shell-text-muted)] hover:text-emerald-400 transition-colors mt-2"
         >
           <ArrowLeft size={14} /> Back to listings
         </button>
@@ -665,13 +665,13 @@ const AdminListingDetail = () => {
 
   /* ── render ───────────────────────────────────────────────────────────── */
   return (
-    <div className="text-white space-y-5">
+    <div className="text-[color:var(--ex-shell-text)] space-y-5">
 
       {/* Breadcrumb */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
         <Link
           to="/admin/listings"
-          className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-emerald-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-[color:var(--ex-shell-text-muted)] hover:text-emerald-400 transition-colors"
         >
           <ArrowLeft size={14} /> Back to listings
         </Link>
@@ -686,11 +686,11 @@ const AdminListingDetail = () => {
       >
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-semibold text-white">{titleText}</h1>
+            <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">{titleText}</h1>
             <Badge className={statusBadgeClass(listing.status)}>{listing.status || 'pending'}</Badge>
             <Badge className="text-sky-300 bg-sky-500/10 border-sky-500/20">{listingTypeLabel}</Badge>
           </div>
-          <p className="text-sm text-white/40 mt-1">
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">
             {listing.city || listing.car_city || listing.emirate || 'UAE'} · Owner: {getDisplayName(owner)}
           </p>
         </div>
@@ -725,10 +725,10 @@ const AdminListingDetail = () => {
             <div className="flex-1 min-w-0">
               <SectionLabel>Gallery</SectionLabel>
               {previewImages.length === 0 ? (
-                <div className="flex items-center justify-center h-48 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <div className="flex items-center justify-center h-48 rounded-xl bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)]">
                   {primaryRouteType === 'bike'
-                    ? <Bike size={48} className="text-white/20" />
-                    : <Car size={48} className="text-white/20" />}
+                    ? <Bike size={48} className="text-[color:var(--ex-shell-text-muted)]" />
+                    : <Car size={48} className="text-[color:var(--ex-shell-text-muted)]" />}
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
@@ -737,7 +737,7 @@ const AdminListingDetail = () => {
                       key={img.id || img.image_url}
                       type="button"
                       onClick={() => setLightboxUrl(img.display_url || img.image_url || img.url)}
-                      className="relative overflow-hidden rounded-xl border border-white/[0.06] hover:border-emerald-500/30 transition-all"
+                      className="relative overflow-hidden rounded-xl border border-[color:var(--ex-shell-line)] hover:border-emerald-500/30 transition-all"
                     >
                       <img
                         src={img.display_url || img.image_url || img.url}
@@ -754,10 +754,10 @@ const AdminListingDetail = () => {
                     </button>
                   ))}
                   {images.length > 3 && (
-                    <div className="flex items-center justify-center rounded-xl bg-white/[0.03] border border-white/[0.06]" style={{ height: '200px' }}>
+                    <div className="flex items-center justify-center rounded-xl bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)]" style={{ height: '200px' }}>
                       <div className="text-center">
-                        <ImageIcon size={24} className="text-white/30 mx-auto mb-1" />
-                        <p className="text-xs text-white/40">+{images.length - 3} more</p>
+                        <ImageIcon size={24} className="text-[color:var(--ex-shell-text-muted)] mx-auto mb-1" />
+                        <p className="text-xs text-[color:var(--ex-shell-text-muted)]">+{images.length - 3} more</p>
                       </div>
                     </div>
                   )}
@@ -856,7 +856,7 @@ const AdminListingDetail = () => {
         {/* Left: tabs */}
         <div className="lg:col-span-2 space-y-4">
           {/* Tab switcher */}
-          <div className="flex gap-1 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1 w-fit">
+          <div className="flex gap-1 bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl p-1 w-fit">
             {TABS.map((tab) => (
               <button
                 key={tab}
@@ -864,8 +864,8 @@ const AdminListingDetail = () => {
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   activeTab === tab
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/40 hover:text-white/70'
+                    ? 'bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text)]'
+                    : 'text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text-muted)]'
                 }`}
               >
                 {tab}
@@ -890,8 +890,8 @@ const AdminListingDetail = () => {
                     <FieldRow label="Extracted VIN" value={verificationStatus.fields?.vin || 'Not set'} />
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium mb-2">Raw OCR text</p>
-                    <pre className="text-xs text-white/50 whitespace-pre-wrap bg-white/[0.02] rounded-lg p-3 border border-white/[0.04]">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium mb-2">Raw OCR text</p>
+                    <pre className="text-xs text-[color:var(--ex-shell-text-muted)] whitespace-pre-wrap bg-[color:var(--ex-shell-surface)] rounded-lg p-3 border border-[color:var(--ex-shell-line)]">
                       {latestVerificationScan.raw_text || 'No scan captured'}
                     </pre>
                   </div>
@@ -903,7 +903,7 @@ const AdminListingDetail = () => {
                 <button
                   type="button"
                   onClick={() => setHideEmpty((v) => !v)}
-                  className="px-3 py-1 rounded-full text-xs font-medium border border-white/10 bg-white/[0.04] text-white/60 hover:text-white/90"
+                  className="px-3 py-1 rounded-full text-xs font-medium border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)]/90"
                 >
                   {hideEmpty ? 'Show empty fields' : 'Hide empty fields'}
                 </button>
@@ -927,8 +927,8 @@ const AdminListingDetail = () => {
                       const rendered = formatFieldValue(field.value, field.format);
                       if (field.format === 'link' && field.value) {
                         return (
-                          <div key={field.label} className="flex items-start justify-between gap-3 py-2 border-b border-white/[0.04] last:border-0">
-                            <span className="text-xs text-white/40 shrink-0">{field.label}</span>
+                          <div key={field.label} className="flex items-start justify-between gap-3 py-2 border-b border-[color:var(--ex-shell-line)] last:border-0">
+                            <span className="text-xs text-[color:var(--ex-shell-text-muted)] shrink-0">{field.label}</span>
                             <a href={String(field.value)} target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-300 hover:text-emerald-200 text-right break-all">
                               Open ↗
                             </a>
@@ -937,18 +937,18 @@ const AdminListingDetail = () => {
                       }
                       if (field.format === 'chips' && Array.isArray(rendered)) {
                         return (
-                          <div key={field.label} className="py-2 border-b border-white/[0.04] last:border-0">
-                            <span className="text-xs text-white/40 block mb-1">{field.label}</span>
+                          <div key={field.label} className="py-2 border-b border-[color:var(--ex-shell-line)] last:border-0">
+                            <span className="text-xs text-[color:var(--ex-shell-text-muted)] block mb-1">{field.label}</span>
                             {rendered.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {rendered.map((chip) => (
-                                  <span key={chip} className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.08] text-white/60">
+                                  <span key={chip} className="text-[10px] px-2 py-0.5 rounded-full bg-[color:var(--ex-shell-surface-strong)] border border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)]">
                                     {chip}
                                   </span>
                                 ))}
                               </div>
                             ) : (
-                              <span className="text-sm text-white/40">None</span>
+                              <span className="text-sm text-[color:var(--ex-shell-text-muted)]">None</span>
                             )}
                           </div>
                         );
@@ -975,24 +975,24 @@ const AdminListingDetail = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-white/[0.06]">
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Actor</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Action</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Source</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Date</th>
+                      <tr className="border-b border-[color:var(--ex-shell-line)]">
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Actor</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Action</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Source</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Date</th>
                       </tr>
                     </thead>
                     <tbody>
                       {leadEvents.slice(0, 20).map((event) => (
-                        <tr key={event.id} className="border-b border-white/[0.04] last:border-0">
-                          <td className="py-2.5 text-white/70">{getEventActorLabel(event)}</td>
+                        <tr key={event.id} className="border-b border-[color:var(--ex-shell-line)] last:border-0">
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{getEventActorLabel(event)}</td>
                           <td className="py-2.5">
                             <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
                               {event.action}
                             </span>
                           </td>
-                          <td className="py-2.5 text-white/50">{event.listing_type}</td>
-                          <td className="py-2.5 text-white/40 text-xs">{formatDateTime(event.created_at)}</td>
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{event.listing_type}</td>
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs">{formatDateTime(event.created_at)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1017,17 +1017,17 @@ const AdminListingDetail = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-white/[0.06]">
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Listing</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Reason</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Status</th>
+                        <tr className="border-b border-[color:var(--ex-shell-line)]">
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Listing</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Reason</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {reports.slice(0, 15).map((report) => (
-                          <tr key={report.id} className="border-b border-white/[0.04] last:border-0">
-                            <td className="py-2.5 text-white/70">{report.listing_type} · {report.listing_id}</td>
-                            <td className="py-2.5 text-white/60">{report.reason || 'N/A'}</td>
+                          <tr key={report.id} className="border-b border-[color:var(--ex-shell-line)] last:border-0">
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{report.listing_type} · {report.listing_id}</td>
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{report.reason || 'N/A'}</td>
                             <td className="py-2.5">
                               <Badge className={statusBadgeClass(report.status)}>{report.status || 'pending'}</Badge>
                             </td>
@@ -1051,18 +1051,18 @@ const AdminListingDetail = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-white/[0.06]">
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Reason</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Deleted by</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">When</th>
+                        <tr className="border-b border-[color:var(--ex-shell-line)]">
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Reason</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Deleted by</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">When</th>
                         </tr>
                       </thead>
                       <tbody>
                         {deletionEvents.map((event) => (
-                          <tr key={event.id} className="border-b border-white/[0.04] last:border-0">
-                            <td className="py-2.5 text-white/70">{event.reason}</td>
-                            <td className="py-2.5 text-white/50">{event.deleted_by_role}</td>
-                            <td className="py-2.5 text-white/40 text-xs">{formatDateTime(event.created_at)}</td>
+                          <tr key={event.id} className="border-b border-[color:var(--ex-shell-line)] last:border-0">
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{event.reason}</td>
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{event.deleted_by_role}</td>
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs">{formatDateTime(event.created_at)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1084,9 +1084,9 @@ const AdminListingDetail = () => {
                 href={listing.tour_url || `/${approvalRouteType}/${itemId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full inline-flex items-center gap-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl px-4 py-3 text-sm border border-white/10 transition"
+                className="w-full inline-flex items-center gap-2.5 bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-xl px-4 py-3 text-sm border border-[color:var(--ex-shell-line)] transition"
               >
-                <ExternalLink size={15} className="text-white/30 flex-shrink-0" />
+                <ExternalLink size={15} className="text-[color:var(--ex-shell-text-muted)] flex-shrink-0" />
                 <span>View public page</span>
               </a>
 
@@ -1094,13 +1094,13 @@ const AdminListingDetail = () => {
               <button
                 type="button"
                 onClick={() => navigate(`/admin/users/${listing.user_id}`)}
-                className="w-full inline-flex items-center gap-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl px-4 py-3 text-sm border border-white/10 transition text-left"
+                className="w-full inline-flex items-center gap-2.5 bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] rounded-xl px-4 py-3 text-sm border border-[color:var(--ex-shell-line)] transition text-left"
               >
-                <Eye size={15} className="text-white/30 flex-shrink-0" />
+                <Eye size={15} className="text-[color:var(--ex-shell-text-muted)] flex-shrink-0" />
                 <span>Open owner profile</span>
               </button>
 
-              <div className="border-t border-white/[0.06] my-1" />
+              <div className="border-t border-[color:var(--ex-shell-line)] my-1" />
 
               {/* Approve / Reject */}
               {listing.status !== 'approved' && (
@@ -1141,23 +1141,23 @@ const AdminListingDetail = () => {
                     setActionLoading(false);
                   }
                 }}
-                className="w-full inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl px-4 py-3 text-sm transition font-medium disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] rounded-xl px-4 py-3 text-sm transition font-medium disabled:opacity-50"
               >
                 <ShieldCheck size={15} />
                 VIN Unlock
               </button>
 
-              <div className="border-t border-white/[0.06] my-1" />
+              <div className="border-t border-[color:var(--ex-shell-line)] my-1" />
 
               {/* Mark as Sold */}
               {isActive && (
                 <>
                   <div className="space-y-2">
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-white/40 font-medium">Mark as sold</p>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--ex-shell-text-muted)] font-medium">Mark as sold</p>
                     <select
                       value={soldSubType}
                       onChange={(e) => setSoldSubType(e.target.value)}
-                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
+                      className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
                     >
                       <option value="sold_on_dph">Sold on DPH</option>
                       <option value="sold_elsewhere">Sold elsewhere</option>
@@ -1171,7 +1171,7 @@ const AdminListingDetail = () => {
                       {actionLoading ? 'Marking…' : 'Confirm sold'}
                     </button>
                   </div>
-                  <div className="border-t border-white/[0.06] my-1" />
+                  <div className="border-t border-[color:var(--ex-shell-line)] my-1" />
                 </>
               )}
 
@@ -1191,7 +1191,7 @@ const AdminListingDetail = () => {
                   type="button"
                   disabled={actionLoading}
                   onClick={() => handleModerationAction('approve')}
-                  className="w-full inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl px-4 py-3 text-sm transition font-medium disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] rounded-xl px-4 py-3 text-sm transition font-medium disabled:opacity-50"
                 >
                   <RotateCcw size={15} />
                   Restore listing
@@ -1200,9 +1200,9 @@ const AdminListingDetail = () => {
 
               {/* Expiry date editor */}
               <div className="space-y-2 pt-1">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-white/40 font-medium">Set expiry date</p>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--ex-shell-text-muted)] font-medium">Set expiry date</p>
                 {listing.expires_at && (
-                  <p className="text-xs text-white/40">
+                  <p className="text-xs text-[color:var(--ex-shell-text-muted)]">
                     Current: {new Date(listing.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                 )}
@@ -1211,7 +1211,7 @@ const AdminListingDetail = () => {
                   value={expiryEditDate}
                   onChange={(e) => { setExpiryEditDate(e.target.value); setExpiryFeedback(''); }}
                   min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
                 />
                 <button
                   type="button"
@@ -1241,14 +1241,14 @@ const AdminListingDetail = () => {
                     {actionLoading ? 'Sending…' : 'Send renewal nudge to owner'}
                   </button>
                   {listing.renewal_nudge_sent_at && (
-                    <p className="text-[11px] text-white/40 text-center">
+                    <p className="text-[11px] text-[color:var(--ex-shell-text-muted)] text-center">
                       Last sent {new Date(listing.renewal_nudge_sent_at).toLocaleString()}
                       {' · '}
                       <button
                         type="button"
                         onClick={() => handleSendRenewalNudge(true)}
                         disabled={actionLoading}
-                        className="underline hover:text-white/70"
+                        className="underline hover:text-[color:var(--ex-shell-text-muted)]"
                       >
                         Resend now
                       </button>
@@ -1273,17 +1273,17 @@ const AdminListingDetail = () => {
             </div>
 
             {/* Moderation note */}
-            <div className="mt-4 pt-4 border-t border-white/[0.06]">
+            <div className="mt-4 pt-4 border-t border-[color:var(--ex-shell-line)]">
               <SectionLabel>Moderation note</SectionLabel>
               <textarea
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/70 placeholder-white/25 resize-none focus:outline-none focus:border-emerald-500/40 transition"
+                className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2 text-sm text-[color:var(--ex-shell-text-muted)] placeholder:text-[color:var(--ex-shell-text-muted)] resize-none focus:outline-none focus:border-emerald-500/40 transition"
                 rows={3}
                 value={moderationNote}
                 onChange={(e) => setModerationNote(e.target.value)}
                 placeholder="Internal note or rejection reason…"
               />
               <input
-                className="w-full mt-2 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/70 placeholder-white/25 focus:outline-none focus:border-emerald-500/40 transition"
+                className="w-full mt-2 bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2 text-sm text-[color:var(--ex-shell-text-muted)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-emerald-500/40 transition"
                 value={removeReason}
                 onChange={(e) => setRemoveReason(e.target.value)}
                 placeholder="Removal reason (for delete)"
@@ -1328,7 +1328,7 @@ const AdminListingDetail = () => {
             />
             <button
               onClick={() => setLightboxUrl(null)}
-              className="absolute top-6 right-6 text-white/60 hover:text-white bg-white/10 rounded-full p-2 transition"
+              className="absolute top-6 right-6 text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] bg-[color:var(--ex-shell-surface-strong)] rounded-full p-2 transition"
             >
               <X size={20} />
             </button>
@@ -1344,11 +1344,11 @@ const AdminListingDetail = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs text-white/50 mb-1.5">Reason for rejection *</label>
+            <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Reason for rejection *</label>
             <select
               value={rejectReasonIndex}
               onChange={(e) => setRejectReasonIndex(e.target.value)}
-              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/40"
+              className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:border-amber-500/40"
             >
               <option value="">Select a reason…</option>
               {LISTING_REJECTION_REASONS.map((item, idx) => (
@@ -1359,30 +1359,30 @@ const AdminListingDetail = () => {
           {rejectReasonIndex !== '' && (
             <div className="p-3 rounded-xl bg-rose-500/[0.08] border border-rose-500/20">
               <p className="text-[11px] text-rose-300 font-semibold uppercase tracking-wide mb-1">How to fix:</p>
-              <p className="text-sm text-white/70">{LISTING_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</p>
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{LISTING_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</p>
             </div>
           )}
           <div>
-            <label className="block text-xs text-white/50 mb-1.5">Additional notes (optional)</label>
+            <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Additional notes (optional)</label>
             <textarea
               rows={3}
               value={moderationNote}
               onChange={(e) => setModerationNote(e.target.value)}
               placeholder="Add any extra context…"
-              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-amber-500/40"
+              className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] resize-none focus:outline-none focus:border-amber-500/40"
             />
           </div>
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setModerationNote(''); }}
-              className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+              className="px-4 py-2 rounded-xl text-sm text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] transition"
             >
               Cancel
             </button>
             <button
               onClick={() => handleModerationAction('reject')}
               disabled={actionLoading || rejectReasonIndex === ''}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-[color:var(--ex-shell-text)] transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {actionLoading ? 'Rejecting…' : 'Confirm Rejection'}
             </button>
@@ -1401,20 +1401,20 @@ const AdminListingDetail = () => {
             <div className="w-14 h-14 rounded-full bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center">
               <Trash2 size={24} className="text-rose-400" />
             </div>
-            <p className="text-sm text-white/70">This action cannot be undone.</p>
-            <p className="text-sm text-white/50">
-              <span className="text-white/80 font-medium">{titleText}</span>
+            <p className="text-sm text-[color:var(--ex-shell-text-muted)]">This action cannot be undone.</p>
+            <p className="text-sm text-[color:var(--ex-shell-text-muted)]">
+              <span className="text-[color:var(--ex-shell-text)] font-medium">{titleText}</span>
               <br />will be permanently deleted and the owner will be emailed.
             </p>
           </div>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-white/30 mb-1">Reason</p>
-            <p className="text-sm text-white/70">{removeReason || moderationNote || 'Removed by admin'}</p>
+          <div className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl p-3">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--ex-shell-text-muted)] mb-1">Reason</p>
+            <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{removeReason || moderationNote || 'Removed by admin'}</p>
           </div>
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setShowDeleteConfirm(false)}
-              className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+              className="px-4 py-2 rounded-xl text-sm text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] transition"
             >
               Go Back
             </button>
@@ -1428,7 +1428,7 @@ const AdminListingDetail = () => {
                 }
               }}
               disabled={actionLoading}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-white transition disabled:opacity-40"
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-[color:var(--ex-shell-text)] transition disabled:opacity-40"
             >
               {actionLoading ? 'Removing…' : 'Yes, Delete Permanently'}
             </button>

@@ -5,7 +5,8 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Text from './AppText';
-import { FONTS, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
+import Sidebar from './Sidebar';
+import { FONTS, FONT_SIZES, BORDER_RADIUS, SPACING } from '../../constants/theme';
 import { SPRING_FAST, SPRING_NORMAL } from '../../constants/motion';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -52,6 +53,7 @@ function TabButton({ route, isFocused, onPress, onLongPress }) {
 export default function AndroidTabBar({ state, descriptors, navigation, insets }) {
   const { theme, colors } = useTheme();
   const [barWidth, setBarWidth] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const tabWidth = barWidth / state.routes.length;
   const pillX = useSharedValue(0);
 
@@ -65,49 +67,66 @@ export default function AndroidTabBar({ state, descriptors, navigation, insets }
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <BlurView intensity={40} tint={theme === 'dark' ? 'dark' : 'light'} style={[styles.bar, { borderColor: colors.border, backgroundColor: barBg }]}>
-        <View
-          style={styles.row}
-          onLayout={(e) => {
-            const w = e.nativeEvent.layout.width;
-            setBarWidth(w);
-            pillX.value = (w / state.routes.length) * state.index + 6;
+      <View style={styles.barRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open navigation menu"
+          onPress={() => {
+            Haptics.selectionAsync();
+            setSidebarOpen(true);
           }}
+          style={({ pressed }) => [
+            styles.hamburgerBtn,
+            { backgroundColor: pressed ? colors.surfaceHigh : barBg, borderColor: colors.border },
+          ]}
         >
-          {tabWidth > 0 && (
-            <Animated.View
-              style={[styles.pill, pillStyle, { backgroundColor: pillBg, borderColor: colors.border }]}
-              pointerEvents="none"
-            />
-          )}
-          {state.routes.map((route, index) => {
-            const isFocused = state.index === index;
-
-            const onPress = () => {
-              const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (!isFocused && !event.defaultPrevented) {
-                Haptics.selectionAsync();
-                pillX.value = withSpring(tabWidth * index + 6, SPRING_NORMAL);
-                navigation.navigate(route.name);
-              }
-            };
-
-            const onLongPress = () => {
-              navigation.emit({ type: 'tabLongPress', target: route.key });
-            };
-
-            return (
-              <TabButton
-                key={route.key}
-                route={route}
-                isFocused={isFocused}
-                onPress={onPress}
-                onLongPress={onLongPress}
+          <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+        </Pressable>
+        <BlurView intensity={40} tint={theme === 'dark' ? 'dark' : 'light'} style={[styles.bar, { borderColor: colors.border, backgroundColor: barBg }, { marginLeft: SPACING.sm }]}>
+          <View
+            style={styles.row}
+            onLayout={(e) => {
+              const w = e.nativeEvent.layout.width;
+              setBarWidth(w);
+              pillX.value = (w / state.routes.length) * state.index + 6;
+            }}
+          >
+            {tabWidth > 0 && (
+              <Animated.View
+                style={[styles.pill, pillStyle, { backgroundColor: pillBg, borderColor: colors.border }]}
+                pointerEvents="none"
               />
-            );
-          })}
-        </View>
-      </BlurView>
+            )}
+            {state.routes.map((route, index) => {
+              const isFocused = state.index === index;
+
+              const onPress = () => {
+                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                if (!isFocused && !event.defaultPrevented) {
+                  Haptics.selectionAsync();
+                  pillX.value = withSpring(tabWidth * index + 6, SPRING_NORMAL);
+                  navigation.navigate(route.name);
+                }
+              };
+
+              const onLongPress = () => {
+                navigation.emit({ type: 'tabLongPress', target: route.key });
+              };
+
+              return (
+                <TabButton
+                  key={route.key}
+                  route={route}
+                  isFocused={isFocused}
+                  onPress={onPress}
+                  onLongPress={onLongPress}
+                />
+              );
+            })}
+          </View>
+        </BlurView>
+      </View>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     </View>
   );
 }
@@ -117,6 +136,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     backgroundColor: 'transparent',
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hamburgerBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: BORDER_RADIUS.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bar: {
     height: 60,

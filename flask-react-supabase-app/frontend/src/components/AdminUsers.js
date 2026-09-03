@@ -55,7 +55,7 @@ const RoleBadge = ({ u }) => {
     );
   }
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.10em] border bg-white/5 text-white/50 border-white/10">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.10em] border bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]">
       User
     </span>
   );
@@ -69,7 +69,7 @@ const StatusBadge = ({ status }) => {
     banned: 'bg-rose-600/15 text-rose-300 border-rose-600/30',
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[s] || 'bg-white/5 text-white/40 border-white/10'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[s] || 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]'}`}>
       {s}
     </span>
   );
@@ -89,10 +89,10 @@ const VerificationBadge = ({ label, verified }) => (
 );
 
 const SkeletonRow = () => (
-  <tr className="border-b border-white/[0.04] animate-pulse">
+  <tr className="border-b border-[color:var(--ex-shell-line)] animate-pulse">
     {[...Array(8)].map((_, i) => (
       <td key={i} className="px-4 py-3">
-        <div className="h-3 bg-white/5 rounded-full w-full" />
+        <div className="h-3 bg-[color:var(--ex-shell-surface)] rounded-full w-full" />
       </td>
     ))}
   </tr>
@@ -319,7 +319,7 @@ const AdminUsers = () => {
           className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
             active === opt.key
               ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-              : 'bg-white/[0.04] text-white/50 border-white/10 hover:text-white/70 hover:bg-white/[0.07]'
+              : 'bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)] hover:text-[color:var(--ex-shell-text)]/70 hover:bg-[color:var(--ex-shell-surface-strong)]'
           }`}
         >
           {opt.label}
@@ -333,11 +333,11 @@ const AdminUsers = () => {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-white">Users</h1>
-          <p className="text-sm text-white/50 mt-1">Search every account, manage roles, and suspend accounts.</p>
+          <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">Users</h1>
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">Search every account, manage roles, and suspend accounts.</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/[0.06] text-white/60 border border-white/10">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] border border-[color:var(--ex-shell-line)]">
             {userSummary.total} total
           </span>
         </div>
@@ -353,8 +353,8 @@ const AdminUsers = () => {
           { label: 'Banned', value: userSummary.banned, icon: null },
         ].map((kpi) => (
           <GlassCard key={kpi.label} className="flex flex-col gap-1">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{kpi.label}</p>
-            <p className="text-2xl font-semibold text-white">{kpi.value.toLocaleString()}</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">{kpi.label}</p>
+            <p className="text-2xl font-semibold text-[color:var(--ex-shell-text)]">{kpi.value.toLocaleString()}</p>
           </GlassCard>
         ))}
       </div>
@@ -366,15 +366,15 @@ const AdminUsers = () => {
           placeholder="Search by name, email, username, or phone…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
         />
         <div className="flex flex-wrap gap-6">
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Role</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">Role</p>
             <ChipFilter options={ROLE_FILTERS} active={roleFilter} onSelect={setRoleFilter} />
           </div>
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Status</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium">Status</p>
             <ChipFilter options={STATUS_FILTERS} active={statusFilter} onSelect={setStatusFilter} />
           </div>
         </div>
@@ -390,9 +390,9 @@ const AdminUsers = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
+              <tr className="border-b border-[color:var(--ex-shell-line)]">
                 {['User', 'Role', 'Status', 'Verification', 'Listings', 'Joined', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium whitespace-nowrap">
+                  <th key={h} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -427,7 +427,7 @@ const AdminUsers = () => {
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03 }}
-                        className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors group"
+                        className="border-b border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface)] transition-colors group"
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -438,13 +438,13 @@ const AdminUsers = () => {
                                 className="w-9 h-9 rounded-full object-cover flex-shrink-0"
                               />
                             ) : (
-                              <div className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center flex-shrink-0">
-                                <span className="text-xs font-semibold text-white/60">{initials}</span>
+                              <div className="w-9 h-9 rounded-full bg-[color:var(--ex-shell-surface-strong)] flex items-center justify-center flex-shrink-0">
+                                <span className="text-xs font-semibold text-[color:var(--ex-shell-text-muted)]">{initials}</span>
                               </div>
                             )}
                             <div className="min-w-0">
-                              <p className="text-white/80 font-medium text-sm truncate">{displayName}</p>
-                              <p className="text-white/40 text-xs truncate">{u.email}</p>
+                              <p className="text-[color:var(--ex-shell-text)] font-medium text-sm truncate">{displayName}</p>
+                              <p className="text-[color:var(--ex-shell-text-muted)] text-xs truncate">{u.email}</p>
                             </div>
                           </div>
                         </td>
@@ -465,22 +465,22 @@ const AdminUsers = () => {
                         </td>
                         <td className="px-4 py-3">
                           {listingCount !== null ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-white/5 text-white/50 border-white/10">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)]">
                               {listingCount}
                             </span>
                           ) : (
-                            <span className="text-white/30 text-xs">—</span>
+                            <span className="text-[color:var(--ex-shell-text-muted)] text-xs">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-white/40 text-xs whitespace-nowrap">{relTime(u.created_at)}</p>
+                          <p className="text-[color:var(--ex-shell-text-muted)] text-xs whitespace-nowrap">{relTime(u.created_at)}</p>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                             <button
                               title="View user"
                               onClick={() => navigate(`/admin/users/${u.id}`)}
-                              className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                              className="p-1.5 rounded-lg hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition-colors"
                             >
                               <Eye size={15} />
                             </button>
@@ -489,7 +489,7 @@ const AdminUsers = () => {
                                 title="Remove admin"
                                 onClick={() => handleRemoveAdmin(u.id)}
                                 disabled={isProtected}
-                                className="px-2 py-1 rounded-full text-[10px] font-semibold border bg-white/5 text-white/50 border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                className="px-2 py-1 rounded-full text-[10px] font-semibold border bg-[color:var(--ex-shell-surface)] text-[color:var(--ex-shell-text-muted)] border-[color:var(--ex-shell-line)] hover:bg-[color:var(--ex-shell-surface-strong)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                               >
                                 Remove Admin
                               </button>
@@ -548,8 +548,8 @@ const AdminUsers = () => {
           </table>
         </div>
         {!loading && (
-          <div className="px-4 py-3 border-t border-white/[0.06]">
-            <p className="text-xs text-white/30">{filteredUsers.length} users found</p>
+          <div className="px-4 py-3 border-t border-[color:var(--ex-shell-line)]">
+            <p className="text-xs text-[color:var(--ex-shell-text-muted)]">{filteredUsers.length} users found</p>
           </div>
         )}
       </GlassCard>
