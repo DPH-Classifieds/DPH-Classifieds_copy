@@ -149,7 +149,10 @@ const Header = () => {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
+      // backdrop-blur forces the browser to continuously sample+blur whatever
+      // scrolls beneath this fixed header — a real per-frame cost on weaker
+      // devices. Lighter on mobile, full blur restored from md: up.
+      className={`fixed inset-x-0 top-0 z-50 backdrop-blur-sm md:backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
     >
       <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
         {/* Logo */}

@@ -742,6 +742,15 @@ def _cached_json_response(payload, status_code=200, ttl_seconds=API_CACHE_TTL_SE
     return response
 
 
+def _attach_page_headers(response, items, limit):
+    """Advertise keyset-pagination state for callers using ?cursor= instead of
+    ?offset=; harmless to ignore for callers that don't."""
+    response.headers["X-Has-More"] = "true" if len(items) >= limit else "false"
+    if items:
+        response.headers["X-Next-Cursor"] = str(items[-1].get("created_at") or "")
+    return response
+
+
 def _cache_lock_acquire(cache_key, ttl_seconds=5):
     """Try to acquire a short-lived Redis recompute lock (SETNX).
 
@@ -824,6 +833,54 @@ def _collect_listing_filter_pairs(eq_fields, range_fields=None):
         if to_value:
             pairs.append((db_column, f"lte.{to_value}"))
     return pairs
+
+
+def _search_or_group(fields, url_encode=False):
+    """Build the body of a PostgREST `or(...)` group for `?q=<term>` free-text
+    search across the given columns, or None if no search term was supplied.
+    Strips characters that are syntactically significant to PostgREST's filter
+    grammar so a search term can't inject extra filter clauses of its own.
+    url_encode=True is for callers that splice the result into a manually-built
+    URL string rather than passing it through requests' own params= encoding —
+    a raw space in the term would otherwise break the request."""
+    term = request.args.get("q", "").strip()
+    if not term:
+        return None
+    safe_term = re.sub(r"[,()*]", "", term)[:100]
+    if not safe_term:
+        return None
+    if url_encode:
+        safe_term = quote(safe_term, safe="")
+    return ",".join(f"{field}.ilike.*{safe_term}*" for field in fields)
+
+
+def _combine_or_groups(*or_group_bodies):
+    """Each argument is the inside-parens body of one `or(...)` group (no
+    'or' keyword, no parens) or None. PostgREST only allows a single top-level
+    `or=` filter, so combining more than one group (e.g. the reddit-exclusion
+    group and the free-text search group) requires nesting them under a single
+    `and=(or(...),or(...))`. Returns a {param_name: value} dict to merge into
+    the query params, or {} if no group was supplied."""
+    groups = [g for g in or_group_bodies if g]
+    if not groups:
+        return {}
+    if len(groups) == 1:
+        return {"or": f"({groups[0]})"}
+    return {"and": "(" + ",".join(f"or({g})" for g in groups) + ")"}
+
+
+def _cursor_filter(order_column="created_at"):
+    """Optional keyset pagination: ?cursor=<ISO timestamp of the last row's
+    created_at> switches the query from offset to `created_at < cursor`, which
+    stays O(page size) instead of the database re-walking every already-skipped
+    row as offset grows on a deep feed.
+    ponytail: no id tie-break for created_at collisions — two listings created
+    at the exact same microsecond is not realistic at this write rate. Add a
+    composite (created_at,id) or-filter if that ever stops being true."""
+    cursor = request.args.get("cursor", "").strip()
+    if not cursor:
+        return None
+    return (order_column, f"lt.{cursor}")
 
 
 def _extract_request_path(path):
@@ -2476,13 +2533,17 @@ def _fetch_homepage_preview_payload():
             "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
             "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
             "status,is_approved,view_count,lady_driven,"
-            "whatsapp_number,whatsapp_prefill_text,vin_number,"
+            "whatsapp_number,whatsapp_prefill_text,"
             + _LIFECYCLE_FIELDS
             + "car_images("
             + LISTING_IMAGE_SELECTS["cars"]
             + ")"
         ),
-        "limit": "4",
+        # 8 (not 4): HomePage.js merges this with a separate featured-listings
+        # call via applyFeaturedPlacement before slicing to the 4 it displays —
+        # it needs the same buffer of normal cars the old /api/cars?limit=8
+        # call gave it, or featured placement would crowd out normal cars.
+        "limit": "8",
         "order": "created_at.desc",
         "status": "eq.approved",
         "is_approved": "eq.true",
@@ -6735,8 +6796,23 @@ def get_cars():
         # user who doesn't want to see Reddit cars always can opt out.
         requesting_reddit = request.args.get("source_platform") == "reddit"
         exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
+        reddit_or_group = None
         if _should_hide_reddit(requesting_reddit, exclude_reddit, _reddit_on_explore()):
-            filtered_params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
+            reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
+
+        # ?q=<term> free-text search across the fields Explore's search box
+        # matches against, moved server-side so the client no longer needs to
+        # hold the whole inventory to filter it.
+        search_or_group = _search_or_group(
+            ["listing_title", "car_manufacturer", "car_model", "car_description"]
+        )
+        filtered_params.update(_combine_or_groups(reddit_or_group, search_or_group))
+
+        # ?cursor=<created_at> keyset pagination; opt-in, offset/limit above
+        # keeps working unchanged for every existing caller that doesn't pass it.
+        cursor_pair = _cursor_filter()
+        if cursor_pair:
+            filtered_params[cursor_pair[0]] = cursor_pair[1]
 
         # Define allowed filter fields that exist in the cars table
         allowed_filters = [
@@ -6848,7 +6924,6 @@ def get_cars():
 
         logger.info(f"Fetching cars with params: {filtered_params}")
 
-        # Use select=* to get all fields, and join with car_images
         filtered_params["select"] = PUBLIC_CAR_PREVIEW_SELECT
 
         # Use service role for public fetches to ensure all approved listings and images are visible
@@ -6889,6 +6964,11 @@ def get_cars():
                     img["url"] = img["image_url"]
             # Primary image first so car.images[0] is always the thumbnail
             car["images"] = _sort_listing_images(car_images)
+            # Convenience field for feed/card rendering so the client doesn't
+            # need to hold/derive the full gallery just to show one photo.
+            car["primary_image_url"] = (
+                car["images"][0].get("image_url") if car["images"] else None
+            )
 
         # Fetch seller info for each car in a single batched request
         try:
@@ -6902,7 +6982,7 @@ def get_cars():
 
         logger.info(f"Successfully fetched {len(response)} cars")
         _api_cache_set(cache_key, response)
-        return _cached_json_response(response), 200
+        return _attach_page_headers(_cached_json_response(response), response, limit), 200
 
     except Exception as e:
         logger.error(f"Error getting cars: {str(e)}")
@@ -6994,6 +7074,26 @@ def _resolve_car_listing_id(identifier):
     return str(rows[0].get("id") or "") or None
 
 
+def _requester_can_view_vin(requesting_user, is_owner):
+    """VIN is PII; gate it the same way the frontend does (phone-verified
+    account), not just 'not the owner'. Owners/admins always see it."""
+    if is_owner:
+        return True
+    if not requesting_user:
+        return False
+    try:
+        resp, status = supabase_request(
+            "get",
+            f"/rest/v1/users?id=eq.{requesting_user}&select=phone_verified,is_admin",
+            use_service_role=True,
+        )
+        if status < 400 and resp:
+            return bool(resp[0].get("phone_verified") or resp[0].get("is_admin"))
+    except Exception as vin_gate_err:
+        logger.warning(f"Failed to resolve VIN visibility for {requesting_user}: {vin_gate_err}")
+    return False
+
+
 @app.route("/api/cars/<string:car_id>", methods=["GET"])
 def get_car_by_id(car_id):
     try:
@@ -7011,7 +7111,7 @@ def get_car_by_id(car_id):
             cache_key = f"api-cache:{request.path}"
             cached_payload = _api_cache_get(cache_key)
             if cached_payload is not None:
-                logger.info(f"Redis cache hit for car detail {car_id}")
+                logger.debug(f"Redis cache hit for car detail {car_id}")
                 return _cached_json_response(cached_payload)
 
         query = f"/rest/v1/cars?id=eq.{car_id}&select=*"
@@ -7119,6 +7219,8 @@ def get_car_by_id(car_id):
         if not is_owner:
             for _f in _PUBLIC_STRIP_FIELDS:
                 car.pop(_f, None)
+        if not _requester_can_view_vin(requesting_user, is_owner):
+            car.pop("vin_number", None)
         if cache_key:
             _api_cache_set(cache_key, car)
             return _cached_json_response(car)
@@ -15115,12 +15217,31 @@ def get_bikes():
         # the normal bikes feed unless explicitly requested (?source_platform=reddit),
         # and honour the per-user ?exclude_reddit=true toggle (mirrors /api/cars).
         exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
+        reddit_or_group = None
         if request.args.get("source_platform") == "reddit":
             params["source_platform"] = "eq.reddit"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
                 params.pop("is_approved", None)  # dev preview of hidden imports
         elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
-            params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
+            reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
+
+        # Two encodings of the same or/and clause: the direct-request path below
+        # splices params straight into a raw URL string (needs the search term
+        # percent-encoded so a space in it can't break the request), while the
+        # `supabase_request(params=...)` fallback further down lets `requests`
+        # do its own encoding (would double-encode if given the pre-encoded form).
+        params.update(_combine_or_groups(
+            reddit_or_group,
+            _search_or_group(["bike_brand", "bike_model", "description"], url_encode=True),
+        ))
+        fallback_or_and = _combine_or_groups(
+            reddit_or_group,
+            _search_or_group(["bike_brand", "bike_model", "description"]),
+        )
+
+        cursor_pair = _cursor_filter()
+        if cursor_pair:
+            params[cursor_pair[0]] = cursor_pair[1]
 
         # bikes table columns (verified against migrations/00_COMPLETE_SCHEMA.sql:108-145):
         # bike_brand / bike_type / engine_size (text) / condition / year / price / area.
@@ -15220,10 +15341,13 @@ def get_bikes():
                                 }
                             ]
 
+                    bike["primary_image_url"] = (
+                        bike["images"][0].get("image_url") if bike["images"] else None
+                    )
                     _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
 
                 _api_cache_set(cache_key, bikes)
-                return _cached_json_response(bikes)
+                return _attach_page_headers(_cached_json_response(bikes), bikes, limit)
             else:
                 logger.error(
                     f"Direct request failed: {response.status_code} - {response.text}"
@@ -15238,7 +15362,8 @@ def get_bikes():
             # collide on the shared "price" key — requests serializes duplicate-key
             # pairs correctly, a dict can't hold two values under one key.
             fallback_params = (
-                list(params.items())
+                [(k, v) for k, v in params.items() if k not in ("or", "and")]
+                + list(fallback_or_and.items())
                 + filter_pairs
                 + [(
                     "select",
@@ -15296,10 +15421,13 @@ def get_bikes():
                             }
                         ]
 
+                    bike["primary_image_url"] = (
+                        bike["images"][0].get("image_url") if bike["images"] else None
+                    )
                     _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
 
                 _api_cache_set(cache_key, bikes)
-                return _cached_json_response(bikes)
+                return _attach_page_headers(_cached_json_response(bikes), bikes, limit)
             else:
                 empty_payload = []
                 _api_cache_set(cache_key, empty_payload)
@@ -15320,7 +15448,7 @@ def get_bike_by_id(bike_id):
         cache_key = f"api-cache:{request.path}"
         cached_payload = _api_cache_get(cache_key) if not requesting_user else None
         if cached_payload is not None:
-            logger.info(f"Redis cache hit for bike detail {bike_id}")
+            logger.debug(f"Redis cache hit for bike detail {bike_id}")
             return _cached_json_response(cached_payload)
 
         # Get bike details
@@ -16951,6 +17079,7 @@ def get_plates():
         # rows) actually removes them here, matching /api/cars|bikes|parts.
         # Reddit imports appear only in the dedicated Reddit tab.
         exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
+        reddit_or_group = None
         if request.args.get("source_platform") == "reddit":
             approved_clause = "status=eq.approved"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") != "1":
@@ -16958,7 +17087,17 @@ def get_plates():
             source_clause = "&source_platform=eq.reddit"
         else:
             approved_clause = "status=eq.approved&is_approved=eq.true"
-            source_clause = "" if not _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()) else "&or=(source_platform.is.null,source_platform.neq.reddit)"
+            source_clause = ""
+            if _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
+                reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
+        or_and_group = _combine_or_groups(
+            reddit_or_group,
+            _search_or_group(["code", "number", "city", "description"], url_encode=True),
+        )
+        for key, value in or_and_group.items():
+            source_clause += f"&{key}={value}"
+        cursor_pair = _cursor_filter()
+        cursor_clause = f"&{cursor_pair[0]}={cursor_pair[1]}" if cursor_pair else ""
         # license_plates table columns (verified against
         # migrations/00_COMPLETE_SCHEMA.sql:209-242): city / digits / code /
         # price / area. Adds code + area + price_range so the Explore drawer
@@ -16977,7 +17116,7 @@ def get_plates():
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?{approved_clause}&order={order}"
-            f"{source_clause}{filter_clause}"
+            f"{source_clause}{cursor_clause}{filter_clause}"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
             "description,contact_phone,contact_name,country_code,source_platform,source_url,status,is_approved,created_at,updated_at,"
             "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
@@ -17016,10 +17155,13 @@ def get_plates():
                             }
                         ]
 
+                plate["primary_image_url"] = (
+                    plate["images"][0].get("image_url") if plate["images"] else None
+                )
                 _apply_seller_to_listing(plate, seller_map.get(plate.get("user_id")))
 
             _api_cache_set(cache_key, plates)
-            return _cached_json_response(plates)
+            return _attach_page_headers(_cached_json_response(plates), plates, limit)
         else:
             logger.error(
                 f"Failed to fetch plates: {response.status_code} - {response.text}"
@@ -17056,7 +17198,7 @@ def get_plate_details(plate_id, requesting_user=None):
         cache_key = f"api-cache:{request.path}"
         cached_payload = _api_cache_get(cache_key) if not requesting_user else None
         if cached_payload is not None:
-            logger.info(f"Redis cache hit for plate detail {plate_id}")
+            logger.debug(f"Redis cache hit for plate detail {plate_id}")
             return _cached_json_response(cached_payload)
 
         # Use service role for consistent data fetching
@@ -17266,12 +17408,30 @@ def get_parts():
         # Reddit imports appear only in the dedicated Reddit tab; also honour the
         # per-user ?exclude_reddit=true toggle (mirrors /api/cars).
         exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
+        reddit_or_group = None
         if request.args.get("source_platform") == "reddit":
             params["source_platform"] = "eq.reddit"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
                 params.pop("is_approved", None)
         elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
-            params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
+            reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
+
+        # Two encodings of the same or/and clause — see the matching comment
+        # in get_bikes() for why: the direct-request path splices params into
+        # a raw URL string (needs url_encode=True), the supabase_request(...)
+        # fallback further down encodes its own params (would double-encode).
+        params.update(_combine_or_groups(
+            reddit_or_group,
+            _search_or_group(["name", "part_type", "description"], url_encode=True),
+        ))
+        fallback_or_and = _combine_or_groups(
+            reddit_or_group,
+            _search_or_group(["name", "part_type", "description"]),
+        )
+
+        cursor_pair = _cursor_filter()
+        if cursor_pair:
+            params[cursor_pair[0]] = cursor_pair[1]
 
         # car_parts table columns (verified against migrations/00_COMPLETE_SCHEMA.sql:161-193):
         # condition / part_type / price / area. Adds area + price_range so the
@@ -17357,10 +17517,13 @@ def get_parts():
                                     "crop_meta": part.get("crop_meta"),
                                 }
                             ]
+                    part["primary_image_url"] = (
+                        part["images"][0].get("image_url") if part["images"] else None
+                    )
                     _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
 
                 _api_cache_set(cache_key, parts)
-                return _cached_json_response(parts)
+                return _attach_page_headers(_cached_json_response(parts), parts, limit)
             else:
                 logger.error(
                     f"Direct request failed: {response.status_code} - {response.text}"
@@ -17372,6 +17535,7 @@ def get_parts():
             # Fallback to regular Supabase client (single joined query; no N+1 image fetch)
             fallback_params = {
                 **params,
+                **fallback_or_and,
                 **dict(filter_pairs),
                 "select": (
                     "id,user_id,name,part_type,condition,price,location,area,emirate,"
@@ -17421,10 +17585,13 @@ def get_parts():
                             }
                         ]
 
+                    part["primary_image_url"] = (
+                        part["images"][0].get("image_url") if part["images"] else None
+                    )
                     _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
 
                 _api_cache_set(cache_key, parts)
-                return _cached_json_response(parts)
+                return _attach_page_headers(_cached_json_response(parts), parts, limit)
             else:
                 empty_payload = []
                 _api_cache_set(cache_key, empty_payload)
@@ -17682,7 +17849,7 @@ def get_part_details(part_id, requesting_user=None):
         cache_key = f"api-cache:{request.path}"
         cached_payload = _api_cache_get(cache_key) if not requesting_user else None
         if cached_payload is not None:
-            logger.info(f"Redis cache hit for part detail {part_id}")
+            logger.debug(f"Redis cache hit for part detail {part_id}")
             return _cached_json_response(cached_payload)
 
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]

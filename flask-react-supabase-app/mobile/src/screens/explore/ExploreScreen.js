@@ -121,8 +121,10 @@ const normalizeItem = (category, item) => {
       category: 'bikes',
       title: `${item.bike_brand || ''} ${item.bike_model || ''}`.trim() || 'Untitled Bike',
       subtitle: `${item.make_year || ''} ${item.engine_capacity || ''} ${item.bike_category || ''}`.trim(),
-      price: item.expected_selling_price,
-      location: item.car_city || item.area || '',
+      // Bikes' real column is `price` — `expected_selling_price` is cars-only
+      // and won't be present on a bike row (see _normalize_bike_record).
+      price: item.price ?? item.expected_selling_price,
+      location: item.area || '',
       image: getImageUri(item),
       is_featured: item.featured,
       created_at: item.created_at,
@@ -164,6 +166,10 @@ const normalizeItem = (category, item) => {
 const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 const LIST_SCREENS = { cars: 'CarList', bikes: 'BikeList', plates: 'PlateList', parts: 'PartList', reddit: 'RedditList', wanted: 'BuyingRequests' };
 const LISTING_PAGE_SIZE = 18;
+// Keep the client-side inventory buffer bounded as feeds grow — otherwise a
+// long scroll session accumulates every page ever fetched with no ceiling.
+// FlashList already virtualizes rendering; this bounds parsed-object memory.
+const MAX_LOADED_ITEMS_PER_CATEGORY = 240;
 
 function PickerContent({ options, onSelect, onClose, selectedValue, colors }) {
   const pkStyles = pkStylesFor(colors);
@@ -767,22 +773,24 @@ export default function ExploreScreen({ navigation, route }) {
     if (activeTab === 'bikes' || activeTab === 'all') {
       if (bikeFilters.type) params.bike_type = bikeFilters.type;
       if (bikeFilters.brand) params.bike_brand = bikeFilters.brand;
-      if (bikeFilters.city) params.city = bikeFilters.city;
-      if (bikeFilters.min_price) params.min_price = bikeFilters.min_price;
-      if (bikeFilters.max_price) params.max_price = bikeFilters.max_price;
-      if (bikeFilters.min_year) params.min_year = bikeFilters.min_year;
-      if (bikeFilters.max_year) params.max_year = bikeFilters.max_year;
+      // Bikes has no `city` column — the closest real filter is `area`
+      // (see backend get_bikes' _collect_listing_filter_pairs whitelist).
+      if (bikeFilters.city) params.area = bikeFilters.city;
+      if (bikeFilters.min_price) params.price_from = bikeFilters.min_price;
+      if (bikeFilters.max_price) params.price_to = bikeFilters.max_price;
+      if (bikeFilters.min_year) params.year_from = bikeFilters.min_year;
+      if (bikeFilters.max_year) params.year_to = bikeFilters.max_year;
     }
     if (activeTab === 'plates' || activeTab === 'all') {
       if (plateFilters.city) params.city = plateFilters.city;
       if (plateFilters.code) params.code = plateFilters.code;
-      if (plateFilters.min_price) params.min_price = plateFilters.min_price;
-      if (plateFilters.max_price) params.max_price = plateFilters.max_price;
+      if (plateFilters.min_price) params.price_from = plateFilters.min_price;
+      if (plateFilters.max_price) params.price_to = plateFilters.max_price;
     }
     if (activeTab === 'parts' || activeTab === 'all') {
       if (partFilters.category) params.part_type = partFilters.category;
-      if (partFilters.min_price) params.min_price = partFilters.min_price;
-      if (partFilters.max_price) params.max_price = partFilters.max_price;
+      if (partFilters.min_price) params.price_from = partFilters.min_price;
+      if (partFilters.max_price) params.price_to = partFilters.max_price;
     }
     // Shared across every category endpoint (mirrors the per-list-screen chip).
     if (hideReddit) params.exclude_reddit = 'true';
@@ -865,7 +873,9 @@ export default function ExploreScreen({ navigation, route }) {
 
       setAllItems((prev) => {
         const next = { ...prev };
-        results.forEach(({ cat, items }) => { next[cat] = [...prev[cat], ...items]; });
+        results.forEach(({ cat, items }) => {
+          next[cat] = [...prev[cat], ...items].slice(0, MAX_LOADED_ITEMS_PER_CATEGORY);
+        });
         return next;
       });
       setPages((prev) => {

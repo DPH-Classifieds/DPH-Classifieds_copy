@@ -30,7 +30,18 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="py-16 md:py-32" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 92%, transparent) 0%, var(--ex-shell-bg) 100%)', borderTop: '1px solid color-mix(in srgb, var(--ex-shell-accent) 8%, transparent)' }}>
+    <footer
+      className="py-16 md:py-32"
+      // Every page ends with this footer; it's never interactive until
+      // scrolled into view, so defer its rendering cost until then. Not
+      // sticky, no off-screen a11y focus targets — a safe candidate.
+      style={{
+        background: 'linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 92%, transparent) 0%, var(--ex-shell-bg) 100%)',
+        borderTop: '1px solid color-mix(in srgb, var(--ex-shell-accent) 8%, transparent)',
+        contentVisibility: 'auto',
+        containIntrinsicSize: 'auto 500px',
+      }}
+    >
       <div className="mx-auto max-w-5xl px-6">
         <Link
           to="/"

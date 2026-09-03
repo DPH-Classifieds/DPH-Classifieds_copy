@@ -1,7 +1,25 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import ExplorePage, { MAX_RENDERED_ITEMS } from './ExplorePage';
+import ExplorePage from './ExplorePage';
+
+// VirtuosoGrid virtualizes based on real layout measurements (ResizeObserver,
+// offsetHeight/Width) that jsdom can't meaningfully provide — that's a
+// third-party-library rendering concern, verified separately in a real
+// browser, not something these unit tests should fight jsdom to reproduce.
+// Mocked here as a plain pass-through so ExplorePage's OWN data/filter/search
+// logic stays fully testable.
+jest.mock('react-virtuoso', () => {
+  const ReactForMock = require('react');
+  return {
+    VirtuosoGrid: ({ data, itemContent, listClassName, components }) => ReactForMock.createElement(
+      'div',
+      { className: listClassName },
+      data.map((item, index) => ReactForMock.cloneElement(itemContent(index, item), { key: index })),
+      components?.Footer ? ReactForMock.createElement(components.Footer) : null,
+    ),
+  };
+});
 
 jest.mock('./MarketplaceListingCard', () => ({ item }) => (
   <article data-testid="listing-card">
@@ -21,6 +39,10 @@ jest.mock('./ui/search-bar', () => ({ value, onChange, onSubmit }) => (
     <button type="submit">Search</button>
   </form>
 ));
+
+const TOTAL_CARS = 120;
+const TOTAL_BIKES = 2;
+const TOTAL_ALL_MODE = TOTAL_CARS + TOTAL_BIKES;
 
 const makeCar = (id, title = `Car ${id}`) => ({
   id: `car-${id}`,
@@ -49,9 +71,15 @@ beforeEach(() => {
     disconnect() {}
   };
   global.fetch = jest.fn((url) => {
-    if (String(url).includes('/featured-listings')) return response([]);
-    if (String(url).includes('/api/cars')) return response({ cars: Array.from({ length: 120 }, (_, index) => makeCar(index)) });
-    if (String(url).includes('/api/bikes')) return response({ bikes: [makeBike(1, 'Honda'), makeBike(2, 'Yamaha')] });
+    const href = String(url);
+    if (href.includes('/featured-listings')) return response([]);
+    // No reddit fixture data: the real /api/cars|bikes never return reddit
+    // rows unless source_platform=reddit is explicitly requested, so the
+    // mock must mirror that split — otherwise the "all" tab's dual dph+reddit
+    // fetch double-counts the same fixture rows under both requests.
+    if (href.includes('source_platform=reddit')) return response([]);
+    if (href.includes('/api/cars')) return response({ cars: Array.from({ length: TOTAL_CARS }, (_, index) => makeCar(index)) });
+    if (href.includes('/api/bikes')) return response({ bikes: [makeBike(1, 'Honda'), makeBike(2, 'Yamaha')] });
     return response([]);
   });
 });
@@ -67,18 +95,17 @@ const renderPage = () => render(
   </MemoryRouter>
 );
 
-describe('ExplorePage bounded feed rendering', () => {
-  it('mounts only the bounded initial card window for a large loaded dataset', async () => {
+describe('ExplorePage feed rendering', () => {
+  it('feeds the full loaded+filtered dataset to the virtualized grid', async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByTestId('listing-card')).toHaveLength(MAX_RENDERED_ITEMS));
-    expect(screen.getByRole('button', { name: /Show more loaded listings/ })).toBeInTheDocument();
-    expect(screen.getByText(/120 live listings/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByTestId('listing-card')).toHaveLength(TOTAL_ALL_MODE));
+    expect(screen.getByText(new RegExp(`${TOTAL_ALL_MODE} live listings`))).toBeInTheDocument();
   });
 
-  it('keeps filtering and listing navigation working inside the bounded window', async () => {
+  it('keeps filtering and listing navigation working', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getAllByTestId('listing-card')).toHaveLength(MAX_RENDERED_ITEMS));
+    await waitFor(() => expect(screen.getAllByTestId('listing-card')).toHaveLength(TOTAL_ALL_MODE));
 
     const search = screen.getByLabelText('Explore search');
     fireEvent.change(search, { target: { value: 'Car 7' } });
@@ -86,6 +113,7 @@ describe('ExplorePage bounded feed rendering', () => {
 
     await waitFor(() => expect(screen.getAllByTestId('listing-card').length).toBeGreaterThan(0));
     expect(screen.getByText('Toyota Car 7')).toBeInTheDocument();
+    // Substring search: "Car 70" also contains "Car 7", so it's expected to match too.
     expect(screen.queryByText('Toyota Car 70')).toBeInTheDocument();
     const firstCard = screen.getAllByTestId('listing-card')[0];
     expect(within(firstCard).getByRole('link')).toHaveAttribute('href', expect.stringContaining('/cars/'));

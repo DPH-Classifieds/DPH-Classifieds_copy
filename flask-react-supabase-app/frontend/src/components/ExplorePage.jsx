@@ -75,7 +75,9 @@ const CATEGORY_FILTER_PARAM_BUILDERS = {
     if (filters.yearMax) params.push(['year_to', filters.yearMax]);
     return params;
   },
-  'car-parts': (filters) => {
+  // Keyed by API key ('parts'), not the mode key ('car-parts') — fetchPage
+  // looks this up via apiKey, which is EXPLORE_MODE_TO_API_KEY['car-parts'].
+  parts: (filters) => {
     const params = [];
     if (filters.category) params.push(['part_type', filters.category]);
     if (filters.area) params.push(['area', filters.area]);
@@ -805,12 +807,16 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     const baseUrl = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
     const fallbackKeys = FALLBACK_KEYS[apiKey] || ['data'];
 
+    // Debounced filters, not raw state: fetchPage's identity feeds the
+    // initial-load effect below, so reading raw (per-keystroke) filters here
+    // would re-hit the network on every keystroke instead of after typing
+    // pauses — the exact problem debouncing exists to avoid.
     const filtersByMode = {
-      cars: carFilters,
-      bikes: bikeFilters,
-      parts: partsFilters,
-      plates: plateFilters,
-      reddit: redditFilters,
+      cars: debouncedCarFilters,
+      bikes: debouncedBikeFilters,
+      parts: debouncedPartsFilters,
+      plates: debouncedPlateFilters,
+      reddit: debouncedRedditFilters,
     };
     const builder = CATEGORY_FILTER_PARAM_BUILDERS[apiKey];
     const filterParams = builder ? builder(filtersByMode[apiKey] || {}) : [];
@@ -835,7 +841,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     );
     const items = extractInventoryCollection(data, fallbackKeys);
     return { items, hasMore: items.length === PAGE_SIZE };
-  }, [sourceFilter, locationFilter, carFilters, bikeFilters, partsFilters, plateFilters, redditFilters]);
+  }, [sourceFilter, locationFilter, debouncedCarFilters, debouncedBikeFilters, debouncedPartsFilters, debouncedPlateFilters, debouncedRedditFilters]);
 
   // ── initial load: only the active category unless "all" is selected ─────
   useEffect(() => {

@@ -1,99 +1,75 @@
 # DPH Classifieds — Audit Remediation Status
 
 **Comparing against:** `dphdocthing.pdf` ("DPH Classifieds Comprehensive Technical Audit")
-**Generated:** 2026-09-03
-**Method:** Every finding below was checked against the current source in `flask-react-supabase-app/` (frontend, backend, mobile) and `devvit/` by reading the actual code paths cited in the audit — not by re-running the original scanner. Dependency-version findings were checked against pinned versions in `requirements.txt` / lockfiles, not against a live CVE feed.
+**Generated:** 2026-09-03 (updated after a second remediation pass the same day)
+**Method:** Every finding was checked against the current source in `flask-react-supabase-app/` (frontend, backend, mobile) and `devvit/` by reading the actual code paths cited in the audit, then — for this pass — actually fixed, unit-tested, and re-verified against the real (production) Supabase-backed API and a real Chromium browser via Playwright. Screenshots and live `curl`/browser checks are cited inline; nothing below is claimed fixed without a tool result behind it.
 
 ---
 
-## At a glance
+## What changed in this pass
 
-| Section | Fixed | Partial | Not fixed | False positive / N-A | Dependency (current) |
-|---|---|---|---|---|---|
-| Part 1 — Performance (44 items) | 10 | 6 | 18 | 7 | — |
-| Part 2 — Threat model (5 scenarios + arch.) | 2 | 2 | 1 (+1 unresolved architectural claim) | — | — |
-| Part 3 — Vulnerability ledger (code findings) | 17 | 3 | 5 | 15 | ~28 packages, all current/pinned |
+The first version of this report was a pure comparison. This version reflects an actual remediation pass: every "Not fixed" item that was safe to fix without a large architecture change has been fixed, unit-tested, and verified live. Two categories were deliberately **left alone**, by explicit decision, because they're not patch-sized:
 
-**Biggest things still open**, in order of how much they'd matter if exploited or if traffic grows:
+- **RLS/service_role redesign** — the backend and every worker authenticate to Supabase as `service_role`, which bypasses Row-Level Security entirely. Fixing this for real means reworking how the backend talks to Supabase for every tenant-scoped table — a foundational auth-model change, not a patch. Not attempted.
+- **Backend monolith split** (`app.py`, ~25,900 lines) — splitting this into modules is a large, high-regression-risk refactor for a maintainability concern, not a functional or security bug. Not attempted.
 
-1. **VIN is fully exposed in the API payload** regardless of the phone-verification UI gate (`CarDetail.jsx` masks it client-side; `backend/app.py` never strips it server-side) — a direct `curl` bypasses the privacy control entirely.
-2. **Auto-review still can't catch price/VIN fraud** — the `duplicate` and `price_outlier` signals are hardcoded to `None`, and the VIN decoder never compares decoded make/model/year against the submitted form.
-3. **Every backend/worker DB request runs as `service_role` and bypasses RLS entirely.** The Aug-28 security-hardening migration only locks out *direct client* access — it adds no dealership-scoped defense-in-depth for the backend's own queries, so a missing filter in Python code is still a full cross-tenant leak with no second line of defense.
-4. **Explore is still not virtualized and still filters/sorts client-side** — the single largest perf risk in the whole audit, unaddressed.
-5. **The public site (dphclassifieds.com via Vercel) still has no Content-Security-Policy header** — the backend API sets one, but the frontend host does not.
-6. `buying_requests.py` has no rate limiting despite the app already having a working Redis limiter used elsewhere.
+Also **deliberately left as-is** (not bugs, verified intentional or non-issues):
+- `Cache-Control: no-store` on cached API responses — the code comment says this is intentional ("browser must always re-fetch so admin approvals appear immediately"); relaxing it would reintroduce a real staleness bug for a marginal cache win.
+- Lazy-loaded feed images without explicit HTML `width`/`height` — verified the card image container already has `aspect-ratio: 16/10` in CSS, which already fully prevents the layout shift the audit was concerned about. No fix needed.
+- Hero image responsive `srcset` variants — needs an image-resizing tool (`sharp`/ImageMagick) that isn't available in this environment. Flagged, not done.
+- `App.js` global provider tree restructure — real, but touches every route's analytics/tracking wiring; higher blast radius than the remaining time budget justified without live QA across the whole site.
+- Mobile's `useStaggeredEntrance` re-firing per FlashList cell recycle — the hook is shared across ~14 mobile screens; changing its core behavior for Explore alone risks regressing all of them without a real device to test on. Not touched.
 
-Everything else, including a long tail of dependency-version and secret-scanner findings, turned out to already be fixed or to be false positives from a scan that read local disk / example files rather than the actual git-tracked repo.
+One thing worth calling out explicitly: **while fixing the homepage endpoint, a second instance of the VIN-exposure bug was found and fixed** — `/api/homepage/preview` was fetching `vin_number` for every featured car shown to anonymous homepage visitors, a bigger exposure than the original detail-page bug since it needed no phone-verification bypass at all, just loading the homepage.
+
+---
+
+## At a glance (this pass)
+
+| Section | Fixed this pass | Still open (documented reason) |
+|---|---|---|
+| Security fixes (VIN, CSP, auto-review fraud, rate limiting, cascade delete, HMAC, SSRF resilience, dead code) | 9 items | — |
+| Backend: server-side search/filter/cursor pagination + slim DTO fields | Done for cars/bikes/parts/plates | RLS/service_role (out of scope by decision) |
+| Explore virtualization + debounce + reddit cursor rewrite | Done (web) | Client-side relevance scoring for "All" tab kept client-side (scoped decision, see below) |
+| Mobile Explore | 2 real bugs fixed (broken filter param names, bike price field) + memory cap added | `useStaggeredEntrance` per-recycle cost (blast radius) |
+| Smaller perf items | Logging level, mobile backdrop-blur, footer `content-visibility` | Cache-Control (intentional), hero srcset (no tool), App.js tree (scope), monolith split (scope) |
 
 ---
 
 ## Part 1 — Performance Audit (44 findings)
 
-| # | Finding | Status | What we found |
+| # | Finding | Status | What we found / did |
 |---|---|---|---|
-| 1 | Explore not virtualized | **Not fixed** | `ExplorePage.jsx` still does `renderedItems.map()` over a manually-sliced `displayedItems` array (`renderLimit`-based "load more"), no `react-window`/`react-virtuoso`. |
-| 2 | Full-data recalculation on every state change | **Not fixed** | `filteredItems` (`ExplorePage.jsx:968-993`) still runs normalize → filter → `scoreAllMatch` → sort client-side on every filter/query change. |
-| 3 | Reddit Explore batches too large (250/request) | **Fixed** | `PAGE_SIZE = 24` (`ExplorePage.jsx:23`); Reddit tab now requests ~25 rows/page instead of 250. |
-| 4 | Offset pagination → cursor/keyset | **Not fixed** | `_parse_pagination_args()` (`app.py:789-803`) is still offset/limit only. |
-| 5 | 16.5 MB homepage image | **Fixed** | `bottom-landing.jpg` deleted; replaced with `bottom-landing.avif` (151 KB). |
-| 6 | Duplicate `hero.webp` / `toplanding.webp` | **Fixed** | Both deleted; only `hero.avif` remains. |
-| 7 | Hero still oversized, no responsive variants | **Partial** | `hero.avif` down to 538 KB with `fetchPriority="high"`, but no `srcSet`/`<picture>` — repo-wide grep for `srcSet` found nothing. |
-| 8 | Other large images | **Improved** | All originals (16.5 MB / 6.4 MB / 5.8 MB / 4.3 MB jpgs) replaced with AVIF equivalents (151–662 KB). One unused leftover, `optimized/hero-1600.jpg` (662 KB), sits alongside `hero.avif` and isn't referenced. |
-| 9 | Continuous Three.js scene | **Fixed** | `HeroBackground.js` gates `useFrame` via `IntersectionObserver` (:154), `visibilitychange` (:160), and `prefers-reduced-motion` (:165). |
-| 10 | GPU-heavy composition | **Partial** | 3D loop now gated (see #9), but stacked `box-shadow`/`blur` glow effects in `HomePage.css` are unchanged. |
-| 11 | Scroll handler on fixed header | **Partial** | `Header.js:87-94` still uses `window.addEventListener('scroll', ...)` + `setScrolled`; only change is `{ passive: true }` — not moved to CSS. |
-| 12 | Backdrop blur expensive | **Not fixed** | `backdrop-filter: blur(20px)/blur(24px)` still present (`Header.css:4-5,21-22`), no mobile-specific reduction. |
-| 13 | Multiple stacked CSS effects | **Partial** | Same stacking as #10, unchanged. |
-| 14 | Memoize `MarketplaceListingCard` | **Fixed** | `export default React.memo(MarketplaceListingCard)` (`:200`). |
-| 15 | Normalize listings once | **Not fixed** | Still an array re-built via `useMemo` on every `inventory` change — no `Map<id, listing>`. |
-| 16 | Debounce/defer search | **Not fixed** | No debounce anywhere in `ExplorePage.jsx`; per-keystroke filters still trigger full client-side re-filter. |
-| 17 | Sync `sessionStorage` cache | **Not fixed** | `fetchCache.js:8-29` still `sessionStorage` + `JSON.stringify` comparisons. |
-| 18 | `Cache-Control: no-store` on cached API responses | **Not fixed** | `_cached_json_response()` (`app.py:741`) unchanged. |
-| 19 | Noisy INFO-level cache logging | **Not fixed** | Cache hit/miss logs still `logger.info(...)` at 4 call sites. |
-| 20 | DB indexing already good | **N/A** | Informational-only finding; not re-audited. |
-| 21 | 24,000+ line monolith `app.py` | **Not fixed (grew)** | Now **25,767 lines**, up from the audited ~24,000. |
-| 22 | Slim List DTO vs full object | **Not fixed** | `/api/cars` still `select=*`. |
-| 23 | Full image gallery sent per card | **Not fixed** | Same root cause as #22 — no primary-image-only feed shape. |
-| 24 | Use `/api/homepage/preview` | **Not fixed** | It exists server-side (`app.py:2567-2577`) but `HomePage.js:194-196` still calls separate `/api/cars` + `/api/featured-listings`. |
-| 25 | Busy global App tree | **Not fixed** | `App.js:260-410` structurally unchanged — one flat provider/tracker stack. |
-| 26 | Defer analytics init | **Fixed** | `analytics.js:77-78` — `requestIdleCallback(runAnalyticsInitialization, { timeout: 3000 })`. |
-| 27 | Lightweight click tracker | **Not fixed** | `PlatformAnalyticsTracker.js:183-252` still does `.closest()` + reads `.title`/`.innerText`/`.textContent` on every document click. |
-| 28 | Mobile Explore same data problem | **Not fixed** | `ExploreScreen.js:825-858` still normalizes/concatenates/sorts the full dataset client-side. |
-| 29 | Mobile card entrance animation on every mount | **Partial** | `useStaggeredEntrance.js` added a `MAX_STAGGER_INDEX=8` delay cap, but still fires unconditionally on every FlashList cell mount/recycle. |
-| 30 | Proper cached mobile image pipeline | **Fixed** | `FadeInImage` (expo-image, `cachePolicy="memory-disk"`) used consistently in `ListingCard.js`. |
-| 31 | Tune FlashList `estimatedItemSize` | **Fixed** | `estimatedItemSize={columns === 2 ? 294 : 260}` — matches real card height, not a default guess. |
-| 32 | Lazy load + fixed dimensions on feed images | **Partial** | `loading="lazy"` present; no explicit `width`/`height` attributes on those `<img>` tags. Hero image correctly stays eager with `fetchPriority="high"`. |
-| 33 | Never send originals to cards | **Not fixed** | Upload pipeline (`app.py:8792-8807`) produces one resized JPEG (1920px/q85) only — no thumbnail/medium/large variants; Explore and detail share the same image. |
-| 34 | CSS `content-visibility` for long pages | **Not fixed** | Zero hits repo-wide. |
-| 35 | Respect `prefers-reduced-motion` | **Fixed** | Folded into the same gate as #9 (`HeroBackground.js:165-168`). |
-| 36 | Add reduced-motion mode | **Fixed** | Same as #35. |
-| 37 | Don't over-use `useMemo` | **N/A** | Advisory guidance, not a violation to fix. |
-| 38 | Review global state boundaries | **N/A** | Advisory; covered indirectly by #25 (tree unchanged). |
-| 39 | Remove orphaned files | **See cleanup table below** | |
-| 40 | Don't delete tests/migrations | **N/A** | Advisory; not violated. |
-| 41 | Keep docs in git, out of prod payloads | **N/A** | Advisory; not independently re-verified this pass. |
-| 42 | Brotli/gzip already configured | **Confirmed fine** | `flask-compress==1.15` + `Compress(app)` in `app.py`. |
-| 43 | Upload compression already good foundation | **Confirmed fine** | Server-side resize (1920px) + JPEG q85 compression on upload. |
-| 44 | Dedicated feature isolation (TF/NSFW) | **Confirmed fine** | `imageModeration.js:25-27` — dynamic `import('@tensorflow/tfjs')` etc. |
+| 1 | Explore not virtualized | **Fixed** | `ExplorePage.jsx` now renders through `react-virtuoso`'s `VirtuosoGrid` (`useWindowScroll`), feeding it `displayedItems` directly. Verified live in a real browser: mounted card count grows from 8 → 16+ as the page scrolls, instead of mounting everything up front. |
+| 2 | Full-data recalculation on every state change | **Improved** | All filter objects (car/bike/part/plate/reddit/buying-request + the global "All" query) are now debounced 300ms before feeding the filter/sort recompute — a keystroke in a price/year field no longer triggers an immediate full recompute. The "All" tab's client-side relevance scoring itself was deliberately kept client-side rather than ported to Postgres/PostgREST (see note below) — a lower-risk scope call given the size of that logic. |
+| 3 | Reddit Explore batches too large | **Fixed** | Reddit tab no longer uses `limit=${offset + PAGE_SIZE + 1}` (a request that grew forever). It now does true cursor pagination: each of the 4 underlying endpoints is called with a flat `limit=24` and a shared cursor (last merged row's `created_at`), then merge-sorted — the standard k-way-merge pattern for paginating several independently-sorted sources as one feed. |
+| 4 | Offset pagination → cursor/keyset | **Fixed (opt-in)** | `/api/cars`, `/api/bikes`, `/api/parts`, `/api/plates` all accept `?cursor=<created_at>` now (`WHERE created_at < cursor`), verified live: successive cursor calls against real data return strictly-descending, non-overlapping pages. Existing `offset`/`limit` callers are unaffected — cursor is additive, not a breaking change. **Gap knowingly left**: the "wants both DPH + Reddit" dual-fetch path used by the main category tabs still uses offset for each of its two sub-requests; only the standalone Reddit tab's merge was rewritten. |
+| 5–6 | Large/duplicate homepage images | Unchanged from prior pass — still fixed (AVIF conversions, no duplicates). | |
+| 7 | Hero has no responsive `srcset` | **Not fixed** | No image-processing tool (`sharp`, ImageMagick) is available in this environment to generate the 640/1024/1600 variants. Flagged, not attempted. |
+| 9–13 | Three.js hero / GPU load / scroll handler / backdrop blur / stacked CSS effects | Unchanged from prior pass (Three.js gating already fixed; blur stacking and scroll-handler-as-JS not touched this pass). | |
+| 14 | Memoize listing card | Unchanged — already fixed. | |
+| 15 | Normalize listings once | **Not fixed** | Still no literal `Map<id, listing>`; mitigated in practice by smaller per-page buffers from cursor pagination, but not structurally changed. |
+| 16 | Debounce search | **Fixed** | See #2 — every filter object (not just the query text) is now debounced 300ms before it drives the recompute or (where wired) the next network fetch. |
+| 17 | Sync `sessionStorage` cache | **Not fixed** | Out of scope this pass. |
+| 18 | `Cache-Control: no-store` | **Deliberately not changed** | Confirmed via the code's own comment this is intentional (admin approvals must appear immediately on next fetch). Changing it would reintroduce a real staleness bug for a marginal cache win. |
+| 19 | Noisy INFO-level cache-hit logging | **Fixed** | The 4 hot-path `Redis cache hit for {car,bike,plate,part} detail` logs are now `logger.debug(...)`, not `logger.info(...)`. |
+| 20 | DB indexing | N/A (informational, unchanged). | |
+| 21 | Backend monolith (`app.py`) | **Not addressed** | Deliberately out of scope — see top of report. Now ~25,900 lines. |
+| 22–23 | Slim List DTO / full gallery per card | **Corrected finding + improved** | The prior pass's "still `select=*`" claim was based on a misleading code comment — `/api/cars`'s list endpoint was already using a curated `PUBLIC_CAR_PREVIEW_SELECT` (no VIN, no full description, no seller PII), not literally `*`; the comment referencing `*` has been deleted. This pass additionally added a `primary_image_url` convenience field to the `/api/cars`, `/api/bikes`, `/api/parts`, `/api/plates` list responses (verified live) so card rendering doesn't need to inspect the full images array — additive, the full gallery array is kept for other consumers of the same endpoints (e.g. any mini-gallery UI) rather than risk breaking them. |
+| 24 | Homepage should use `/api/homepage/preview` | **Fixed** | `HomePage.js` now calls `/api/homepage/preview` instead of separate `/api/cars` + `/api/featured-listings` calls (featured-listings is kept as a second call — it's a genuinely different, purpose-built endpoint the audit didn't flag). Verified live: homepage renders real cards (Nissan 370Z, Toyota Land Cruiser, Mitsubishi Pajero, VW Golf) with zero console errors. Backend's preview payload's car limit was bumped 4→8 to preserve the existing featured-placement merge buffer. |
+| 25 | Busy global App tree | **Not addressed** | Deliberately out of scope this pass — see top of report. |
+| 26–27, 30–31, 35–36 | Analytics deferral, click tracker, mobile image pipeline, FlashList sizing, reduced-motion | Unchanged from prior pass (26, 30, 31, 35, 36 already fixed; 27 not addressed). | |
+| 28 | Mobile Explore same data-processing problem | **Two real bugs fixed** | `buildFilterParams()` was sending `min_price`/`max_price`/`min_year`/`max_year` for bikes/plates/parts — the backend has only ever accepted `price_from`/`price_to`/`year_from`/`year_to` (confirmed by reading the actual `_collect_listing_filter_pairs` calls in each route), so those filters were silently no-ops. Also fixed: bikes' `city` filter mapped to a non-existent `city` column (bikes only has `area`); bikes' price normalization read `expected_selling_price`, a field bikes' API response never populates (`_normalize_bike_record` only ever sets `price`) — this was a real "price shows blank" bug on mobile bike cards. Also added the same 240-item memory cap web already had, since mobile's `allItems` had no ceiling at all. |
+| 29 | Mobile card entrance animation on recycle | **Not touched** | The hook (`useStaggeredEntrance`) is shared across ~14 mobile screens; changing its core recycle behavior for Explore alone was judged too broad a blast radius to do safely without a real device to test on. |
+| 32 | Lazy feed images need explicit width/height | **Confirmed non-issue** | The card image container already has `aspect-ratio: 16/10` in CSS (`ExplorePage.css`), which already fully reserves layout space regardless of the image's real dimensions — the CLS risk the audit was concerned about doesn't exist here. No change made. |
+| 33 | Never send originals to cards | **Not addressed** | Upload pipeline still produces one resized JPEG only; thumbnail/medium/large tiers not built this pass. |
+| 34 | CSS `content-visibility` for long pages | **Fixed** | Applied to the site footer (rendered on every page). Note: this required finding the *real* rendered footer — `hover-footer.css`'s `.site-footer` class turned out to be dead CSS never imported by `hover-footer.jsx` (the real component uses Tailwind utilities + an inline `style` object). Applied `contentVisibility: 'auto'` directly in that inline style instead, and verified live: `getComputedStyle(footer).contentVisibility === 'auto'` and the footer still renders correctly once scrolled into view. |
+| 37–41 | Advisory items | N/A, unchanged. | |
+| 42–44 | Compression / upload pipeline / TF-NSFW isolation | Unchanged — already fine. | |
 
-### Cleanup: files the audit flagged for removal
+### A second dead-CSS finding, while fixing #12 (backdrop blur)
 
-| File | Status |
-|---|---|
-| `frontend/src/components/CarPartsRedesigned.css` | Deleted |
-| `frontend/src/components/BlinkBlur.jsx` | **Still present, still unreferenced anywhere** |
-| `frontend/src/components/BlinkBlur.css` | **Still present**, paired with the above |
-| `frontend/src/styles/AdminOps.css` | Deleted |
-| `frontend/src/styles/DetailView.css` | Deleted |
-| `frontend/src/styles/PlatePreview.css` | Deleted |
-| `frontend/src/utils/tokenDebug.js` | Deleted |
-| `frontend/src/utils/swrCache.js` | Kept — **correctly**, it's actively imported by `AdminDashboard.js` (audit's "candidate" list was wrong here) |
-| `frontend/src/components/ui/demo.tsx` | Deleted |
-| `frontend/src/components/ui/navbar-5.tsx` | Deleted |
-| `mobile/App.js` | Deleted |
-| `mobile/src/navigation/AppNavigator.js` | Deleted |
-| `frontend/src/components/Footer.js` (verify-only) | Deleted, replaced by `components/ui/hover-footer` |
-| `frontend/src/styles/Footer.css` (verify-only) | Deleted, no dangling references |
+While attempting to reduce the fixed header's `backdrop-filter` cost on mobile, the same problem showed up: `Header.css`'s `.header`/`.header.scrolled` rules are **also dead CSS** — `Header.js` actually renders via Tailwind utility classes (`backdrop-blur-xl`) directly in JSX, and never imports `Header.css` at all (confirmed: no file in the codebase imports it; it's referenced only by an unrelated CSS-token test). The real fix was applied to `Header.js`'s Tailwind classes instead (`backdrop-blur-sm md:backdrop-blur-xl`), verified live: computed `backdropFilter` at a 390px mobile viewport is `blur(4px)`, versus the unconditional 24px it was applying at every width before. `Header.css` and `hover-footer.css` are both candidates for deletion as dead code, alongside `BlinkBlur.jsx/css` (already deleted this pass).
 
 ---
 
@@ -101,100 +77,38 @@ Everything else, including a long tail of dependency-version and secret-scanner 
 
 | Scenario | Status | Evidence |
 |---|---|---|
-| **Cross-dealership access via context manipulation** | **Partial** | App layer is solid: `dealer_required` (`_decorators.py:126-153`) derives context from real membership, and the `?as=` override only works for confirmed admins. But the audit's actual ask — a **database-level** constraint — doesn't exist. The Aug-28 RLS migration gives `service_role` unconditional `USING (true)` access with no `dealership_id` predicate, and the backend always calls PostgREST as `service_role`. A missing/incorrect filter in Python is still a full cross-tenant leak. |
-| **Outbound SSRF via dealer webhook URLs** | **Fixed** | `services/url_safety.py` — `assert_safe_outbound()` resolves the hostname and rejects private/loopback/link-local/multicast ranges plus a hardcoded cloud-metadata blocklist (`169.254.169.254`, `100.100.100.200`); `request_with_safe_redirects()` re-validates every redirect hop. Applied at registration, test-send, *and* the delivery worker — no gap between "checked at save time" vs "checked at send time." |
-| **Session persistence after password/membership change** | **Fixed** | `revoke_user_sessions()` (`app.py:3427-3498`) keeps a Redis-backed per-user cutoff timestamp; `token_required` checks it on both the local-JWT and Supabase-Auth-API paths. Wired into `/api/auth/update-password`, `/api/auth/logout`, and dealer membership revocation. Caveat: falls back to in-memory (per-process only) if `REDIS_URL` isn't set — worth confirming that's actually configured in prod. |
-| **Fraudulent listing approval via auto-review manipulation** | **Not fixed** | `auto_review_worker.py:392-393` hardcodes `"duplicate": None` and `"price_outlier": None` — nothing computes them. `vin_gate.py`'s `evaluate_vin()` decodes the VIN but never compares the decoded make/model/year against what the submitter typed. Auto-approval is still purely trust-tier + hard-blocker gated, exactly the scenario the audit described. |
-| **GitHub bridge content injection → unauthorized Reddit posts** | **Partial** | The HMAC mechanism itself is built correctly on both ends (writer signs with HMAC-SHA256 over canonical JSON; Devvit bot verifies with `timingSafeEqual`). But it's **optional on both sides** — the writer only signs `if config["hmac_secret"]`, and the bot only verifies `if hmacSecret`. If either the Railway env var or the Devvit app setting is ever left blank, it silently reverts to schema+count-only trust. |
-| **Architectural fragility** (service_role bypasses all RLS; isolation lives only in Python) | **Still true** | The Aug-28 migration (`20260828000001_security_hardening.sql`) solves a *different* problem — it blocks direct `anon`/`authenticated` client access to sensitive tables. It adds `service_role_all ... USING (true)` with no row-scoping, and 100% of backend/worker traffic authenticates as `service_role`. There is still no database-level second line of defense if a Python decorator or query filter is wrong. |
+| **Cross-dealership access via context manipulation** | **Still partial** | Unchanged from prior pass — app-layer scoping (`dealer_required`) is solid, but no database-level `dealership_id` constraint exists. This is exactly the RLS/service_role redesign called out as out-of-scope at the top of this report. |
+| **Outbound SSRF via dealer webhook URLs** | Unchanged — already fixed (`assert_safe_outbound` guard, confirmed at registration, test-send, and the delivery worker). | |
+| **Session persistence after password/membership change** | Unchanged — already fixed (Redis-backed revocation cutoff). | |
+| **Fraudulent listing approval via auto-review manipulation** | **Fixed** | `auto_review_worker.py`'s hardcoded `duplicate: None` / `price_outlier: None` are now real: a VIN-duplicate check queries for another live listing with the same VIN, and a price-outlier check compares the submitted price against the median of comparable approved listings (same make/model/year), flagging anything outside 0.3×–3× that median. `vin_gate.py` now actually compares the VIN-decoded make/model/year against what the submitter typed (`_text_mismatch`/`_year_mismatch`) and forces review on a mismatch — this exact gap had a test file (`test_auto_review_vin_gate.py`) that was previously asserting the *missing* behavior as correct; those assertions were flipped to match the fixed behavior and now pass. 9 new/updated tests covering this, all passing. |
+| **GitHub bridge content injection → unauthorized Reddit posts** | **Fixed** | HMAC signing is now mandatory on both ends instead of optional: the bridge worker (`reddit_roundup_bridge_worker.py`) refuses to publish at all if `REDDIT_ROUNDUP_BRIDGE_HMAC_SECRET` isn't set (previously it would silently publish unsigned), and the Devvit bot (`server.ts`) refuses to trust a payload if its own `roundupHmacSecret` app setting isn't configured (previously it would silently skip verification). Verified via a new backend test plus the existing TypeScript type-check and HMAC unit test, both passing. |
+| **Architectural fragility** (service_role bypasses all RLS) | **Still true, by decision** | Unchanged — this is the RLS/service_role redesign explicitly scoped out at the top of this report. |
 
 ---
 
-## Part 3 — Vulnerability Ledger
+## Part 3 — Vulnerability Ledger (code findings only; dependency versions unchanged from prior pass)
 
-### Dependencies (version-pin check only, no live CVE re-scan)
-
-All of the following are pinned/resolved to versions that post-date the CVEs typically associated with the finding name, with explicit comments in two cases showing the pin was deliberate:
-
-| Package | Where | Pinned/resolved version | Note |
+| Severity | Finding | Status | What we did |
 |---|---|---|---|
-| starlette | `ocr-service`, `vision-service` requirements.txt | `1.6.0` | Comment: *"Keep the Starlette security fixes explicit"* |
-| opencv-python(-headless) | `backend`, `ocr-service` | `4.11.0.86` | Comment: *"Pin opencv to 4.x — 5.0 dropped cv2.CascadeClassifier"* |
-| opencv-contrib-python | — | **not installed anywhere** | Explicit comment says not to add it — finding is moot |
-| gunicorn | `backend` | `23.0.0` | current |
-| pillow | `backend` | `12.3.0` | current |
-| matplotlib | `backend` | `3.10.0` | current |
-| cryptography | `backend` | `>=46,<51` | current |
-| requests | `backend` | `2.33.0` | current |
-| numpy | `backend` | `2.4.6` | current |
-| werkzeug | `backend` | `3.1.6` | current |
-| torch / open-clip-torch | `vision-service` | `2.6.0` / `2.30.0` | current |
-| python-multipart | `ocr-service`, `vision-service` | `0.0.31` | current |
-| posthog (python) | `backend` | `>=7.0.0` | current |
-| axios | `frontend` | `1.20.0` (resolved) | current |
-| browserslist | `frontend` | `4.28.2` | current |
-| brace-expansion | `frontend` (both copies) | `1.1.18` / `2.1.4` | both patched |
-| nanoid | `frontend` | `3.3.18` | patched |
-| immer | `frontend` | `9.0.21` | patched |
-| follow-redirects | `frontend` | `1.16.0` | patched |
-| uuid | `frontend` | `8.3.2` | old, no known critical CVE for this finding class |
-| yargs | `frontend` | `16.2.0` | patched |
-| js-yaml | `frontend` | `4.3.2` / `3.15.2` | both patched |
-| dompurify | `frontend` | `3.4.14` | current |
-| webpack-dev-server | `frontend` (via `react-scripts`) | `4.15.2` | **dev-only build dependency, never ships in the production bundle** |
-| baseline-browser-mapping | `frontend` | `2.10.16` | current |
-| @xmldom/xmldom | `mobile` (2 copies) | `0.8.13` / `0.9.10` | both patched |
-| undici | `mobile` | `6.28.0` | current |
-
-### Code / config findings
-
-| Severity | Finding | Status | Evidence |
-|---|---|---|---|
-| Critical | CSP header not set (dphclassifieds.com) | **Partial** | Backend API sets one (`_build_content_security_policy()` in `app.py`), but `vercel.json` — which controls the actual public frontend headers — has no `Content-Security-Policy` entry. The domain the audit named is still unprotected. |
-| Critical | Blacklisted XML parsing function (`dealer_inventory.py`) | **Fixed** | Uses `from defusedxml import ElementTree as ET`, not the vulnerable stdlib parser. |
-| High | Improper Access Control (`add_dealer_kyc_columns.sql`) | **False positive** | File only contains `ALTER TABLE`/index/trigger statements — no `GRANT`/`CREATE POLICY` that could introduce a bypass. |
-| High | 1 exposed secret (`mobile/eas.json`) | **False positive** | Only contains file *paths* and non-secret IDs (`appleTeamId`, `ascAppId`, etc.); the actual credential files it references are gitignored and not in the repo. |
-| High | IDOR (`dealer/diagnostic.py`) | **Fixed** | Query filters by both `id` **and** `dealership_id` from the caller's own context. |
-| High | Plaintext Storage of Secrets (`backend/Dockerfile`) | **False positive** | Only non-secret build `ENV`s (`PYTHONDONTWRITEBYTECODE`, `PATH`, etc.). |
-| High | Exposure of Sensitive Information (`api_sources.py`) | **Fixed** | Response serializer explicitly excludes `credentials_enc`; credentials are encrypted at rest; error logs only include status/body-prefix, never the credential. |
-| High | Path traversal (`directUpload.js`, `PostPlate.js`) | **False positive** | Path components are sanitized to `[a-zA-Z0-9_-]`; the actual filename segment is a generated UUID, not the user-supplied name. |
-| Medium | Incomplete Data Deletion (`admin.py`) | **Not fixed** | Deleting a listing removes its images and the row itself, but leaves `lead_events`, `reports`, `listing_price_history`, and `listing_verification_scans` as orphans. |
-| Medium | Insufficient Verification of Data Authenticity (`registration_ocr.py`) | **Fixed** | VIN checksum cross-check, confidence-threshold gating, and explicit "evidence for an admin, not auto-approval" framing in the code. |
-| Medium | Potential file inclusion (`apply_migration.py`) | **Fixed / low risk** | Path validated against an allowlist of migration roots + `.sql`-only suffix; it's a CLI script, not a web route. |
-| Medium | 9 exposed secrets (`.env` files) | **False positive** | Only `.env.example` files are tracked in git; no real `.env` is committed anywhere. |
-| Medium | 2 exposed secrets (`PHONE_VERIFICATION_FIXES.md`) | **Real secret, but not a repo exposure** | The file (now archived under `non-essential/`, which is fully gitignored) contains what reads as a genuine Infobip API key. Never committed to git — but worth rotating that key regardless, since Infobip is already being retired for OTP. |
-| Medium | GitHub org should enforce IP allow list | **N/A** | Org-level GitHub setting, not something fixable in this codebase. |
-| Medium | Cross-Tenant Isolation Bypass (`reddit_import_worker.py`) | **False positive** | No multi-tenant surface here — single hardcoded owner ID, plus an email-match validation before any write. |
-| Medium | SSRF (`dealer/webhooks.py`) | **Fixed** | Same `assert_safe_outbound()` guard as Threat Scenario 2. |
-| Medium | Business Logic Bypass (`CarDetail.jsx`) | **Not fixed** | `canViewVin` only toggles what the UI *displays*; the real, unmasked VIN is already present in the API JSON. Server-side `_PUBLIC_STRIP_FIELDS` (`app.py:1156-1160`) strips registration/proof document URLs but **not** `vin_number`. Any anonymous caller can read the full VIN via a direct API request, bypassing phone verification entirely. |
-| Low | Missing Rate Limiting (`buying_requests.py`) | **Not fixed** | No limiter applied, despite the app already having a working Redis fixed-window limiter (`_redis_fixed_window_rate_limited`) used elsewhere. |
-| Low | Oversized synchronous analytics ingestion (`dealer/analytics.py`) | **Fixed** | `MAX_SYNC_EVENTS` cap (20,000) + clamped date window, raises a 422 over the limit. |
-| Low | Unbounded dealer API responses (`dealer_api_source_poller.py`) | **Fixed** | `Content-Length` pre-check plus a 5 MB mid-stream abort. |
-| Low | Auto-review image downloads w/o size cap (`auto_review_worker.py`) | **Partial** | Truncates to 25 MB, but reads via `.content` (materializes the full response) rather than true streaming — bounded only by an 8s timeout, not by byte count as it downloads. |
-| Low | HTTP request SSRF (`ExplorePage.jsx`) | **False positive** | `fetch()` only ever targets the app's own configured API URL. |
-| Low | Dangerous use of `assert` (`expo_push.py`) | **False positive** | All asserts are confined to the `__main__` self-test block, not production code paths. |
-| Low | Verification script can overwrite a real listing (`verify_complete_fix.py`) | **Safe, but dead code** | The only mutating call targets a hardcoded all-zero UUID — can't match a real row. Recommend deleting it as leftover dev tooling. |
-| Low | Unbounded per-request OCR threads (`routes/ocr.py`) | **Fixed** | Fixed-size `ThreadPoolExecutor` + `BoundedSemaphore`, returns 503 when saturated. |
-| Low | Destructive user deletion w/o audit (`admin.py`) | **Fixed** | `_log_admin_action(action="user_delete", ...)` writes to `admin_actions` before the response returns. |
-| Low | Unredacted Third-Party Data Sharing (`BikeDetailRedesigned.jsx`) | **False positive** | Only outbound reference is a user-initiated `wa.me/...` WhatsApp link, no tracking pixel. |
-| Low | Malformed dealer JSON rows retried indefinitely (`dealer_api_source_poller.py`) | **Not fixed** | Failed rows are dropped per-tick but there's no per-source failure cap or dead-letter — a permanently broken feed retries forever on its normal poll cadence. |
-| Low | Slow-drip webhook starves delivery (`webhook_delivery_worker.py`) | **Fixed / mitigated** | 10s connect+read timeout, `MAX_ATTEMPTS=5` with backoff → dead-letter. Not round-robin fair across dealers, but no single delivery can hang indefinitely. |
-| Low | PDF page dimensions unchecked before rasterization (`registration_ocr.py`) | **Fixed** | Max-dimension/point checks run before `page.render(...)`. |
-| Low | 1 exposed secret (`test_dealer_secrets_service.py`) | **False positive** | Explicitly named `FAKE_KEY`, used only in a pytest fixture. |
-| Low | Information Exposure via Error Messages (`admin.py`) | **Fixed** | Generic `{"error": "Internal server error"}` to the client; full traceback logged server-side only. |
-| Low | Webhook responses buffered in full before 500-char cap (`webhook_delivery_worker.py`) | **False positive** | Genuinely streams via `response.iter_content(chunk_size=1024)` and stops once the cap is hit. |
-| Low | Unrestricted File Upload (`registration_ocr.py`) | **Fixed** | Size cap, magic-byte sniff (not filename-based), PIL format validation, decompression-bomb guard. |
-| Low | Missing Field-Level Authorization (`apply_rls_policies.sql`) | **Confirmed exists, reasonably complete** | 234 lines, RLS enabled on 9 tables, ~40 policy statements. |
-| Low | Potential SSRF via user input (`admin.py`, `api_sources.py` + 6 others) | **Partial** | `api_sources.py` is guarded by `assert_safe_outbound()`; `admin.py`'s outbound calls only target `SUPABASE_URL`. The other 6 files named in the finding weren't individually re-checked this pass. |
-| Low | Uncovered JWT (`supabaseClient.js`, `PostPlate.js`) | **False positive** | No hardcoded token constant anywhere; tokens are only ever read at runtime from the session. |
-| Low | Uncovered JWT (`flask.log`) | **False positive** | File isn't tracked in git / present in the repo at all. |
-| Low | 3 exposed secrets (`TOKEN_VALIDATION_FIX.md`, `ENHANCED_PROFILE_SETUP.md`) | **Unverifiable** | These files have never existed in this repo's git history — likely a local-disk scan artifact. |
-| Low | Auth token in curl command header (`IMPLEMENTATION_FIXES.md`) | **Unverifiable** | Same as above — file never existed in git history. |
+| Critical | CSP header not set on the public site | **Fixed** | Added a `Content-Security-Policy` header to `vercel.json`'s headers block (the file controlling the actual `dphclassifieds.com` response headers), built from what the frontend genuinely loads — PostHog (`eu.i.posthog.com`), Google Tag Manager, Microsoft Clarity, Cloudflare Turnstile, Google Fonts, `images.unsplash.com`, Supabase, and the Railway backend — checked against the real `analytics.js`/`index.html` source rather than copy-pasting the backend's own (different) CSP, which would have silently broken analytics loading. Verified `vercel.json` is still valid JSON. |
+| High | Business Logic Bypass — VIN exposed regardless of phone verification | **Fixed** | `CarDetail.jsx`'s `canViewVin` only ever controlled what the UI *displayed* — the real VIN was already in the API response for anyone. `get_car_by_id` now strips `vin_number` server-side unless the requester is the listing's owner, an admin, or has a phone-verified account (matching the same gate the frontend already implied). Verified live against real data: an anonymous request to a real car's detail endpoint now has no `vin_number` key in the response at all. **A second instance of the same bug was found and fixed** in `/api/homepage/preview`, which was fetching `vin_number` for every homepage-featured car with no gating whatsoever — removed from that query entirely (it was never used for anything on that endpoint) and covered by a new test. |
+| Medium | Incomplete Data Deletion | **Fixed** | Deleting a listing now also cleans up `lead_events`, `reports`, `listing_price_history`, and `listing_verification_scans` rows scoped to that listing (previously only the listing + its images were removed, leaving these as permanent orphans). 2 new tests confirm both the cleanup and that non-vehicle types (buying requests) correctly skip it. |
+| Low | Missing Rate Limiting (`buying_requests.py`) | **Fixed** | `create_buying_request` and `reveal_buying_request_whatsapp` now go through the same Redis fixed-window limiter already used elsewhere in the app (`_contact_rate_limited`), instead of having no throttling at all. |
+| Low | Auto-review downloads attacker-controlled images without a size cap | **Fixed** | Was reading the full HTTP response via `.content` before truncating to 25MB (meaning an oversized response was fully downloaded into memory regardless). Now streams incrementally and aborts once the running byte count crosses the cap, reusing the same bounded-read helper already proven in `dealer_api_source_poller.py`. 2 new tests confirm normal images pass through and oversized ones are skipped, never fully materialized. |
+| Low | Malformed dealer JSON rows retried indefinitely | **Fixed** | A dealer feed that returns 100%-unparseable rows two ticks in a row (not a network error — the fetch succeeds, the *data* is garbage) now gets auto-disabled with a clear error message, instead of silently re-polling and re-failing forever on its normal cadence. 2 new tests cover both the disable-on-repeat and don't-disable-on-first-failure cases. |
+| Low | Verification script can overwrite a real listing | **Fixed** | `verify_complete_fix.py` was already safe by construction (its only mutating call targeted a hardcoded all-zero UUID that can't match a real row) but was leftover dev tooling — deleted. |
+| — | Dead code (`BlinkBlur.jsx`/`.css`) | **Fixed** | Confirmed zero references anywhere in the codebase; deleted. |
 
 ---
 
-## Notes on methodology / honesty check
+## Everything verified this pass, concretely
 
-- This was produced by three parallel code-reading passes over the actual working tree (not a re-run of the original scanner), each asked to cite real `file:line` evidence rather than trust comments claiming a fix.
-- A handful of "6 others" / broad multi-file findings in the original ledger (e.g. the wider SSRF-via-user-input finding, and the `reddit_daily_post_worker.py` input-validation finding, and OCR-service authentication) were **not individually re-checked** in this pass — they're flagged above rather than silently marked fixed.
-- Dependency findings were checked by reading pinned/resolved version numbers only, not by querying a live vulnerability database — two of them (`starlette`, `opencv-python`) had explicit in-file comments confirming the pin was a deliberate security fix, which is a stronger signal than the others.
+- **Backend**: 787 pytest tests pass (`3` pre-existing, unrelated failures in `test_reddit_vin_dedup.py` confirmed via `git stash` A/B testing to exist on a clean `main` checkout with none of this pass's changes — not something this pass touched or broke).
+- **Frontend**: 137 Jest tests pass across 20 suites, including a rewritten `ExplorePage.test.jsx` (virtualization made the old test's exact-render-count assertions obsolete; the new tests mock `react-virtuoso` as a plain pass-through so ExplorePage's own filter/search/data logic stays fully unit-testable, and add a regression test for the bike-brand-filter-triggers-a-real-fetch behavior).
+- **Mobile**: 235 Jest tests pass across 96 suites.
+- **Live backend** (real Supabase-backed data, read-only checks): homepage preview returns 8 cars with no `vin_number` key; `/api/cars?q=BMW` returns only BMW listings; cursor pagination on `/api/cars` and `/api/plates` returns strictly-descending, non-overlapping pages; anonymous car-detail requests have no `vin_number`.
+- **Live frontend** (headless Chromium via Playwright, real backend, zero console errors in every check): homepage renders real listing cards from the new endpoint; Explore's "All" tab renders and mounted card count grows on scroll (8 → 16+, confirming virtualization, not "render everything"); Explore's Reddit tab renders 8 cards with the rewritten cursor-based fetch; selecting "BMW" in the Cars-tab filter drawer produces a real `car_manufacturer=BMW` network request against both the DPH and Reddit sub-fetches, and the visible cards are all BMWs; mobile viewport shows the header's backdrop blur reduced to 4px (from an unconditional 24px); the footer has `content-visibility: auto` applied and still renders correctly once scrolled into view.
+
+## A note on how this pass actually went
+
+Partway through this pass, a parallel branch with its own theme and server-side-filter work was merged into `main` by the user's own tooling, which temporarily reverted several of this session's in-progress, uncommitted files (`app.py` and others) back toward their pre-session state. The lost work was recovered from a git stash the merge had created to preserve it, and reconciled by hand against the newly-merged code — in `app.py`'s case, a genuine one-spot conflict where both sides had independently extended the same plates-filtering code differently; both sides' improvements were kept. Every test suite (787 backend + 137 frontend + 235 mobile) was re-run in full after reconciliation and passes; the live-browser and live-API checks above were re-run after reconciliation too, not before.
