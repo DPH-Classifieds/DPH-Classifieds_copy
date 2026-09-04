@@ -20,6 +20,9 @@ browser artifacts.
 - Full backend: from `flask-react-supabase-app/backend`, run
   `./.venv/bin/pytest -q`.
 - Docker API E2E: from `flask-react-supabase-app/backend`, run `./e2e/run.sh`.
+- Worker Docker smoke: from `flask-react-supabase-app/backend`, run
+  `docker build -t dph-backend-worker-smoke .` followed by
+  `docker run --rm -e SERVICE_ROLE=worker -e FLASK_SECRET_KEY=worker-smoke-secret dph-backend-worker-smoke` only in a controlled local environment; capture startup and heartbeat evidence without real provider credentials.
 
 ## Frontend and mobile gates
 
@@ -32,7 +35,7 @@ browser artifacts.
 ## Browser and role gates
 
 - Public Playwright: from `flask-react-supabase-app/frontend`, run the public,
-  credential-free Playwright project across all required responsive viewports.
+  credential-free Playwright project with `npm run e2e` across all required responsive viewports.
   The public lane includes the React SPA route `/dealer/dashboard` and must keep
   all 48 public checks executable without credentials.
 - Dealer-panel feature modes: run route checks with the dealer panel explicitly
@@ -42,8 +45,7 @@ browser artifacts.
   smoke its health surface, and require evidence that its heartbeat was written.
 - Authenticated release lane: run protected user, dealer, admin, posting, and VIN
   browser checks with disposable credentials supplied only through the
-  environment. Missing required credentials is a release-blocking failure, not
-  a skip or a successful public-lane result.
+  environment: `E2E_USER_EMAIL=... E2E_USER_PASSWORD=... E2E_DEALER_EMAIL=... E2E_DEALER_PASSWORD=... E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... E2E_CAR_ID=... E2E_ALLOW_MUTATIONS=true E2E_MUTATION_FIXTURE=/absolute/path/fixture.json PLAYWRIGHT_BASE_URL=https://target PLAYWRIGHT_API_URL=https://api.target npm run e2e`. Missing required credentials is a release-blocking failure, not a skip or a successful public-lane result.
 - Live E2E: after deployment approval, run the public and authenticated smoke
-  suites against the exact live release and record the deployed revision. Local,
+  suites against the exact live release with the preceding command and record the deployed revision. Local,
   CI, health-only, or provider-pending results do not count as live proof.
