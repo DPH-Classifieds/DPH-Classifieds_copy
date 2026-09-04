@@ -633,6 +633,10 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const isFetchingRef = useRef(false);
+  // Stable display order for the "all" tab's default (non-search) sort — see
+  // the filteredItems useMemo below for why this exists.
+  const allStableOrderRef = useRef([]);
+  const prevAllSortByRef = useRef(null);
   // Last-loaded count per category. Used as the tab-count placeholder so the
   // user never sees an em-dash while /api/listings/counts is in flight, and
   // as the ONLY source for reddit/buying-requests (that endpoint has no total
@@ -1085,12 +1089,46 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         }))
         .filter((item) => !query || item.relevanceScore > 0);
 
-      return ranked.sort((left, right) => {
-        if (query && right.relevanceScore !== left.relevanceScore) {
-          return right.relevanceScore - left.relevanceScore;
-        }
-        return compareBySort(left, right, allSortBy);
-      });
+      if (query) {
+        // Active search: a full relevance re-rank on every keystroke/result
+        // is the point here, so this bypasses the stable-order path below.
+        allStableOrderRef.current = [];
+        return ranked.sort((left, right) => {
+          if (right.relevanceScore !== left.relevanceScore) {
+            return right.relevanceScore - left.relevanceScore;
+          }
+          return compareBySort(left, right, allSortBy);
+        });
+      }
+
+      // Default browse (no search query): cars/bikes/parts/plates paginate
+      // independently via loadMore, each with its own offset. Re-sorting the
+      // whole merged pool by date on every page load (the old behavior)
+      // meant a newly-fetched page from ANY one category could land
+      // anywhere in the combined chronological order — including the
+      // middle of items already on screen — reshuffling their index in the
+      // array handed to VirtuosoGrid. Virtuoso then has to remeasure a big
+      // chunk of rows it already had cached heights for, which briefly
+      // collapses and re-expands the page's scroll height and yanks the
+      // user's scroll position along with it (root cause of the scroll
+      // jump/glitch on the Explore "all" feed). Keeping already-placed
+      // items in their established order and only appending newly-arrived
+      // ones at the tail keeps every rendered row's index stable once it's
+      // on screen.
+      if (prevAllSortByRef.current !== allSortBy) {
+        allStableOrderRef.current = [];
+        prevAllSortByRef.current = allSortBy;
+      }
+      const byKey = new Map(ranked.map((item) => [`${item.categoryKey}-${item.id}`, item]));
+      const stillPresent = allStableOrderRef.current.filter((key) => byKey.has(key));
+      const seen = new Set(stillPresent);
+      const freshlyArrived = ranked
+        .filter((item) => !seen.has(`${item.categoryKey}-${item.id}`))
+        .sort((left, right) => compareBySort(left, right, allSortBy));
+
+      const nextOrder = [...stillPresent, ...freshlyArrived.map((item) => `${item.categoryKey}-${item.id}`)];
+      allStableOrderRef.current = nextOrder;
+      return nextOrder.map((key) => byKey.get(key));
     }
 
     if (activeMode === 'reddit') {
