@@ -85,6 +85,19 @@
   margin: 0 auto;
 }
 
+/* Bounded, self-contained scroller for the results section (mode tabs
+   through the listing grid and its footer CTA) — this is VirtuosoGrid's
+   customScrollParent. A fixed-size box here, instead of syncing to the
+   window, keeps Virtuoso's layout math stable regardless of the window's
+   own height changing (e.g. iOS Safari's address bar collapsing/expanding
+   while scrolling). 84px matches the fixed header's reserved height
+   (.header-spacer in App.css). */
+.explore-v2-results-scroll {
+  height: calc(100dvh - 84px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .explore-v2 h1,
 .explore-v2 h2,
 .explore-v2 h3,

@@ -633,6 +633,9 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const isFetchingRef = useRef(false);
+  // Scroll container for VirtuosoGrid (customScrollParent) — see the JSX
+  // below for why this replaces useWindowScroll.
+  const resultsScrollRef = useRef(null);
   // Stable display order for the "all" tab's default (non-search) sort — see
   // the filteredItems useMemo below for why this exists.
   const allStableOrderRef = useRef([]);
@@ -1650,6 +1653,13 @@ const ExplorePage = ({ forcedCategory } = {}) => {
             </button>
           </div>
 
+          <div
+            className="explore-v2-results-scroll"
+            ref={resultsScrollRef}
+            // VirtuosoGrid's customScrollParent (below) attaches to this
+            // fixed-height, self-contained scroller instead of the window —
+            // see the note above VirtuosoGrid for why.
+          >
           <div className="explore-v2-chips" role="tablist" aria-label="Category">
             {exploreModes.map((mode) => {
               // Priority order:
@@ -1740,7 +1750,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
             </div>
           ) : (
             <VirtuosoGrid
-              useWindowScroll
+              // useWindowScroll made Virtuoso compute layout against
+              // window.innerHeight, which on iOS Safari changes continuously
+              // as the address bar collapses/expands while scrolling. That
+              // fed back into Virtuoso's own height measurement and caused a
+              // self-sustaining oscillation — measured directly (no data
+              // changes involved) as document height flipping between two
+              // values indefinitely, dragging scroll position with it.
+              // customScrollParent points Virtuoso at explore-v2-results-scroll
+              // instead: a plain div with a stable, self-contained height, so
+              // its size no longer depends on the fluctuating viewport.
+              customScrollParent={resultsScrollRef.current}
               data={displayedItems}
               listClassName="explore-v2-listing-grid"
               computeItemKey={(_index, item) => `${item.categoryKey}-${item.id}`}
@@ -1775,6 +1795,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}
 
           <BrowseSellCta category={postCategory} />
+          </div>
         </div>
 
         {filterDrawerOpen ? (
