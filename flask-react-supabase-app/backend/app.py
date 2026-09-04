@@ -14948,7 +14948,8 @@ def resend_confirmation():
 
 
 @app.route("/api/auth/update-email", methods=["POST"])
-def update_user_email():
+@token_required
+def update_user_email(current_user):
     """Update email before verification - for users who entered wrong email during signup"""
     data = request.json
     if not data:
@@ -14968,6 +14969,12 @@ def update_user_email():
     if current_email == new_email:
         return jsonify({"error": "New email is the same as the current email"}), 400
 
+    authenticated_email = str(
+        (getattr(request, "user_data", {}) or {}).get("email") or ""
+    ).strip().lower()
+    if authenticated_email and current_email != authenticated_email:
+        return jsonify({"error": "Current email does not match the signed-in user"}), 403
+
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -14975,21 +14982,10 @@ def update_user_email():
     }
 
     try:
-        # Find the user in Supabase Auth by current email
-        list_url = f"{SUPABASE_URL}/auth/v1/admin/users"
-        list_resp = requests.get(list_url, headers=headers, timeout=10)
-
-        target_user = None
-        if list_resp.status_code == 200:
-            for u in list_resp.json().get("users", []):
-                if (u.get("email") or "").lower() == current_email:
-                    target_user = u
-                    break
-
-        if not target_user:
-            return jsonify({"error": "No account found with that email address"}), 404
-
-        user_id = target_user["id"]
+        # The authenticated subject, not a caller-supplied email lookup, is the
+        # only account eligible for mutation.  This also avoids exposing the
+        # service-role user enumeration endpoint to this public API path.
+        user_id = current_user
 
         # Update email in Supabase Auth
         update_url = f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}"
