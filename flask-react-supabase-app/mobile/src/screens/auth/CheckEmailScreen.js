@@ -7,8 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+import { API_BASE_URL } from '../../constants/config';
 
 export default function CheckEmailScreen({ navigation, route }) {
   const { colors } = useTheme();
@@ -23,7 +22,7 @@ export default function CheckEmailScreen({ navigation, route }) {
   const handleResend = async () => {
     setResendLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/resend-confirmation`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/resend-confirmation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -55,7 +54,7 @@ export default function CheckEmailScreen({ navigation, route }) {
 
     setUpdateLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/update-email`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/update-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, new_email: newEmail.trim() }),

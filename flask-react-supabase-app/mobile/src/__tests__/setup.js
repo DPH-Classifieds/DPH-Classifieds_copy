@@ -7,5 +7,6 @@ jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: je
 // .native.ts by default, which expects a real native module. Force the
 // jest-only mock so worklets initializes without one.
 // https://github.com/software-mansion/react-native-reanimated/discussions/8806
-jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+const WORKLETS_JEST_MOCK = 'react-native-worklets/src/mock';
+jest.mock('react-native-worklets', () => require(WORKLETS_JEST_MOCK));
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));

@@ -1,8 +1,10 @@
 import { useNavigation, useLocalSearchParams } from 'expo-router';
-import Screen from '../../../src/screens/admin/AdminDealersScreen';
+import ScreenComponent from '../../../src/screens/admin/AdminDealersScreen';
+import type { ComponentType } from "react";
+const LegacyScreen = ScreenComponent as ComponentType<any>;
 
 export default function AdminDealersRoute() {
   const navigation = useNavigation();
   const params = useLocalSearchParams();
-  return <Screen navigation={navigation} route={{ params }} />;
+  return <LegacyScreen navigation={navigation} route={{ params }} />;
 }

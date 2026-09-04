@@ -18,6 +18,7 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import Toast from 'react-native-toast-message';
 import { PostHogProvider } from 'posthog-react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { posthog } from '../src/utils/posthogClient';
 // Existing app code (JS) reused as-is.
 import { AuthProvider } from '../src/context/AuthContext';
@@ -64,21 +65,23 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ErrorBoundary>
-        <PostHogProvider
-          client={posthog}
-          autocapture={{ captureScreens: false, captureTouches: true }}
-        >
-          <ThemeProvider>
-            <AuthProvider>
-              <SavedListingsProvider>
-                <AppShell />
-                <Toast />
-              </SavedListingsProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </PostHogProvider>
-      </ErrorBoundary>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <PostHogProvider
+            client={posthog ?? undefined}
+            autocapture={{ captureScreens: false, captureTouches: true }}
+          >
+            <ThemeProvider>
+              <AuthProvider>
+                <SavedListingsProvider>
+                  <AppShell />
+                  <Toast />
+                </SavedListingsProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </PostHogProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

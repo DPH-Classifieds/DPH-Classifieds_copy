@@ -11,6 +11,7 @@
 
 const WIDGET_ID = process.env.EXPO_PUBLIC_MSG91_WIDGET_ID;
 const TOKEN_AUTH = process.env.EXPO_PUBLIC_MSG91_TOKEN_AUTH;
+const SDK_MODULE = '@msg91comm/sendotp-react-native';
 // Infobip retired for UAE — every UAE number routes to MSG91 when configured. The
 // prefix env is intentionally ignored so a stale value can't re-split traffic to
 // dead Infobip.
@@ -25,7 +26,10 @@ const getSdk = () => {
   _sdkTried = true;
   try {
     // eslint-disable-next-line global-require
-    _sdk = require('@msg91comm/sendotp-react-native').OTPWidget;
+    // Keep the module name indirect so Expo Go and TypeScript do not resolve
+    // the native package while it is disabled or unavailable in the binary.
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    _sdk = require(SDK_MODULE).OTPWidget;
   } catch (e) {
     _sdk = null; // module not installed / not built into this binary
   }

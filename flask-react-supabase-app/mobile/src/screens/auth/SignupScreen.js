@@ -10,10 +10,8 @@ import Input from '../../components/ui/Input';
 import apiClient from '../../utils/apiClient';
 import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { TurnstileModal } from '../../utils/turnstile';
-import { TURNSTILE_SITE_KEY } from '../../constants/config';
+import { API_BASE_URL, TURNSTILE_SITE_KEY } from '../../constants/config';
 import { toastApiError } from '../../utils/toast';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
 
 const UAE_EMIRATES = [
   'Abu Dhabi',
@@ -163,7 +161,7 @@ export default function SignupScreen({ navigation }) {
     }
     setUsernameChecking(true);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/check-username?username=${encodeURIComponent(value)}`);
+      const res = await fetch(`${API_BASE_URL}/api/auth/check-username?username=${encodeURIComponent(value)}`);
       const data = await res.json();
       setUsernameStatus(data.available ? 'available' : 'taken');
     } catch {

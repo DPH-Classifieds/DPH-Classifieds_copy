@@ -1,7 +1,9 @@
 import { useNavigation } from 'expo-router';
-import Screen from '../../../src/screens/admin/AdminDealershipsHubScreen';
+import ScreenComponent from '../../../src/screens/admin/AdminDealershipsHubScreen';
+import type { ComponentType } from "react";
+const LegacyScreen = ScreenComponent as ComponentType<any>;
 
 export default function AdminDealershipsHubRoute() {
   const navigation = useNavigation();
-  return <Screen navigation={navigation} />;
+  return <LegacyScreen navigation={navigation} />;
 }
