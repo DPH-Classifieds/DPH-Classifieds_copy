@@ -42,7 +42,17 @@ body {
 
 .app-content {
   width: 100%;
-  margin-top: 84px;
+  margin-top: 0;
+}
+
+/* Reserves space for the fixed header. Placed between Header and the
+   in-flow banner stack (AnnouncementBanner etc.) so banners render below
+   the header instead of under it — margin-top on .app-content alone left
+   a gap equal to the banner stack's own height, since that height was
+   never subtracted from the fixed offset. */
+.header-spacer {
+  width: 100%;
+  height: 84px;
 }
 
 /* Bare main wrapper for routes whose layout supplies its own header (admin).
@@ -276,10 +286,14 @@ button {
   }
   
   .app-content {
-    margin-top: 60px;
+    margin-top: 0;
     padding: 0;
   }
-  
+
+  .header-spacer {
+    height: 60px;
+  }
+
   .footer-content {
     flex-direction: column;
     gap: 32px;

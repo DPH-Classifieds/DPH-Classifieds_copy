@@ -180,7 +180,7 @@ const Header = () => {
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isExploreActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                className={`${isExploreActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 <Link to="/explore">Explore</Link>
               </NavigationMenuLink>
@@ -188,7 +188,7 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isBrowseActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                className={`${isBrowseActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 Browse
               </NavigationMenuTrigger>
@@ -223,7 +223,7 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isPostActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                className={`${isPostActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 Sell
               </NavigationMenuTrigger>
@@ -241,8 +241,8 @@ const Header = () => {
                         to={item.href}
                         className={`flex items-center justify-between rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-surface)] px-4 py-3 transition-all duration-200 ${
                           item.disabled
-                            ? 'cursor-not-allowed text-[color:var(--ex-text-muted)]/70 hover:border-[color:var(--ex-line)] hover:bg-[color:var(--ex-surface)]'
-                            : 'text-[color:var(--ex-text-muted)]/85 hover:border-[color:var(--ex-brand-accent)]/40 hover:bg-[color:var(--ex-surface-high)] hover:text-[color:var(--ex-text)]'
+                            ? 'cursor-not-allowed text-[color:var(--ex-text-muted)] hover:border-[color:var(--ex-line)] hover:bg-[color:var(--ex-surface)]'
+                            : 'text-[color:var(--ex-text-muted)] hover:border-[color:var(--ex-brand-accent)]/40 hover:bg-[color:var(--ex-surface-high)] hover:text-[color:var(--ex-text)]'
                         }`}
                       >
                         <span className="text-[14px] font-medium">{item.title}</span>
@@ -257,7 +257,7 @@ const Header = () => {
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isResourcesActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                className={`${isResourcesActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 <Link to="/about">About</Link>
               </NavigationMenuLink>
@@ -268,14 +268,14 @@ const Header = () => {
                 {user?.is_dealer && user?.dealer_verified ? (
                   <NavigationMenuLink
                     asChild
-                    className={`${location.pathname.startsWith('/dealer') ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                    className={`${location.pathname.startsWith('/dealer') ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
                   >
                     <Link to="/dealer/dashboard">Dealer Panel</Link>
                   </NavigationMenuLink>
                 ) : (
                   <NavigationMenuLink
                     asChild
-                    className={`${location.pathname === '/my-listings' ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                    className={`${location.pathname === '/my-listings' ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
                   >
                     <Link to="/my-listings">My Listings</Link>
                   </NavigationMenuLink>
@@ -305,7 +305,7 @@ const Header = () => {
               <Button
                 asChild
                 variant="ghost"
-                className="rounded-full border border-[color:var(--ex-line)] bg-transparent px-5 py-2 text-[14px] font-medium text-[color:var(--ex-text-muted)]/85 transition-all duration-200 hover:border-[color:var(--ex-line)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
+                className="rounded-full border border-[color:var(--ex-line)] bg-transparent px-5 py-2 text-[14px] font-medium text-[color:var(--ex-text-muted)] transition-all duration-200 hover:border-[color:var(--ex-line)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
               >
                 <Link to="/login">Log In</Link>
               </Button>
@@ -333,7 +333,16 @@ const Header = () => {
           </SheetTrigger>
           <SheetContent
             side="top"
-            className="max-h-screen overflow-auto border-b border-[color:var(--ex-line)] bg-[color:var(--ex-page-bg)]/98 text-[color:var(--ex-text)]"
+            className="max-h-screen overflow-auto border-b border-[color:var(--ex-line)] text-[color:var(--ex-text)]"
+            // bg-[color:var(--ex-page-bg)]/98 compiled to nothing (same
+            // opacity-modifier-on-CSS-var limitation as headerSurfaceStyle
+            // above) leaving the mobile menu fully transparent over the
+            // page content. --ex-page-bg is a gradient in dark mode, so
+            // unlike headerSurfaceStyle this can't use color-mix() either
+            // (that only accepts single colors) — plain `background`
+            // shorthand is the one form that accepts both the light theme's
+            // solid color and the dark theme's gradient.
+            style={{ background: 'var(--ex-page-bg)' }}
           >
             <SheetHeader>
               <SheetTitle>
@@ -366,7 +375,7 @@ const Header = () => {
                             </div>
                             <div>
                               <p className="font-medium text-[color:var(--ex-text)]">{item.title}</p>
-                              <p className="text-sm text-[color:var(--ex-text-muted)]/70">{item.description}</p>
+                              <p className="text-sm text-[color:var(--ex-text-muted)]">{item.description}</p>
                             </div>
                           </Link>
                         );
@@ -393,7 +402,7 @@ const Header = () => {
                           to={item.href}
                           className={`flex items-center justify-between rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-brand-accent)]/10 px-4 py-3 transition-colors ${
                             item.disabled
-                              ? 'cursor-not-allowed text-[color:var(--ex-text-muted)]/70 hover:bg-[color:var(--ex-brand-accent)]/10'
+                              ? 'cursor-not-allowed text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10'
                               : 'text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]'
                           }`}
                         >
@@ -433,7 +442,7 @@ const Header = () => {
                 {user ? (
                   <>
                     <div className="rounded-2xl border border-[color:var(--ex-line)] bg-[color:var(--ex-surface-high)] p-4">
-                      <p className="text-[11px] uppercase tracking-[0.15em] text-[color:var(--ex-text-muted)]/70">Signed in as</p>
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-[color:var(--ex-text-muted)]">Signed in as</p>
                       <p className="mt-1.5 truncate text-[14px] font-medium text-[color:var(--ex-text)]">{user.email}</p>
                     </div>
                     <Button asChild variant="ghost" className="w-full justify-start rounded-xl border border-[color:var(--ex-line)] bg-transparent px-4 py-3 text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">

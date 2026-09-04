@@ -271,6 +271,7 @@ function App() {
           <div className="app">
             <SiteChrome>
               <Header />
+              <div className="header-spacer" />
               <AnnouncementBanner />
               <DealerPendingBanner />
               <UsernameRequiredBanner />

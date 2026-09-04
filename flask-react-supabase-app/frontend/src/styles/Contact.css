@@ -20,7 +20,12 @@
   font-size: clamp(2.7rem, 6vw, 4.8rem);
   line-height: 0.98;
   letter-spacing: -0.04em;
-  color: var(--ex-shell-text);
+  /* Sits directly on the page background (--ex-page-bg), not on a
+     --ex-shell-* dark surface like .contact-content's cards below, so it
+     needs the light/dark-adaptive text token, not the shell's always-light
+     one — using --ex-shell-text here made the title unreadable in light
+     mode (light text on the light page background). */
+  color: var(--ex-text);
 }
 
 .contact-subtitle {
@@ -28,7 +33,7 @@
   margin: 0 auto;
   font-size: 1.08rem;
   line-height: 1.75;
-  color: var(--ct-text-muted);
+  color: var(--ex-text-muted);
 }
 
 .contact-content {

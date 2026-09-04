@@ -3,9 +3,9 @@ nixPkgs = ["python311Full", "gcc"]
 
 [phases.install]
 cmds = [
-  "cd flask-react-supabase-app/backend && python -m venv .venv && . .venv/bin/activate && pip install --upgrade pip setuptools wheel",
-  "cd flask-react-supabase-app/backend && . .venv/bin/activate && pip install -r requirements.txt",
+  "[ -d flask-react-supabase-app/backend ] && cd flask-react-supabase-app/backend; python -m venv .venv && . .venv/bin/activate && pip install --upgrade pip setuptools wheel",
+  "[ -d flask-react-supabase-app/backend ] && cd flask-react-supabase-app/backend; . .venv/bin/activate && pip install -r requirements.txt",
 ]
 
 [start]
-cmd = "sh -c 'cd flask-react-supabase-app/backend && export PATH=\"/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$(pwd)/.venv/bin:$PATH\"; if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then exec python worker.py; else exec gunicorn -c gunicorn.conf.py app:app; fi'"
+cmd = "sh -c '[ -d flask-react-supabase-app/backend ] && cd flask-react-supabase-app/backend; export PATH=\"/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$(pwd)/.venv/bin:$PATH\"; if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then exec python worker.py; else exec gunicorn -c gunicorn.conf.py app:app; fi'"
