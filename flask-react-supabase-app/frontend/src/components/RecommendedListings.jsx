@@ -1,9 +1,9 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { getBehaviorProfile, getPreferenceProfile } from '../utils/userBehavior';
 import MarketplaceListingCard from './MarketplaceListingCard';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Two modes: pass listingType + listingId for "similar to this listing"
 // (used on every detail page); otherwise this is the personalized

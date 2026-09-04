@@ -1,9 +1,8 @@
+import API_BASE_URL from './apiBase';
 import { getBestAccessToken } from './supabaseClient';
 // eslint-disable-next-line no-unused-vars
 import * as authService from './authService';
 import logger from './logger';
-
-const DEFAULT_PROD_API_URL = 'https://api.dphclassifieds.com';
 const transientFailureCounts = new Map();
 
 const resetTransientFailures = (endpoint) => transientFailureCounts.delete(endpoint);
@@ -18,11 +17,6 @@ const userFacingTransientMessage = (endpoint) => {
 
 // Base URL for API requests - prefer the injected env var, fall back to the live Railway API in production,
 // and only use localhost when the app is actually running locally.
-const API_BASE_URL = process.env.REACT_APP_API_URL
-  || (typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : DEFAULT_PROD_API_URL);
-
 // Get the effective base URL, considering any CORS-based overrides
 const getEffectiveBaseUrl = () => window.API_BASE_URL_OVERRIDE || API_BASE_URL;
 

@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -22,7 +23,6 @@ const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/we
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
 const MAX_DESCRIPTION_WORDS = 300;
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PART_DRAFT_STORAGE_KEY = 'dph_post_part_draft_v1';
 const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
 const COUNTRY_CODES = ['+971', '+973', '+965', '+968', '+974', '+966'];

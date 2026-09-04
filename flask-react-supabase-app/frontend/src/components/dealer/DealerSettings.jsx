@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../../utils/apiBase';
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { Lock, Check, FileText, Upload, AlertTriangle } from 'lucide-react';
@@ -9,11 +10,6 @@ const DOC_TYPES = [
   { key: 'trade_license', label: 'Trade license', requiresExpiry: true },
   { key: 'tax_registration', label: 'Tax registration (TRN)', requiresExpiry: false },
 ];
-
-const API_URL = process.env.REACT_APP_API_URL
-  || (typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : 'https://api.dphclassifieds.com');
 
 const statusToClass = (status, days) => {
   if (status === 'denied') return 'text-rose-300 bg-rose-500/10 border-rose-500/20';

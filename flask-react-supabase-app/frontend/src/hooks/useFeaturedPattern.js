@@ -1,6 +1,6 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import { useEffect, useState } from 'react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const CACHE_KEY = 'featured-placement-pattern-cache';
 const CACHE_TTL_MS = 60 * 1000;
 

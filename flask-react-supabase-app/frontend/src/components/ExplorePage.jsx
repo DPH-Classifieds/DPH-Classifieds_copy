@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, SlidersHorizontal, X } from 'lucide-react';
@@ -21,7 +22,6 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import useListingCounts from '../hooks/useListingCounts';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PAGE_SIZE = 24;
 // Keep the client-side inventory buffer bounded as feeds grow. DOM node count
 // no longer scales with this (VirtuosoGrid virtualizes the render), but this

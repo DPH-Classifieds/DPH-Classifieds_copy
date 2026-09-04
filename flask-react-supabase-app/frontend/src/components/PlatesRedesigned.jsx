@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
@@ -10,7 +11,6 @@ import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
 import useListingCounts from '../hooks/useListingCounts';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LIST_PAGE_SIZE = 24;
 
 const PlatesRedesigned = () => {

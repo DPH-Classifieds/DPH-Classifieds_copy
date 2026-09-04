@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { trackEvent } from '../utils/analytics';
+import API_BASE_URL from '../utils/apiBase';
 import '../styles/Auth.css';
 
 // Treat the user as "new" if their auth row was created within this many
@@ -88,7 +89,7 @@ const AuthCallback = () => {
       let phoneVerified = false;
       let backendUser = null;
       try {
-        const me = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/auth/me`, {
+        const me = await fetch(`${API_BASE_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${accessTokenForCheck}` },
         });
         if (me.ok) {

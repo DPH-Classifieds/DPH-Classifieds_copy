@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -8,7 +9,6 @@ import { signInWithGoogle } from '../utils/supabaseClient';
 import { extractFieldsFromFile } from '../utils/dealerDocumentExtractor';
 import '../styles/Auth.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Country codes for phone numbers
 const COUNTRY_CODES = [

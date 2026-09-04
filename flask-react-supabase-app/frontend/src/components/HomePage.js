@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
@@ -17,7 +18,6 @@ import '../styles/HomePage.css';
 import '../styles/shell-tokens.css';
 import './ExplorePage.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const HeroBackground = lazy(() => import('./HeroBackground'));
 
 const marketplaceInsights = [

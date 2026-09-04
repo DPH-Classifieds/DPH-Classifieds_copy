@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
@@ -10,7 +11,6 @@ import useListingCounts from '../hooks/useListingCounts';
 import './BikesRedesigned.css';
 import './ExplorePage.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 const LIST_PAGE_SIZE = 24;
 

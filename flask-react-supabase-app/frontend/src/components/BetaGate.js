@@ -1,8 +1,7 @@
+import { API_BASE_URL } from '../utils/apiBase';
 import React, { useState } from 'react';
 import '../styles/BetaGate.css';
 import '../styles/shell-tokens.css';
-
-const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 const BetaGate = ({ onUnlock }) => {
   const [password, setPassword] = useState('');

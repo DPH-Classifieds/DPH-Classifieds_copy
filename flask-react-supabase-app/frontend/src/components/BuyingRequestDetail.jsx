@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -7,7 +8,6 @@ import { ensureContactAccess } from '../utils/contactAccess';
 import { resolveMediaUrl } from '../utils/media';
 import './ExplorePage.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 export default function BuyingRequestDetail() {

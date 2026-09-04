@@ -1,12 +1,8 @@
+import { API_BASE_URL } from '../../utils/apiBase';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { FileText, CheckCircle2, AlertCircle, Upload, Loader2, ShieldAlert } from 'lucide-react';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL
-  || (typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : 'https://api.dphclassifieds.com');
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
 const MAX_FILE_BYTES = 10 * 1024 * 1024;

@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
@@ -8,7 +9,6 @@ import SeoMeta from './SeoMeta';
 import { buildStaticSeo } from '../utils/seo';
 import './ExplorePage.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const ITEM_TYPES = [

@@ -4534,9 +4534,14 @@ except Exception as e:
     logger.warning(f"Failed to enable compression: {e}")
 
 # Configure a secret key for session management.
-# In production this should be set explicitly so sessions remain stable across restarts.
+# In production this must be set explicitly so sessions remain stable across
+# restarts and a deployment cannot silently run with an ephemeral key.
 flask_secret_key = os.getenv("FLASK_SECRET_KEY")
 if not flask_secret_key:
+    if os.getenv("FLASK_ENV", "").lower() == "production":
+        raise RuntimeError(
+            "FLASK_SECRET_KEY must be set when FLASK_ENV=production"
+        )
     flask_secret_key = secrets.token_hex(32)
     logger.warning(
         "FLASK_SECRET_KEY is not set; using an ephemeral in-memory secret. "
@@ -5466,6 +5471,20 @@ def handle_internal_error(error):
             except Exception:
                 logger.exception("PostHog exception capture failed")
         return jsonify({"message": "Internal server error"}), 500
+    return error
+
+
+@app.errorhandler(404)
+def handle_not_found(error):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Not found", "message": "The requested API route does not exist"}), 404
+    return error
+
+
+@app.errorhandler(405)
+def handle_method_not_allowed(error):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Method not allowed", "message": "The requested HTTP method is not supported"}), 405
     return error
 
 
@@ -10087,11 +10106,6 @@ def get_license_plates():
 
 
 # Add a test endpoint that returns static data
-@app.route("/api/health", methods=["GET"])
-def health_check():
-    return jsonify({"status": "ok"}), 200
-
-
 @app.route("/api/test", methods=["GET"])
 def test_data():
     logger.info("Test endpoint accessed")
@@ -25653,33 +25667,6 @@ def _run_listing_lifecycle_sweep_once():
 # Admin routes are registered at the top of the file (after imports)
 # No need to register again here
 
-if __name__ == "__main__":
-    logger.info("Starting Flask application on port 8000")
-    debug_mode = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
-    if debug_mode:
-        logger.warning("!!! FLASK DEBUG MODE IS ENABLED - NOT FOR PRODUCTION !!!")
-
-    def _run_expiry_reminders():
-        CHECK_INTERVAL_SECONDS = int(
-            os.getenv("LISTING_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
-        )
-        while True:
-            try:
-                result = _run_listing_expiry_reminders_once()
-                logger.info(
-                    "Listing expiry reminders complete: sent=%d",
-                    int(result.get("reminders_sent") or 0),
-                )
-            except Exception as reminder_err:
-                logger.error(f"Expiry reminder job error: {reminder_err}")
-            time.sleep(CHECK_INTERVAL_SECONDS)
-
-    reminder_thread = threading.Thread(target=_run_expiry_reminders, daemon=True)
-    reminder_thread.start()
-
-    app.run(debug=debug_mode, host="127.0.0.1", port=8000)
-
-
 @app.route("/api/admin/cache/flush", methods=["POST"])
 @token_required
 def admin_flush_cache(current_user):
@@ -26058,3 +26045,29 @@ def dealer_verification_list_messages(current_user):
     if status_code >= 400:
         return jsonify({"error": "Failed to load messages"}), 500
     return jsonify({"messages": rows or []}), 200
+
+
+if __name__ == "__main__":
+    logger.info("Starting Flask application on port 8000")
+    debug_mode = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    if debug_mode:
+        logger.warning("!!! FLASK DEBUG MODE IS ENABLED - NOT FOR PRODUCTION !!!")
+
+    def _run_expiry_reminders():
+        check_interval_seconds = int(
+            os.getenv("LISTING_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
+        )
+        while True:
+            try:
+                result = _run_listing_expiry_reminders_once()
+                logger.info(
+                    "Listing expiry reminders complete: sent=%d",
+                    int(result.get("reminders_sent") or 0),
+                )
+            except Exception as reminder_err:
+                logger.error("Expiry reminder job error: %s", reminder_err)
+            time.sleep(check_interval_seconds)
+
+    reminder_thread = threading.Thread(target=_run_expiry_reminders, daemon=True)
+    reminder_thread.start()
+    app.run(debug=debug_mode, host="127.0.0.1", port=8000)

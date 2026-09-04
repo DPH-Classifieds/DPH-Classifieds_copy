@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
@@ -5,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 
 import './RequestCarModel.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PRIMARY_ADMIN_EMAIL = 'admin@dphclassifieds.com';
 
 const getQueryValue = (search, key) => new URLSearchParams(search).get(key) || '';

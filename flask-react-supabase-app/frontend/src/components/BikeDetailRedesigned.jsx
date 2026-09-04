@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
@@ -20,7 +21,6 @@ import { getBotSignals } from '../utils/botSignals';
 import { resolveMediaUrl } from '../utils/media';
 import useSwipe from '../hooks/useSwipe';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
 const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 

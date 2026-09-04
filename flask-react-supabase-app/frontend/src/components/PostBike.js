@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -28,7 +29,6 @@ const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/we
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
 const MAX_DESCRIPTION_WORDS = 300;
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('bike');
 const BIKE_DRAFT_STORAGE_KEY = 'dph_post_bike_draft_v1';
 const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;

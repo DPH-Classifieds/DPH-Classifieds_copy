@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState, useEffect, useCallback } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import SeoMeta from './SeoMeta';
@@ -14,7 +15,6 @@ import useListingCounts from '../hooks/useListingCounts';
 import './CarList.css';
 import './ExplorePage.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LIST_PAGE_SIZE = 12;
 
 const CarList = () => {

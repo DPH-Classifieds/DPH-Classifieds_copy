@@ -12,6 +12,7 @@ import {
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
 import { useDealer } from '../../context/DealerContext';
+import API_BASE_URL from '../../utils/apiBase';
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -542,8 +543,7 @@ function ExportButton() {
       const token = await getBestAccessToken();
       const baseUrl =
         window.API_BASE_URL_OVERRIDE ||
-        process.env.REACT_APP_API_URL ||
-        (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://api.dphclassifieds.com');
+        API_BASE_URL;
       const url = `${baseUrl}/api/dealer/inventory/export.csv`;
       const resp = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },

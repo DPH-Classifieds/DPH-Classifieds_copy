@@ -16,8 +16,8 @@ import {
   msg91RetryOtp,
   msg91VerifyOtp,
 } from "../../utils/msg91Widget"
+import { API_BASE_URL as API_URL } from "../../utils/apiBase"
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"
 // MSG91 widget is configured for 4-digit OTPs; the Infobip flow uses 6.
 const OTP_LENGTH_DEFAULT = 6
 const OTP_LENGTH_MSG91 = 4

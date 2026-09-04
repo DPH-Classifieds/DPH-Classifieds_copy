@@ -1,4 +1,4 @@
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { API_BASE_URL as API_URL } from './apiBase';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const inflightChecks = new Map();
 const USERNAME_BLOCKLIST = [

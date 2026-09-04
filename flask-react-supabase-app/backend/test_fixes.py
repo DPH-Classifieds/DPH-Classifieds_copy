@@ -5,6 +5,7 @@ Test script to verify image upload and profile update fixes
 
 import os
 import requests
+import pytest
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,6 +13,10 @@ load_dotenv()
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 
+@pytest.mark.skipif(
+    not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY,
+    reason="requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for live Supabase verification",
+)
 def test_storage_bucket():
     """Test if storage bucket exists and is accessible"""
     print("\n=== Testing Storage Bucket ===")
@@ -38,6 +43,10 @@ def test_storage_bucket():
         print(f"  Response: {response.text}")
         return False
 
+@pytest.mark.skipif(
+    not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY,
+    reason="requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for live Supabase verification",
+)
 def test_users_table():
     """Test if users table is accessible"""
     print("\n=== Testing Users Table ===")

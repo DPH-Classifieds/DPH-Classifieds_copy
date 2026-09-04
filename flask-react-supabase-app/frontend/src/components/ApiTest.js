@@ -1,6 +1,6 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState } from 'react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const ApiTest = () => {
   const [result, setResult] = useState('');

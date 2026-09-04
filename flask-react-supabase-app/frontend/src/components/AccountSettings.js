@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import SearchableSelect from './ui/searchable-select';
@@ -16,7 +17,6 @@ import { useSavedListings } from '../context/SavedListingsContext';
 import '../styles/AccountSettings.css';
 import '../styles/shell-tokens.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // UAE Emirates list
 const UAE_EMIRATES = [

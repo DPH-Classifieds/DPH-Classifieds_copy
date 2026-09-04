@@ -1,4 +1,4 @@
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { API_BASE_URL as API_URL } from './apiBase';
 
 export const resolveMediaUrl = (value) => {
   if (!value || typeof value !== 'string') {

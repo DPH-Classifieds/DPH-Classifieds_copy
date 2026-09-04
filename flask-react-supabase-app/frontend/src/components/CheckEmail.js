@@ -1,8 +1,8 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import '../styles/Auth.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const CheckEmail = () => {
   const location = useLocation();

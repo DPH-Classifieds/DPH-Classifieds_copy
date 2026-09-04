@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useRef, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +10,6 @@ import { isVinValid } from '../utils/vinValidation';
 import '../styles/CreateListing.css';
 import '../styles/shell-tokens.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const MAX_DESCRIPTION_WORDS = 300;
 
 const CreateListing = () => {

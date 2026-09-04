@@ -49,6 +49,7 @@
     "test": "react-scripts test",
     "audit:media": "node scripts/audit-media-assets.mjs",
     "check:bundle": "node scripts/check-bundle-size.mjs",
+    "e2e": "playwright test",
     "eject": "react-scripts eject",
     "verify-deploy": "node scripts/verify-deploy-assets.js"
   },
@@ -78,6 +79,7 @@
   },
   "devDependencies": {
     "@craco/craco": "^7.1.0",
+    "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",

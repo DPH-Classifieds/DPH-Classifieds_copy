@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -17,7 +18,6 @@ import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
 import { shellLine, shellSurfaceStrong } from '../lib/themeClasses';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const REASONS = [
   { value: 'spam',           label: 'Spam',             icon: Ban          },

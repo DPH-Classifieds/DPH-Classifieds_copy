@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -48,7 +49,6 @@ const EMIRATE_CENTERS = {
   'Fujairah': [25.128526, 56.326584],
 };
 const CAR_DRAFT_STORAGE_KEY = 'dph_post_car_draft_v2';
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('car');
 const SUBMISSION_ERROR_MESSAGE =
   'We could not submit your listing right now. Please try again or contact support at support@dphclassifieds.com.';

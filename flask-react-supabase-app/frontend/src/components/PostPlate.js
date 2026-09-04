@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -24,7 +25,6 @@ const MAX_PROOF_SIZE_BYTES = 20 * 1024 * 1024;
 
 const RequiredMark = () => <span className="required-asterisk">*</span>;
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('plate');
 const PLATE_DRAFT_STORAGE_KEY = 'dph_post_plate_draft_v1';
 const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;

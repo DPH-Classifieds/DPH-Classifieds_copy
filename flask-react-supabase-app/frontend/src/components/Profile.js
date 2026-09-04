@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +15,6 @@ import LoadingSpinner from './LoadingSpinner';
 import '../styles/Profile.css';
 import '../styles/shell-tokens.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const Profile = () => {
   const { user, signOut } = useAuth();

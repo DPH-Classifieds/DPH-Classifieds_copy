@@ -1,9 +1,9 @@
+import { API_BASE_URL } from '../utils/apiBase';
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getBestAccessToken } from '../utils/supabaseClient';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const VISITOR_STORAGE_KEY = 'dph_platform_visitor_id';
 const SESSION_STORAGE_KEY = 'dph_platform_session_id';
 const SESSION_STARTED_AT_KEY = 'dph_platform_session_started_at';

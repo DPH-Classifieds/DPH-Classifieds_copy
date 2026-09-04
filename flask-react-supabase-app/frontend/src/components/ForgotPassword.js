@@ -1,9 +1,9 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/Auth.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');

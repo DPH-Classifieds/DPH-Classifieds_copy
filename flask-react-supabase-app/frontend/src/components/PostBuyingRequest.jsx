@@ -1,3 +1,4 @@
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +9,6 @@ import { carMakes, carModels, carTrims } from '../utils/carData';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import './ExplorePage.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const ITEM_TYPES = [
   { value: 'car', label: 'Car' },
