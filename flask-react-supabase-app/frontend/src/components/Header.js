@@ -285,8 +285,8 @@ const Header = () => {
           </NavigationMenuList>
         </NavigationMenu>
 
-        {/* Theme toggle */}
-        <div className="flex items-center gap-2">
+        {/* Theme toggle — desktop only; on mobile it lives inside the hamburger menu below */}
+        <div className="hidden items-center gap-2 lg:flex">
           <button
             type="button"
             onClick={toggleTheme}
@@ -297,7 +297,7 @@ const Header = () => {
           </button>
 
           {/* Auth Buttons / Profile Menu */}
-          <div className="hidden items-center gap-2.5 lg:flex">
+          <div className="flex items-center gap-2.5">
           {user ? (
             <ProfileMenu user={user} onLogout={handleLogout} />
           ) : (
@@ -416,6 +416,14 @@ const Header = () => {
               </Accordion>
 
               <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
+                >
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                </button>
                 <Link to="/" className="rounded-xl px-3 py-2.5 text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                   Home
                 </Link>
