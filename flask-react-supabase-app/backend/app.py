@@ -42,6 +42,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
+from application.http_runtime import register_http_runtime
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
 from services.featured_listings import (
@@ -5466,74 +5467,14 @@ def _phone_verification_response(record):
 os.makedirs(os.path.join("static", "uploads", "plates"), exist_ok=True)
 
 
-@app.before_request
-def start_request_timer():
-    _request_start_time.set(time.perf_counter())
-    _request_supabase_durations_ms.set([])
-
-
-@app.errorhandler(500)
-def handle_internal_error(error):
-    if request.path.startswith("/api/"):
-        logger.error(
-            "Unhandled internal error on %s: %s", request.path, error, exc_info=True
-        )
-        if posthog_client is not None:
-            try:
-                posthog_client.capture_exception(error)
-            except Exception:
-                logger.exception("PostHog exception capture failed")
-        return jsonify({"message": "Internal server error"}), 500
-    return error
-
-
-@app.errorhandler(404)
-def handle_not_found(error):
-    if request.path.startswith("/api/"):
-        return jsonify({"error": "Not found", "message": "The requested API route does not exist"}), 404
-    return error
-
-
-@app.errorhandler(405)
-def handle_method_not_allowed(error):
-    if request.path.startswith("/api/"):
-        return jsonify({"error": "Method not allowed", "message": "The requested HTTP method is not supported"}), 405
-    return error
-
-
-@app.errorhandler(413)
-def handle_request_too_large(error):
-    if request.path.startswith("/api/"):
-        return jsonify({"error": "Request too large", "message": "The uploaded payload exceeds the request limit"}), 413
-    return error
-
-
-@app.after_request
-def add_security_headers(response):
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault(
-        "Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload"
-    )
-    response.headers.setdefault("Content-Security-Policy", _build_content_security_policy())
-    started_at = _request_start_time.get()
-    if started_at is not None:
-        total_ms = (time.perf_counter() - started_at) * 1000
-        supabase_timings = _request_supabase_durations_ms.get() or []
-        supabase_total_ms = sum(item.get("duration_ms", 0) for item in supabase_timings)
-        response_size = response.calculate_content_length() or 0
-        logger.info(
-            "REQ_PERF method=%s path=%s status=%s total_ms=%.2f supabase_ms=%.2f supabase_calls=%s response_bytes=%s",
-            request.method,
-            request.path,
-            response.status_code,
-            total_ms,
-            supabase_total_ms,
-            len(supabase_timings),
-            response_size,
-        )
-    return response
+register_http_runtime(
+    app,
+    logger=logger,
+    posthog_client=posthog_client,
+    build_content_security_policy=_build_content_security_policy,
+    request_start_time=_request_start_time,
+    request_supabase_durations_ms=_request_supabase_durations_ms,
+)
 
 
 def _get_user_listing_count(user_id):
