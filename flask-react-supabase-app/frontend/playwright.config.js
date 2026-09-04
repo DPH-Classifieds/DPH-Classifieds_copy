@@ -1,6 +1,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3001';
+const usesExternalServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 
 module.exports = defineConfig({
   testDir: './e2e',
@@ -17,6 +18,14 @@ module.exports = defineConfig({
     video: 'retain-on-failure',
     navigationTimeout: 30_000,
   },
+  ...(usesExternalServer ? {} : {
+    webServer: {
+      command: 'npm run build && npx --yes serve -s build -l 3001',
+      url: baseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  }),
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
     { name: 'tablet', use: { ...devices['Desktop Chrome'], viewport: { width: 1024, height: 900 } } },

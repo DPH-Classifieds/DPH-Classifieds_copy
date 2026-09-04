@@ -24,4 +24,7 @@ USER appuser
 
 EXPOSE 8000
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD /bin/sh -c "/opt/venv/bin/python -c \"import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz/live' % os.getenv('PORT', '8000'), timeout=3)\""
+
 CMD ["/bin/sh", "-c", "if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then exec /opt/venv/bin/python worker.py; fi; exec /opt/venv/bin/gunicorn -c gunicorn.conf.py app:app"]

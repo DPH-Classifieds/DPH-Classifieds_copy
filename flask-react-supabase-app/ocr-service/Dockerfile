@@ -5,7 +5,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    OCR_LANG=en \
     PATH=/opt/venv/bin:$PATH
 
 WORKDIR /app
@@ -31,7 +30,7 @@ RUN python -m venv /opt/venv \
 COPY --chown=appuser:appuser . /app
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8080
 
 # One gunicorn+uvicorn worker per process, each loading its own predictor.
 # Scale throughput with GUNICORN_WORKERS and/or Railway replicas.

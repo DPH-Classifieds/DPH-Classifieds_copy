@@ -2360,6 +2360,16 @@ def _send_renewal_nudge_email(user_email, listing_title, item_type, item_id):
     return _send_resend_email(payload, email_type="renewal_nudge")
 
 
+def _send_renewal_nudge_sms(to_phone, item_type, item_id, country_code):
+    """Return an explicit unavailable result for the retired SMS channel."""
+    return False, {"message": "SMS channel not configured"}
+
+
+def _send_renewal_nudge_whatsapp(to_phone, item_type, item_id, country_code):
+    """Return an explicit unavailable result for the optional WhatsApp channel."""
+    return False, {"message": "WhatsApp channel not configured"}
+
+
 def _resolve_listing_owner_email(record, fallback_user_id=None):
     record = record or {}
     for key in ("user_email", "contact_email"):
@@ -4537,10 +4547,13 @@ except Exception as e:
 # In production this must be set explicitly so sessions remain stable across
 # restarts and a deployment cannot silently run with an ephemeral key.
 flask_secret_key = os.getenv("FLASK_SECRET_KEY")
-if not flask_secret_key:
-    if os.getenv("FLASK_ENV", "").lower() == "production":
+if not flask_secret_key or flask_secret_key.startswith("your-"):
+    if (
+        os.getenv("FLASK_ENV", "").lower() == "production"
+        or os.getenv("RAILWAY_ENVIRONMENT")
+    ):
         raise RuntimeError(
-            "FLASK_SECRET_KEY must be set when FLASK_ENV=production"
+            "FLASK_SECRET_KEY must be a real secret in production deployments"
         )
     flask_secret_key = secrets.token_hex(32)
     logger.warning(
@@ -5485,6 +5498,13 @@ def handle_not_found(error):
 def handle_method_not_allowed(error):
     if request.path.startswith("/api/"):
         return jsonify({"error": "Method not allowed", "message": "The requested HTTP method is not supported"}), 405
+    return error
+
+
+@app.errorhandler(413)
+def handle_request_too_large(error):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Request too large", "message": "The uploaded payload exceeds the request limit"}), 413
     return error
 
 
@@ -11884,32 +11904,6 @@ def get_user_statistics(current_user):
     except Exception as e:
         logger.error(f"Error in get_user_statistics: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-
-def find_user_email_by_username(username):
-    """Find user's email by username for login"""
-    try:
-        normalized_username = _normalize_username_value(username)
-        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-        headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-            "Content-Type": "application/json",
-        }
-
-        # Search for user by username
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=ilike.{normalized_username}&select=email"
-        response = requests.get(url, headers=headers)
-
-        if response.status_code == 200:
-            users = response.json()
-            if users and len(users) > 0:
-                return users[0].get("email")
-
-        return None
-    except Exception as e:
-        logger.error(f"Error finding user by username: {str(e)}")
-        return None
 
 
 def user_exists_by_email(email):

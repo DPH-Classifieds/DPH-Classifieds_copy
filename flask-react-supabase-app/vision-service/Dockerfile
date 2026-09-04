@@ -22,7 +22,7 @@ RUN python -m venv /opt/venv \
 COPY --chown=appuser:appuser . /app
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8080
 
 # Bind dual-stack for Railway private networking, including legacy IPv6-only
 # project environments. The service is intentionally not assigned a public domain.

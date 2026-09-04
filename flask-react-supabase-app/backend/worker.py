@@ -47,7 +47,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 
 def start_health_server():
-    port = int(os.getenv("PORT", "8080"))
+    port = int(os.getenv("PORT", "8000"))
     try:
         server = HTTPServer(("0.0.0.0", port), HealthHandler)
         logger.info("Worker health server listening on port %d", port)
@@ -192,7 +192,9 @@ def main():
     except Exception as exc:
         logger.error("Failed to import health_monitoring: %s", exc)
         logger.error(traceback.format_exc())
-        return
+        # A worker without its task modules is not healthy. Exit non-zero so
+        # Railway/Kubernetes restarts it instead of reporting a false green.
+        raise SystemExit(1) from exc
 
     cleanup_enabled = str(os.getenv("UNVERIFIED_CLEANUP_ENABLED", "true")).strip().lower() in (
         "1",
