@@ -48,8 +48,10 @@ Playwright, Supabase HTTP APIs.
 - Produces `assert_route_manifest(app, expected)` for later extraction tests.
 
 - [ ] Write a failing test that asserts `/healthz`, `/healthz/live`,
-  `/api/health`, `/api/cars`, `/api/admin/stats`, and `/dealer/dashboard` keep
-  their method sets and that no duplicate rule/method pair exists.
+  `/api/health`, `/api/cars`, and `/api/admin/stats` keep their method sets;
+  record existing rule/method collisions as a baseline inventory so later
+  stages can prove they introduce none. `/dealer/dashboard` is a frontend SPA
+  route and is covered by Playwright rather than Flask's `url_map`.
 - [ ] Run `./.venv/bin/pytest -q test_route_manifest.py` and confirm it fails
   because the manifest module does not exist.
 - [ ] Implement immutable route-contract collection with Flask `url_map`
