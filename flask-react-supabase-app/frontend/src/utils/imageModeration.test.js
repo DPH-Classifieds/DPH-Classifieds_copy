@@ -1,10 +1,10 @@
 // Mock all TF.js / model modules before any imports
-jest.mock('nsfwjs');
+jest.mock('nsfwjs/core', () => ({ load: jest.fn() }));
 jest.mock('@tensorflow-models/blazeface');
 jest.mock('@tensorflow/tfjs', () => ({}));
 jest.mock('@tensorflow/tfjs-backend-webgl', () => ({}));
 
-import * as nsfwjs from 'nsfwjs';
+import { load as loadNsfwModel } from 'nsfwjs/core';
 import { moderateImage, _resetModels } from './imageModeration';
 
 // Minimal File stub — JSDOM doesn't provide a real File with type
@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 
 function mockModels({ porn = 0, hentai = 0, sexy = 0 } = {}) {
-  nsfwjs.load.mockResolvedValue({
+  loadNsfwModel.mockResolvedValue({
     classify: jest.fn().mockResolvedValue([
       { className: 'Neutral', probability: 1 - porn - hentai - sexy },
       { className: 'Porn', probability: porn },
@@ -82,5 +82,6 @@ test('models load once and are reused across calls', async () => {
   mockModels();
   await moderateImage(makeFile());
   await moderateImage(makeFile());
-  expect(nsfwjs.load).toHaveBeenCalledTimes(1);
+  expect(loadNsfwModel).toHaveBeenCalledTimes(1);
+  expect(loadNsfwModel.mock.calls[0][0]).toMatch(/mobilenet_v2\/model\.json$/);
 });

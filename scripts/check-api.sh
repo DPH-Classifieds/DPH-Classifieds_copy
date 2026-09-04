@@ -38,8 +38,8 @@ say "GET /api/health/live"
 request GET "/api/health/live" | sed -n '1,12p'
 
 hr
-say "GET /api/health/ready"
-request GET "/api/health/ready" | sed -n '1,12p' || true
+say "GET /healthz (readiness)"
+request GET "/healthz" | sed -n '1,12p'
 
 hr
 say "GET /api/auth/admin-check (requires auth)"
@@ -59,4 +59,3 @@ request GET "/api/user/drafts/test_draft" | sed -n '1,60p' || true
 
 hr
 say "Done."
-

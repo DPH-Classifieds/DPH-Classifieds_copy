@@ -1,5 +1,7 @@
 let nsfwModel = null;
 let loadPromise = null;
+const DEFAULT_MODEL_URL =
+  'https://raw.githubusercontent.com/infinitered/nsfwjs/master/models/mobilenet_v2/model.json';
 
 // Block thresholds — tune here. nsfw* are nsfwjs class probabilities,
 // This runs only as a fast, user-side guard. Do not use it to infer faces or
@@ -24,9 +26,11 @@ async function loadModels() {
     loadPromise = Promise.all([
       import('@tensorflow/tfjs'),
       import('@tensorflow/tfjs-backend-webgl'),
-      import('nsfwjs'),
-    ]).then(([, , nsfwjs]) =>
-      nsfwjs.load()
+      import('nsfwjs/core'),
+    ]).then(([, , nsfwjsCore]) =>
+      nsfwjsCore.load(
+        process.env.REACT_APP_NSFW_MODEL_URL || DEFAULT_MODEL_URL,
+      )
     ).then((nsfw) => {
       nsfwModel = nsfw;
     });

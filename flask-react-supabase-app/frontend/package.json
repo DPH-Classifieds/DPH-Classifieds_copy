@@ -48,6 +48,7 @@
     "postinstall": "node scripts/ensure-mediapipe-sourcemap.js",
     "test": "react-scripts test",
     "audit:media": "node scripts/audit-media-assets.mjs",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
     "eject": "react-scripts eject",
     "verify-deploy": "node scripts/verify-deploy-assets.js"
   },
@@ -59,7 +60,8 @@
   },
   "jest": {
     "moduleNameMapper": {
-      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js",
+      "^nsfwjs/core$": "<rootDir>/node_modules/nsfwjs/dist/cjs/core.js"
     }
   },
   "browserslist": {

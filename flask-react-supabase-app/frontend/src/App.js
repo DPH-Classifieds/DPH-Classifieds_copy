@@ -15,16 +15,6 @@ import PhoneVerifiedRoute from './components/PhoneVerifiedRoute';
 import PhoneGate from './components/PhoneGate';
 import { DealerProvider } from './context/DealerContext';
 import DealerRoute from './components/DealerRoute';
-import DealerLayout from './components/DealerLayout';
-import DealerDashboard from './components/dealer/DealerDashboard';
-import DealerListings from './components/dealer/DealerListings';
-import DealerListingAnalytics from './components/dealer/DealerListingAnalytics';
-import DealerListingDiagnostic from './components/dealer/DealerListingDiagnostic';
-import DealerTeam from './components/dealer/DealerTeam';
-import DealerSettings from './components/dealer/DealerSettings';
-import DealerInviteAccept from './components/dealer/DealerInviteAccept';
-import DealerInfoRequest from './components/dealer/DealerInfoRequest';
-import DealerVerificationPage from './components/DealerVerificationPage';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import PostHogPageview from './components/PostHogPageview';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
@@ -34,6 +24,17 @@ import { ChunkLoadErrorBoundary, ChunkLoadRecovery } from './components/ChunkLoa
 import './App.css';
 import './styles/UAELicensePlate.css';
 import './components/cropper/unifiedCropper.css';
+
+const DealerLayout = lazy(() => import('./components/DealerLayout'));
+const DealerDashboard = lazy(() => import('./components/dealer/DealerDashboard'));
+const DealerListings = lazy(() => import('./components/dealer/DealerListings'));
+const DealerListingAnalytics = lazy(() => import('./components/dealer/DealerListingAnalytics'));
+const DealerListingDiagnostic = lazy(() => import('./components/dealer/DealerListingDiagnostic'));
+const DealerTeam = lazy(() => import('./components/dealer/DealerTeam'));
+const DealerSettings = lazy(() => import('./components/dealer/DealerSettings'));
+const DealerInviteAccept = lazy(() => import('./components/dealer/DealerInviteAccept'));
+const DealerInfoRequest = lazy(() => import('./components/dealer/DealerInfoRequest'));
+const DealerVerificationPage = lazy(() => import('./components/DealerVerificationPage'));
 
 const DealerLeads = lazy(() => import('./components/dealer/DealerLeads'));
 const DealerLeadDetail = lazy(() => import('./components/dealer/DealerLeadDetail'));
