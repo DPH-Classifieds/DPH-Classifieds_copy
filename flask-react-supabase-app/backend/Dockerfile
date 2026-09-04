@@ -24,4 +24,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["sh", "-lc", "if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then exec python worker.py; fi; exec gunicorn -c gunicorn.conf.py app:app"]
+CMD ["/bin/sh", "-c", "if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then exec /opt/venv/bin/python worker.py; fi; exec /opt/venv/bin/gunicorn -c gunicorn.conf.py app:app"]
