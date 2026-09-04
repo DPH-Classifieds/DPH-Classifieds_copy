@@ -341,14 +341,20 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
     # A corrected classifier can route a source into a different table than
     # its original import. Reconcile that source identity before inserting so
     # a backfill cannot leave both the misclassified and corrected rows live.
-    if not row_id:
+    parsed_category = getattr(parsed, "category", None)
+    if not row_id and parsed_category is not None:
         source_rows = _find_existing_source_rows(parsed.source_id, owner_id)
-        same_category = next((r for r in source_rows if r["category"] == parsed.category), None)
+        same_category = next(
+            (r for r in source_rows if r["category"] == parsed_category),
+            None,
+        )
         if same_category:
             row_id = same_category["id"]
             current_status = same_category.get("status")
         else:
-            wrong_category_rows = [r for r in source_rows if r["category"] != parsed.category]
+            wrong_category_rows = [
+                r for r in source_rows if r["category"] != parsed_category
+            ]
             if wrong_category_rows and not _retire_misclassified_rows(wrong_category_rows, owner_id, counts):
                 return
 

@@ -10,6 +10,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from workers import reddit_import_worker as w  # noqa: E402
 
@@ -124,6 +126,37 @@ def test_dedup_only_applies_to_cars(monkeypatch):
     w._upsert_listing(FakeParsed(), "owner", {}, "now", counts)
     assert counts["created"] == 1
     assert not any(m == "get" for m, _ in calls)
+
+
+def test_legacy_parsed_without_category_skips_cross_table_reconciliation(monkeypatch):
+    """Older parser objects may not expose category; they must still insert
+    without attempting unsafe cross-table reconciliation."""
+    monkeypatch.setattr(
+        w,
+        "build_imported_payload",
+        lambda *_: {"config": {"table": "cars"}, "payload": {"title": "legacy"}},
+    )
+    monkeypatch.setattr(w, "_find_existing_source_rows", lambda *_: pytest.fail(
+        "legacy parser records must not run cross-table reconciliation"
+    ))
+    monkeypatch.setattr(w, "_record_price_history", lambda *a, **k: None)
+    monkeypatch.setattr(w, "_sync_images", lambda *a, **k: None)
+    calls = []
+
+    def fake_req(method, path, data=None, params=None):
+        calls.append((method, path, data))
+        if method == "post":
+            return ([{"id": "new-row"}], 201)
+        return ([], 200)
+
+    monkeypatch.setattr(w, "supabase_request", fake_req)
+    counts = {"created": 0, "updated": 0, "failed": 0}
+
+    w._upsert_listing(FakeParsed(), "owner", {}, "now", counts)
+
+    assert counts["created"] == 1
+    assert counts["updated"] == 0
+    assert any(method == "post" and "/rest/v1/cars" in path for method, path, _ in calls)
 
 
 def test_resync_does_not_resurrect_a_dedup_expired_row(monkeypatch):
