@@ -70,19 +70,32 @@ function MainArea({ children }) {
 }
 
 function BackToTop() {
-  const [visible, setVisible] = useState(false);
+  // { visible, target: null } — target null means window; otherwise the
+  // element whose scroll crossed the threshold. Most pages scroll the
+  // window, but Explore scrolls its own container (VirtuosoGrid's
+  // customScrollParent — see .explore-v2-results-scroll in ExplorePage.jsx).
+  // Scroll events don't bubble, so a plain window listener would miss that
+  // container entirely (and querySelector-at-mount races the lazy-loaded
+  // page's own mount). Listening in the capture phase on document catches
+  // scroll events from any scrollable descendant on their way down, with no
+  // race and no per-page wiring needed.
+  const [state, setState] = useState({ visible: false, target: null });
 
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 400);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const onScroll = (e) => {
+      const el = e.target === document ? window : e.target;
+      const y = el === window ? window.scrollY : el.scrollTop;
+      setState({ visible: y > 400, target: el === window ? null : el });
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
   }, []);
 
-  if (!visible) return null;
+  if (!state.visible) return null;
 
   return (
     <button
-      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      onClick={() => (state.target || window).scrollTo({ top: 0, behavior: 'smooth' })}
       style={{
         position: 'fixed',
         bottom: '24px',

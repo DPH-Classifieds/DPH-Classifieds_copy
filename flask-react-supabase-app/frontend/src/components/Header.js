@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import useIsAdmin from '../hooks/useIsAdmin';
 import { accentText, line } from '../lib/themeClasses';
 import './ExplorePage.css';
 import ProfileMenu from './ProfileMenu';
@@ -79,6 +80,7 @@ const resourceLinks = [{ title: 'About', href: '/about' }];
 const Header = () => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const isAdmin = useIsAdmin(user);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
@@ -443,6 +445,11 @@ const Header = () => {
                       My Listings
                     </Link>
                   )
+                )}
+                {isAdmin && (
+                  <Link to="/admin" className="rounded-xl px-3 py-2.5 text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
+                    Admin Panel
+                  </Link>
                 )}
               </div>
 

@@ -286,7 +286,7 @@ const HomePage = () => {
               <span className="cn-kicker">Marketplace</span>
               <h2>Recent Listings</h2>
             </div>
-            <Link to="/cars" className="cn-button cn-button-primary-dark">
+            <Link to="/explore" className="cn-button cn-button-primary-dark">
               View more
             </Link>
           </div>
