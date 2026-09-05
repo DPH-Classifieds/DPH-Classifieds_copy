@@ -14,6 +14,15 @@ const dealerCredentials = {
   password: process.env.E2E_DEALER_PASSWORD,
 };
 const mutationsEnabled = process.env.E2E_ALLOW_MUTATIONS === 'true';
+const strictAuthenticated = process.env.E2E_STRICT_AUTH === 'true';
+
+function requireCredential(value, name) {
+  if (value) return;
+  if (strictAuthenticated) {
+    throw new Error(`Missing required ${name} for strict authenticated E2E`);
+  }
+  test.skip(true, `set ${name}`);
+}
 
 const publicRoutes = [
   '/', '/cars', '/car-parts', '/plates', '/bikes', '/explore',
@@ -50,6 +59,7 @@ test.describe('public responsive surfaces', () => {
   for (const route of publicRoutes) {
     test(`${route} renders and scrolls without horizontal overflow`, async ({ page }) => {
       await page.goto(route);
+      await expect(page.locator('#root')).not.toBeEmpty();
       await expect(page.locator('body')).not.toContainText('ChunkLoadError');
       await expect(page.locator('body')).not.toContainText('Something went wrong');
       await assertResponsiveScroll(page);
@@ -71,7 +81,8 @@ test('signup client validation is visible before network submission', async ({ p
 
 test.describe('authenticated listing flows', () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!credentials.email || !credentials.password, 'set E2E_USER_EMAIL and E2E_USER_PASSWORD');
+    requireCredential(credentials.email, 'E2E_USER_EMAIL');
+    requireCredential(credentials.password, 'E2E_USER_PASSWORD');
     await login(page);
   });
 
@@ -96,8 +107,10 @@ test.describe('authenticated listing flows', () => {
   });
 
   test('listing mutation contracts can be run against the real backend', async ({ page }) => {
-    test.skip(!mutationsEnabled, 'set E2E_ALLOW_MUTATIONS=true only for disposable test accounts/data');
-    test.skip(!process.env.E2E_MUTATION_FIXTURE, 'set E2E_MUTATION_FIXTURE to the fixture JSON path before enabling mutations');
+    if (!mutationsEnabled) {
+      test.skip(true, 'set E2E_ALLOW_MUTATIONS=true only for disposable test accounts/data');
+    }
+    requireCredential(process.env.E2E_MUTATION_FIXTURE, 'E2E_MUTATION_FIXTURE');
     const fixture = JSON.parse(fs.readFileSync(process.env.E2E_MUTATION_FIXTURE, 'utf8'));
     const token = await page.evaluate(() => {
       const direct = sessionStorage.getItem('supabase_access_token');
@@ -132,14 +145,15 @@ test.describe('authenticated listing flows', () => {
 
 test.describe('VIN, dealer, and admin flows', () => {
   test('VIN detail route is reachable when a fixture listing id is supplied', async ({ page }) => {
-    test.skip(!process.env.E2E_CAR_ID, 'set E2E_CAR_ID to a disposable approved car listing');
+    requireCredential(process.env.E2E_CAR_ID, 'E2E_CAR_ID');
     await page.goto(`/cars/${encodeURIComponent(process.env.E2E_CAR_ID)}`);
     await expect(page.locator('body')).not.toContainText('ChunkLoadError');
     await assertResponsiveScroll(page);
   });
 
   test('dealer suite is reachable for a dealer account', async ({ page }) => {
-    test.skip(!dealerCredentials.email || !dealerCredentials.password, 'set E2E_DEALER_EMAIL and E2E_DEALER_PASSWORD');
+    requireCredential(dealerCredentials.email, 'E2E_DEALER_EMAIL');
+    requireCredential(dealerCredentials.password, 'E2E_DEALER_PASSWORD');
     await login(page, dealerCredentials);
     await page.goto('/dealer/dashboard');
     await expect(page.getByRole('heading', { name: /dashboard/i }).first()).toBeVisible();
@@ -152,7 +166,8 @@ test.describe('VIN, dealer, and admin flows', () => {
   });
 
   test('admin metrics is reachable for an admin account', async ({ page }) => {
-    test.skip(!adminCredentials.email || !adminCredentials.password, 'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD');
+    requireCredential(adminCredentials.email, 'E2E_ADMIN_EMAIL');
+    requireCredential(adminCredentials.password, 'E2E_ADMIN_PASSWORD');
     await login(page, adminCredentials);
     await page.goto('/admin/metrics');
     await expect(page.getByRole('heading', { name: /platform metrics|metrics unavailable/i }).first()).toBeVisible();

@@ -8,7 +8,10 @@ import { SUPABASE_URL, SUPABASE_KEY } from '../constants/config';
 if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
-export const supabase = createClient(SUPABASE_URL || '', SUPABASE_KEY || '', {
+export const supabase = createClient(
+  SUPABASE_URL || 'http://127.0.0.1:54321',
+  SUPABASE_KEY || 'local-development-anon-key',
+  {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -21,7 +24,8 @@ export const supabase = createClient(SUPABASE_URL || '', SUPABASE_KEY || '', {
     // (see signInWithGoogle below).
     detectSessionInUrl: false,
   },
-});
+  }
+);
 
 export const getSession = async () => {
   try {

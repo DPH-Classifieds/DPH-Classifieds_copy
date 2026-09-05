@@ -21,8 +21,9 @@ browser artifacts.
   `./.venv/bin/pytest -q`.
 - Docker API E2E: from `flask-react-supabase-app/backend`, run `./e2e/run.sh`.
 - Worker Docker smoke: from `flask-react-supabase-app/backend`, run
-  `docker build -t dph-backend-worker-smoke .` followed by
-  `docker run --rm -e SERVICE_ROLE=worker -e FLASK_SECRET_KEY=worker-smoke-secret dph-backend-worker-smoke` only in a controlled local environment; capture startup and heartbeat evidence without real provider credentials.
+  `./e2e/worker.sh`. The bounded script creates only its own Redis/network/
+  worker resources, asserts the worker health endpoint, and reads the actual
+  Redis heartbeat; it uses no provider credentials and always cleans up.
 
 ## Frontend and mobile gates
 
@@ -36,8 +37,8 @@ browser artifacts.
 
 - Public Playwright: from `flask-react-supabase-app/frontend`, run the public,
   credential-free Playwright project with `npm run e2e` across all required responsive viewports.
-  The public lane includes the React SPA route `/dealer/dashboard` and must keep
-  all 48 public checks executable without credentials.
+  The dealer SPA route `/dealer/dashboard` is covered by the authenticated dealer
+  lane; it is not part of the credential-free public route list.
 - Dealer-panel feature modes: run route checks with the dealer panel explicitly
   enabled and explicitly disabled. Verify the documented route availability,
   status, and authorization contract in both modes.
@@ -45,7 +46,7 @@ browser artifacts.
   smoke its health surface, and require evidence that its heartbeat was written.
 - Authenticated release lane: run protected user, dealer, admin, posting, and VIN
   browser checks with disposable credentials supplied only through the
-  environment: `E2E_USER_EMAIL=... E2E_USER_PASSWORD=... E2E_DEALER_EMAIL=... E2E_DEALER_PASSWORD=... E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... E2E_CAR_ID=... E2E_ALLOW_MUTATIONS=true E2E_MUTATION_FIXTURE=/absolute/path/fixture.json PLAYWRIGHT_BASE_URL=https://target PLAYWRIGHT_API_URL=https://api.target npm run e2e`. Missing required credentials is a release-blocking failure, not a skip or a successful public-lane result.
+  environment: `E2E_STRICT_AUTH=true E2E_USER_EMAIL=... E2E_USER_PASSWORD=... E2E_DEALER_EMAIL=... E2E_DEALER_PASSWORD=... E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... E2E_CAR_ID=... E2E_ALLOW_MUTATIONS=true E2E_MUTATION_FIXTURE=/absolute/path/fixture.json PLAYWRIGHT_BASE_URL=https://target PLAYWRIGHT_API_URL=https://api.target npm run e2e:release`. Missing required credentials fails this command; the ordinary public lane may skip protected tests when credentials are absent.
 - Live E2E: after deployment approval, run the public and authenticated smoke
   suites against the exact live release with the preceding command and record the deployed revision. Local,
   CI, health-only, or provider-pending results do not count as live proof.

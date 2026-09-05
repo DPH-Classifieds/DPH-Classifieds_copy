@@ -1,4 +1,5 @@
 import { API_BASE_URL as API_URL } from '../utils/apiBase';
+import { getAuthenticatedHeaders } from '../utils/authenticatedApi';
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import '../styles/Auth.css';
@@ -76,9 +77,17 @@ const CheckEmail = () => {
     setResendStatus(null);
 
     try {
+      const authHeaders = await getAuthenticatedHeaders();
+      if (!authHeaders) {
+        setResendStatus({
+          type: 'error',
+          message: 'Your signup session has expired. Please sign up again to change the email address.',
+        });
+        return;
+      }
       const response = await fetch(`${API_URL}/api/auth/update-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           current_email: email,
           new_email: newEmail.trim(),

@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseKey = process.env.REACT_APP_SUPABASE_KEY;
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'http://127.0.0.1:54321';
+const supabaseKey = process.env.REACT_APP_SUPABASE_KEY || 'local-development-anon-key';
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing REACT_APP_SUPABASE_URL or REACT_APP_SUPABASE_KEY environment variables');
+if (!process.env.REACT_APP_SUPABASE_URL || !process.env.REACT_APP_SUPABASE_KEY) {
+  console.warn('Supabase environment variables are missing; authentication is unavailable until configured.');
 }
 
 // Keep browser sessions tab-scoped. Access tokens are bearer credentials and

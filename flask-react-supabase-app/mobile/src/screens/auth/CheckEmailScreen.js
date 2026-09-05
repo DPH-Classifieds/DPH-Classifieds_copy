@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { API_BASE_URL } from '../../constants/config';
+import * as authService from '../../utils/authService';
 
 export default function CheckEmailScreen({ navigation, route }) {
   const { colors } = useTheme();
@@ -54,13 +55,23 @@ export default function CheckEmailScreen({ navigation, route }) {
 
     setUpdateLoading(true);
     try {
+      const token = await authService.getAccessToken();
+      if (!token) {
+        throw new Error('Your signup session has expired. Please sign up again to change the email address.');
+      }
       const res = await fetch(`${API_BASE_URL}/api/auth/update-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, new_email: newEmail.trim() }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          current_email: email,
+          new_email: newEmail.trim(),
+        }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update email');
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to update email');
       Alert.alert('Email Updated', 'A new confirmation link has been sent to your new email address.', [
         { text: 'OK', onPress: () => navigation.navigate('Login') },
       ]);
