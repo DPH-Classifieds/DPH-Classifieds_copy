@@ -42,6 +42,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
+from application.bike_read_routes import BikeReadDependencies, register_bike_read_routes
 from application.car_read_routes import CarReadDependencies, register_car_read_route
 from application.http_runtime import register_http_runtime
 from application.health_routes import register_health_routes
@@ -14941,346 +14942,58 @@ def _enrich_listing_seller(item, headers=None):
     return item
 
 
-@app.route("/api/bikes", methods=["GET"])
-def get_bikes():
-    try:
-        cache_key = _build_api_cache_key()
-        cached_payload = _api_cache_get(cache_key)
-        if cached_payload is not None:
-            return _cached_json_response(cached_payload)
-
-        # Get query parameters
-        limit, offset = _parse_pagination_args()
-        order = request.args.get("order", "created_at")
-
-        # Construct parameters for Supabase query
-        params = {
-            "limit": limit,
-            "offset": offset,
-            "order": order,
-            "status": "eq.approved",  # Only show approved bikes
-            "is_approved": "eq.true",  # Ensure consistency
-        }
-
-        # Filter out any underscore parameters
-        params = {k: v for k, v in params.items() if not k.startswith("_")}
-
-        # Reddit imports appear only in the dedicated Reddit tab. Exclude them from
-        # the normal bikes feed unless explicitly requested (?source_platform=reddit),
-        # and honour the per-user ?exclude_reddit=true toggle (mirrors /api/cars).
-        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
-        reddit_or_group = None
-        if request.args.get("source_platform") == "reddit":
-            params["source_platform"] = "eq.reddit"
-            if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
-                params.pop("is_approved", None)  # dev preview of hidden imports
-        elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
-            reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
-
-        # Two encodings of the same or/and clause: the direct-request path below
-        # splices params straight into a raw URL string (needs the search term
-        # percent-encoded so a space in it can't break the request), while the
-        # `supabase_request(params=...)` fallback further down lets `requests`
-        # do its own encoding (would double-encode if given the pre-encoded form).
-        params.update(_combine_or_groups(
-            reddit_or_group,
-            _search_or_group(["bike_brand", "bike_model", "description"], url_encode=True),
-        ))
-        fallback_or_and = _combine_or_groups(
-            reddit_or_group,
-            _search_or_group(["bike_brand", "bike_model", "description"]),
-        )
-
-        cursor_pair = _cursor_filter()
-        if cursor_pair:
-            params[cursor_pair[0]] = cursor_pair[1]
-
-        # bikes table columns (verified against migrations/00_COMPLETE_SCHEMA.sql:108-145):
-        # bike_brand / bike_type / engine_size (text) / condition / year / price / area.
-        # area + engine_size + condition + year_range close the gap vs /api/cars so
-        # the Explore drawer can move server-side. car_city / horsepower /
-        # engine_capacity are CARS-ONLY — no column exists on bikes.
-        filter_pairs = _collect_listing_filter_pairs(
-            {
-                "bike_brand": "bike_brand",
-                "bike_type": "bike_type",
-                "area": "area",
-                "engine_size": "engine_size",
-                "condition": "condition",
-            },
-            {"price": "price", "year": "year"},
-        )
-
-        logger.info(f"Fetching bikes with params: {params} filters: {filter_pairs}")
-
-        try:
-            # Use direct request with service role key for admin operations
-            service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-            headers = {
-                "apikey": service_role_key,
-                "Authorization": f"Bearer {service_role_key}",
-                "Content-Type": "application/json",
-            }
-
-            # Construct query string
-            query_params = []
-            for key, value in params.items():
-                if key == "order":
-                    query_params.append(f"order={value}")
-                else:
-                    query_params.append(f"{key}={value}")
-            query_params.extend(f"{k}={v}" for k, v in filter_pairs)
-
-            query_string = "&".join(query_params)
-            # Build query with join for images
-            url = (
-                f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}"
-                "&select=id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
-                "color,price,location,area,emirate,description,contact_number,country_code,"
-                "source_platform,source_url,"
-                "status,is_approved,created_at,updated_at,"
-                "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
-                "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
-                "bike_images("
-                + LISTING_IMAGE_SELECTS["bikes"]
-                + ")"
-            )
-
-            logger.info(f"Making direct request to: {url}")
-            response = requests.get(url, headers=headers)
-
-            if response.status_code == 200:
-                bikes = response.json()
-                bikes = _filter_public_listing_records("bikes", bikes)
-
-                seller_map = _batch_fetch_seller_map(
-                    [bike.get("user_id") for bike in bikes], headers=headers
-                )
-                for bike in bikes:
-                    _normalize_bike_record(bike)
-                    bike_images = bike.pop("bike_images", [])
-                    normalized_images = []
-                    for img in bike_images:
-                        image_url = img.get("image_url") or img.get("url")
-                        if not image_url:
-                            continue
-                        normalized_images.append(
-                            {
-                                "id": img.get("id"),
-                                "image_url": image_url,
-                                "url": image_url,
-                                "display_url": img.get("display_url"),
-                                "focal_x": img.get("focal_x"),
-                                "focal_y": img.get("focal_y"),
-                                "crop_meta": img.get("crop_meta"),
-                                "is_primary": img.get("is_primary", False),
-                            }
-                        )
-                    bike["images"] = _sort_listing_images(normalized_images)
-                    # Fallback for main image
-                    if not bike["images"]:
-                        if bike.get("image_url") or bike.get("url"):
-                            main_url = bike.get("image_url") or bike.get("url")
-                            bike["images"] = [
-                                {
-                                    "id": "main",
-                                    "url": main_url,
-                                    "image_url": main_url,
-                                    "display_url": bike.get("display_url"),
-                                    "focal_x": bike.get("focal_x"),
-                                    "focal_y": bike.get("focal_y"),
-                                    "crop_meta": bike.get("crop_meta"),
-                                }
-                            ]
-
-                    bike["primary_image_url"] = (
-                        bike["images"][0].get("image_url") if bike["images"] else None
-                    )
-                    _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
-
-                _api_cache_set(cache_key, bikes)
-                return _attach_page_headers(_cached_json_response(bikes), bikes, limit)
-            else:
-                logger.error(
-                    f"Direct request failed: {response.status_code} - {response.text}"
-                )
-                # Fallback to regular method
-                raise Exception("Direct request failed")
-
-        except Exception as e:
-            logger.error(f"Error in direct request: {str(e)}")
-            # Fallback to regular Supabase client (single joined query; no N+1 image fetch).
-            # A list of pairs (not a dict merge) so a price_from+price_to pair doesn't
-            # collide on the shared "price" key — requests serializes duplicate-key
-            # pairs correctly, a dict can't hold two values under one key.
-            fallback_params = (
-                [(k, v) for k, v in params.items() if k not in ("or", "and")]
-                + list(fallback_or_and.items())
-                + filter_pairs
-                + [(
-                    "select",
-                    "id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
-                    "color,price,location,area,emirate,description,contact_number,country_code,"
-                    "status,is_approved,created_at,updated_at,"
-                    "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
-                    "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
-                    "bike_images("
-                    + LISTING_IMAGE_SELECTS["bikes"]
-                    + ")"
-                )]
-            )
-            response, status_code = supabase_request(
-                "get", "/rest/v1/bikes", params=fallback_params, use_service_role=True
-            )
-            if status_code < 400 and response:
-                bikes = _filter_public_listing_records("bikes", response)
-
-                seller_map = _batch_fetch_seller_map(
-                    [bike.get("user_id") for bike in bikes], headers=headers
-                )
-                for bike in bikes:
-                    _normalize_bike_record(bike)
-                    bike_images = bike.pop("bike_images", []) or []
-                    normalized_images = []
-                    for img in bike_images:
-                        image_url = img.get("image_url") or img.get("url")
-                        if not image_url:
-                            continue
-                        normalized_images.append(
-                            {
-                                "id": img.get("id"),
-                                "image_url": image_url,
-                                "url": image_url,
-                                "display_url": img.get("display_url"),
-                                "focal_x": img.get("focal_x"),
-                                "focal_y": img.get("focal_y"),
-                                "crop_meta": img.get("crop_meta"),
-                                "is_primary": img.get("is_primary", False),
-                            }
-                        )
-                    bike["images"] = _sort_listing_images(normalized_images)
-                    if not bike["images"] and (bike.get("image_url") or bike.get("url")):
-                        main_url = bike.get("image_url") or bike.get("url")
-                        bike["images"] = [
-                            {
-                                "id": "main",
-                                "url": main_url,
-                                "image_url": main_url,
-                                "display_url": bike.get("display_url"),
-                                "focal_x": bike.get("focal_x"),
-                                "focal_y": bike.get("focal_y"),
-                                "crop_meta": bike.get("crop_meta"),
-                            }
-                        ]
-
-                    bike["primary_image_url"] = (
-                        bike["images"][0].get("image_url") if bike["images"] else None
-                    )
-                    _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
-
-                _api_cache_set(cache_key, bikes)
-                return _attach_page_headers(_cached_json_response(bikes), bikes, limit)
-            else:
-                empty_payload = []
-                _api_cache_set(cache_key, empty_payload)
-                return _cached_json_response(empty_payload)
-
-    except Exception as e:
-        logger.error(f"Error fetching bikes: {str(e)}")
-        return jsonify([]), 500
+def _bike_read_dependencies():
+    return BikeReadDependencies(
+        build_cache_key=lambda: _build_api_cache_key(),
+        cache_get=lambda key: _api_cache_get(key),
+        cache_set=lambda *args, **kwargs: _api_cache_set(*args, **kwargs),
+        cached_json_response=lambda *args, **kwargs: _cached_json_response(
+            *args, **kwargs
+        ),
+        parse_pagination_args=lambda: _parse_pagination_args(),
+        getenv=lambda name: os.getenv(name),
+        reddit_on_explore=lambda: _reddit_on_explore(),
+        should_hide_reddit=lambda *args: _should_hide_reddit(*args),
+        search_or_group=lambda *args, **kwargs: _search_or_group(*args, **kwargs),
+        combine_or_groups=lambda *groups: _combine_or_groups(*groups),
+        cursor_filter=lambda: _cursor_filter(),
+        collect_listing_filter_pairs=lambda *args: _collect_listing_filter_pairs(
+            *args
+        ),
+        supabase_url=app.config["SUPABASE_URL"],
+        service_role_key=app.config["SUPABASE_SERVICE_ROLE_KEY"],
+        listing_image_select=LISTING_IMAGE_SELECTS["bikes"],
+        direct_get=lambda *args, **kwargs: requests.get(*args, **kwargs),
+        supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),
+        filter_public_listing_records=lambda table, records: (
+            _filter_public_listing_records(table, records)
+        ),
+        normalize_bike_record=lambda bike: _normalize_bike_record(bike),
+        sort_listing_images=lambda images: _sort_listing_images(images),
+        batch_fetch_seller_map=lambda *args, **kwargs: _batch_fetch_seller_map(
+            *args, **kwargs
+        ),
+        apply_seller_to_listing=lambda item, seller: _apply_seller_to_listing(
+            item, seller
+        ),
+        attach_page_headers=lambda response, items, limit: _attach_page_headers(
+            response, items, limit
+        ),
+        optional_user_id=lambda: _optional_user_id(),
+        sync_listing_lifecycle=lambda *args, **kwargs: _sync_listing_lifecycle(
+            *args, **kwargs
+        ),
+        listing_visible_to_requester=lambda item, user_id: (
+            _listing_visible_to_requester(item, user_id)
+        ),
+        public_strip_fields=_PUBLIC_STRIP_FIELDS,
+        logger=logger,
+    )
 
 
-@app.route("/api/bikes/<string:bike_id>", methods=["GET"])
-def get_bike_by_id(bike_id):
-    try:
-        logger.info(f"Fetching bike details for ID: {bike_id}")
-
-        requesting_user = _optional_user_id()
-
-        cache_key = f"api-cache:{request.path}"
-        cached_payload = _api_cache_get(cache_key) if not requesting_user else None
-        if cached_payload is not None:
-            logger.debug(f"Redis cache hit for bike detail {bike_id}")
-            return _cached_json_response(cached_payload)
-
-        # Get bike details
-        query = f"/rest/v1/bikes?id=eq.{bike_id}&select=*"
-        bike_response, bike_status = supabase_request("get", query)
-
-        if not bike_response or len(bike_response) == 0:
-            logger.warning(f"Bike not found with ID: {bike_id}")
-            return jsonify({"error": "Bike not found"}), 404
-
-        bike = _sync_listing_lifecycle(
-            "bikes", bike_response[0], hard_delete_archived=False, persist=False
-        )
-        visible, is_public = _listing_visible_to_requester(bike, requesting_user)
-        if not visible:
-            return jsonify({"error": "Bike not found"}), 404
-        _normalize_bike_record(bike)
-        logger.info(
-            f"Found bike: {bike.get('make')} {bike.get('model')} (ID: {bike['id']})"
-        )
-
-        # Get bike images
-        images_query = f"/rest/v1/bike_images?bike_id=eq.{bike_id}&select=*"
-        logger.info(f"Fetching images with query: {images_query}")
-        images_response, images_status = supabase_request("get", images_query)
-
-        if images_status < 400:
-            logger.info(f"Found {len(images_response)} images for bike {bike_id}")
-            # Transform images for frontend compatibility
-            for image in images_response:
-                logger.info(f"Processing image: {image}")
-                # Ensure both url and image_url fields are present
-                if "url" in image and not image.get("image_url"):
-                    image["image_url"] = image["url"]
-                    logger.info(f"Added image_url from url: {image['url']}")
-                elif "image_url" in image and not image.get("url"):
-                    image["url"] = image["image_url"]
-                    logger.info(f"Added url from image_url: {image['image_url']}")
-                # If neither field exists, create a placeholder
-                elif not image.get("url") and not image.get("image_url"):
-                    logger.warning(
-                        f"Image {image.get('id', 'unknown')} has no URL fields"
-                    )
-
-            bike["images"] = images_response
-            logger.info(f"Processed images: {bike['images']}")
-        else:
-            logger.warning(
-                f"Failed to fetch images for bike {bike_id}: status {images_status}"
-            )
-            bike["images"] = []
-
-        # Fetch seller profile photo
-        user_id = bike.get("user_id")
-        if user_id:
-            try:
-                user_response, user_status = supabase_request(
-                    "get",
-                    f"/rest/v1/users?id=eq.{user_id}&select=profile_photo_url",
-                    use_service_role=True,
-                )
-                if user_status < 400 and user_response and len(user_response) > 0:
-                    bike["seller_profile_photo"] = user_response[0].get(
-                        "profile_photo_url"
-                    )
-            except Exception as user_err:
-                logger.warning(f"Failed to fetch seller info: {user_err}")
-
-        logger.info(f"Returning bike with {len(bike['images'])} images")
-        for _f in _PUBLIC_STRIP_FIELDS:
-            bike.pop(_f, None)
-        if not is_public:
-            for _f in _PUBLIC_STRIP_FIELDS:
-                bike.pop(_f, None)
-        if not requesting_user and is_public:
-            _api_cache_set(cache_key, bike)
-        return _cached_json_response(bike)
-    except Exception as e:
-        logger.error(f"Error fetching bike details: {e}")
-        return jsonify({"error": str(e)}), 500
+get_bikes, get_bike_by_id = register_bike_read_routes(
+    app, dependencies=_bike_read_dependencies
+)
 
 
 @app.route("/api/user/bikes", methods=["GET"])
