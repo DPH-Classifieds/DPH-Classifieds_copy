@@ -1,4 +1,5 @@
 from flask import Flask
+import logging
 
 from application.health_routes import register_health_routes
 
@@ -16,6 +17,7 @@ def test_health_registration_preserves_aliases_and_liveness_contract():
         send_health_alert=lambda _: (True, None),
         token_required=lambda view: view,
         require_admin=lambda _: True,
+        logger=logging.getLogger(__name__),
     )
 
     rules = list(app.url_map.iter_rules())

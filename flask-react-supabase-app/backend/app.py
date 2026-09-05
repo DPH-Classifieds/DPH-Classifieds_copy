@@ -21281,6 +21281,7 @@ register_health_routes(
     send_health_alert=send_health_alert,
     token_required=token_required,
     require_admin=_require_admin_api_user,
+    logger=logger,
 )
 
 

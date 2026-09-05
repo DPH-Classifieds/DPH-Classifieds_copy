@@ -1,6 +1,7 @@
 """Health and liveness endpoints registered without importing the Flask root."""
 
 from collections.abc import Callable
+import logging
 import uuid
 from typing import Any
 
@@ -19,6 +20,7 @@ def register_health_routes(
     send_health_alert: Callable[[dict[str, Any]], Any],
     token_required: Callable[[Callable[..., Any]], Callable[..., Any]],
     require_admin: Callable[[str], bool],
+    logger: logging.Logger,
 ) -> None:
     """Register the legacy health URLs and endpoint names exactly once."""
 
@@ -57,6 +59,7 @@ def register_health_routes(
             }
             return jsonify(snapshot), 200
         except Exception as exc:
+            logger.error("Health check failed: %s", exc)
             return jsonify({"status": "down", "error": str(exc)}), 503
 
     def api_health_live():
@@ -69,6 +72,7 @@ def register_health_routes(
                 }
             ), 200
         except Exception as exc:
+            logger.error("Live health check failed: %s", exc)
             return jsonify({"status": "down", "error": str(exc)}), 503
 
     def admin_health(current_user):
@@ -87,6 +91,7 @@ def register_health_routes(
                 send_health_alert(live_snapshot)
             return jsonify(response_payload), 200
         except Exception as exc:
+            logger.error("Failed to build admin health payload: %s", exc)
             return jsonify(
                 {"error": "Failed to fetch health status", "details": str(exc)}
             ), 500
