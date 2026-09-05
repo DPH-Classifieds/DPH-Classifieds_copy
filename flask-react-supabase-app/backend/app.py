@@ -42,6 +42,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
+from application.car_read_routes import CarReadDependencies, register_car_read_route
 from application.http_runtime import register_http_runtime
 from application.health_routes import register_health_routes
 from application.listing_count_routes import register_listing_count_route
@@ -6719,241 +6720,43 @@ register_listing_count_route(
 )
 
 
+def _car_read_dependencies():
+    return CarReadDependencies(
+        build_cache_key=lambda: _build_api_cache_key(),
+        cache_get=lambda key: _api_cache_get(key),
+        cache_set=lambda *args, **kwargs: _api_cache_set(*args, **kwargs),
+        cached_json_response=lambda *args, **kwargs: _cached_json_response(
+            *args, **kwargs
+        ),
+        parse_pagination_args=lambda: _parse_pagination_args(),
+        getenv=lambda name: os.getenv(name),
+        reddit_on_explore=lambda: _reddit_on_explore(),
+        should_hide_reddit=lambda *args: _should_hide_reddit(*args),
+        search_or_group=lambda fields: _search_or_group(fields),
+        combine_or_groups=lambda *groups: _combine_or_groups(*groups),
+        cursor_filter=lambda: _cursor_filter(),
+        to_int=lambda *args, **kwargs: _to_int(*args, **kwargs),
+        current_year=lambda: datetime.datetime.now().year,
+        minimum_year=MIN_ALLOWED_YEAR,
+        public_car_preview_select=PUBLIC_CAR_PREVIEW_SELECT,
+        supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),
+        filter_public_listing_records=lambda table, records: (
+            _filter_public_listing_records(table, records)
+        ),
+        sort_listing_images=lambda images: _sort_listing_images(images),
+        batch_fetch_seller_map=lambda user_ids: _batch_fetch_seller_map(user_ids),
+        apply_seller_to_listing=lambda item, seller: _apply_seller_to_listing(
+            item, seller
+        ),
+        attach_page_headers=lambda response, items, limit: _attach_page_headers(
+            response, items, limit
+        ),
+        logger=logger,
+    )
+
+
 # Get all cars (public)
-@app.route("/api/cars", methods=["GET"])
-def get_cars():
-    try:
-        cache_key = _build_api_cache_key()
-        cached_payload = _api_cache_get(cache_key)
-        if cached_payload is not None:
-            return _cached_json_response(cached_payload)
-
-        # Get query parameters
-        limit, offset = _parse_pagination_args()
-        order = request.args.get("order", "created_at.desc")
-
-        # Create parameters for Supabase query, excluding tracking parameters
-        params = {
-            "select": "*",
-            "limit": str(limit),
-            "offset": str(offset),
-            "order": order,
-            "status": "eq.approved",  # Only show approved cars on the frontend
-            "is_approved": "eq.true",  # Double check with is_approved field
-        }
-
-        # Dev preview: when LOCAL_SHOW_HIDDEN_REDDIT=1 (never set in production),
-        # let the Reddit tab surface imports that are still hidden
-        # (is_approved=false) so they can be reviewed before the visibility toggle
-        # is flipped. No effect in prod, where the env var is unset.
-        if (
-            request.args.get("source_platform") == "reddit"
-            and os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1"
-        ):
-            params.pop("is_approved", None)
-
-        # Remove any parameters starting with underscore (like _t)
-        filtered_params = {k: v for k, v in params.items() if not k.startswith("_")}
-
-        # Reddit imports show ONLY in the dedicated Reddit browse tab. Exclude them
-        # from the normal cars feed unless the caller explicitly asks for them.
-        # (or-clause keeps rows whose source_platform is null — i.e. all real cars.)
-        # A client can also force exclusion via ?exclude_reddit=true — this wins even
-        # when the admin reddit_on_explore flag mixes Reddit into the main feed, so a
-        # user who doesn't want to see Reddit cars always can opt out.
-        requesting_reddit = request.args.get("source_platform") == "reddit"
-        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
-        reddit_or_group = None
-        if _should_hide_reddit(requesting_reddit, exclude_reddit, _reddit_on_explore()):
-            reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
-
-        # ?q=<term> free-text search across the fields Explore's search box
-        # matches against, moved server-side so the client no longer needs to
-        # hold the whole inventory to filter it.
-        search_or_group = _search_or_group(
-            ["listing_title", "car_manufacturer", "car_model", "car_description"]
-        )
-        filtered_params.update(_combine_or_groups(reddit_or_group, search_or_group))
-
-        # ?cursor=<created_at> keyset pagination; opt-in, offset/limit above
-        # keeps working unchanged for every existing caller that doesn't pass it.
-        cursor_pair = _cursor_filter()
-        if cursor_pair:
-            filtered_params[cursor_pair[0]] = cursor_pair[1]
-
-        # Define allowed filter fields that exist in the cars table
-        allowed_filters = [
-            "car_manufacturer",
-            "car_model",
-            "car_city",
-            "make_year_from",
-            "make_year_to",
-            "price_from",
-            "price_to",
-            "body_type",
-            "fuel_type",
-            "transmission_type",
-            "regional_spec",
-            "kilometer_from",
-            "kilometer_to",
-            "steering_side",
-            "seating_capacity",
-            "horsepower",
-            "engine_capacity",
-            "source_platform",  # powers the Reddit browse tab (?source_platform=reddit)
-        ]
-
-        # Add additional filters from request args that are in the allowed list
-        for key, value in request.args.items():
-            if (
-                not key.startswith("_")
-                and key not in ["limit", "offset", "order", "extras"]
-                and value
-            ):
-                if key in allowed_filters:
-                    # Validate and normalize numeric filters before sending to Supabase
-                    if key in ["price_from", "price_to"]:
-                        try:
-                            value = str(
-                                _to_int(value, key, minimum=0, allow_empty=False)
-                            )
-                        except ValueError as validation_error:
-                            return jsonify(
-                                {"error": str(validation_error), "data": []}
-                            ), 400
-                    if key in ["kilometer_from", "kilometer_to"]:
-                        try:
-                            value = str(
-                                _to_int(value, key, minimum=0, allow_empty=False)
-                            )
-                        except ValueError as validation_error:
-                            return jsonify(
-                                {"error": str(validation_error), "data": []}
-                            ), 400
-                    if key in ["make_year_from", "make_year_to"]:
-                        try:
-                            value = str(
-                                _to_int(
-                                    value,
-                                    key,
-                                    minimum=MIN_ALLOWED_YEAR,
-                                    maximum=datetime.datetime.now().year + 1,
-                                    allow_empty=False,
-                                )
-                            )
-                        except ValueError as validation_error:
-                            return jsonify(
-                                {"error": str(validation_error), "data": []}
-                            ), 400
-
-                    # Handle range filters
-                    if key.endswith("_from"):
-                        base_field = key.replace("_from", "")
-                        if base_field == "price":
-                            filtered_params[f"expected_selling_price"] = f"gte.{value}"
-                        elif base_field == "make_year":
-                            filtered_params[f"make_year"] = f"gte.{value}"
-                        elif base_field == "kilometer":
-                            filtered_params[f"kilometer_driven"] = f"gte.{value}"
-                    elif key.endswith("_to"):
-                        base_field = key.replace("_to", "")
-                        if base_field == "price":
-                            filtered_params[f"expected_selling_price"] = f"lte.{value}"
-                        elif base_field == "make_year":
-                            filtered_params[f"make_year"] = f"lte.{value}"
-                        elif base_field == "kilometer":
-                            filtered_params[f"kilometer_driven"] = f"lte.{value}"
-                    else:
-                        filtered_params[f"{key}"] = f"eq.{value}"
-
-        # Handle extras filtering - map frontend extras to database boolean columns
-        if "extras" in request.args:
-            extras_list = request.args.getlist("extras")
-
-            # Mapping from frontend extras to database boolean columns
-            extras_mapping = {
-                "Keyless Entry": "keyless_entry",
-                "DVD Player": "dvd_player",
-                "Climate Control": "climate_control",
-                "Navigation System": "navigation_system",
-                "Premium Sound System": "premium_sound_system",
-                "Cooled Seats": "cooled_seats",
-                "Front Wheel Drive": "front_wheel_drive",
-                "Leather Seats": "leather_seats",
-                "Parking Sensors": "parking_sensors",
-                "Rear View Camera": "rear_view_camera",
-            }
-
-            for extra in extras_list:
-                db_field = extras_mapping.get(extra)
-                if db_field:
-                    filtered_params[db_field] = "eq.true"
-
-        logger.info(f"Fetching cars with params: {filtered_params}")
-
-        filtered_params["select"] = PUBLIC_CAR_PREVIEW_SELECT
-
-        # Use service role for public fetches to ensure all approved listings and images are visible
-        response, status_code = supabase_request(
-            "get", "/rest/v1/cars", params=filtered_params, use_service_role=True
-        )
-
-        if status_code >= 400:
-            err_message = ""
-            err_code = ""
-            if isinstance(response, dict):
-                err_message = response.get("message") or response.get("error") or ""
-                err_code = response.get("code") or ""
-            logger.error(
-                "get_cars_supabase_error status=%s code=%s msg=%s raw=%s",
-                status_code, err_code, err_message, response,
-            )
-            return jsonify(
-                {"error": err_message or "Unknown error", "data": []}
-            ), status_code
-
-        # Ensure we always return a list
-        if not response:
-            response = []
-        elif not isinstance(response, list):
-            logger.warning(f"Unexpected response format: {type(response)}")
-            response = []
-
-        response = _filter_public_listing_records("cars", response)
-
-        # Normalize images field for frontend
-        for car in response:
-            car_images = car.pop("car_images", [])
-            for img in car_images:
-                if "url" in img and "image_url" not in img:
-                    img["image_url"] = img["url"]
-                elif "image_url" in img and "url" not in img:
-                    img["url"] = img["image_url"]
-            # Primary image first so car.images[0] is always the thumbnail
-            car["images"] = _sort_listing_images(car_images)
-            # Convenience field for feed/card rendering so the client doesn't
-            # need to hold/derive the full gallery just to show one photo.
-            car["primary_image_url"] = (
-                car["images"][0].get("image_url") if car["images"] else None
-            )
-
-        # Fetch seller info for each car in a single batched request
-        try:
-            seller_map = _batch_fetch_seller_map(
-                [car.get("user_id") for car in response]
-            )
-            for car in response:
-                _apply_seller_to_listing(car, seller_map.get(car.get("user_id")))
-        except Exception as e:
-            logger.warning(f"Error fetching seller info: {e}")
-
-        logger.info(f"Successfully fetched {len(response)} cars")
-        _api_cache_set(cache_key, response)
-        return _attach_page_headers(_cached_json_response(response), response, limit), 200
-
-    except Exception as e:
-        logger.error(f"Error getting cars: {str(e)}")
-        return jsonify({"error": str(e), "data": []}), 500
+get_cars = register_car_read_route(app, dependencies=_car_read_dependencies)
 
 
 # Get car details by ID (public)
