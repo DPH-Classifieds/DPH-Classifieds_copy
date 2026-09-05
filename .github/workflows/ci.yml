@@ -67,3 +67,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: ./e2e/run.sh
         working-directory: flask-react-supabase-app/backend
+      - run: ./e2e/worker.sh
+        working-directory: flask-react-supabase-app/backend

@@ -92,7 +92,7 @@ def test_no_due_deliveries_returns_zero(mock_requests):
     mock_requests.get.return_value = _resp(200, [])
     assert wdw.run() == 0
     assert mock_requests.post.called is False
-    assert mock_requests.patch.call_count == 1  # stale-claim recovery only
+    assert mock_requests.patch.called is False
 
 
 def test_response_reader_stops_before_full_body_is_buffered():
@@ -116,9 +116,50 @@ def test_claim_uses_pending_lease_and_tenant_filter():
     assert patch_call.call_args.kwargs["json"].keys() == {"next_retry_at"}
 
 
-def test_stale_in_progress_recovery_is_bounded_by_lease_time():
-    with patch.object(wdw.requests, "patch") as patch_call:
-        wdw._recover_stale_deliveries()
-    assert patch_call.call_args.kwargs["params"]["status"] == "eq.in_progress"
-    assert patch_call.call_args.kwargs["params"]["next_retry_at"].startswith("lte.")
-    assert patch_call.call_args.kwargs["json"]["status"] == "pending"
+def test_duplicate_webhook_claim_gets_no_lease_from_empty_conditional_response():
+    delivery = {
+        "id": "d8", "dealership_id": "tenant-8",
+        "next_retry_at": "2026-08-29T10:00:00+00:00",
+    }
+    responses = [_resp(200, [{"id": "d8"}]), _resp(200, [])]
+    with patch.object(wdw.requests, "patch", side_effect=responses):
+        first_lease = wdw._claim(delivery)
+        duplicate_lease = wdw._claim(delivery)
+
+    assert first_lease is not None
+    assert duplicate_lease is None
+
+
+def test_finalize_requires_the_owned_pending_lease_and_reports_noop():
+    with patch.object(
+        wdw.requests, "patch", return_value=_resp(200, [])
+    ) as patch_call:
+        finalized = wdw._mark(
+            "d9",
+            {"status": "succeeded"},
+            dealership_id="tenant-9",
+            lease_until="2026-08-29T10:01:00+00:00",
+        )
+
+    params = patch_call.call_args.kwargs["params"]
+    assert params == {
+        "id": "eq.d9",
+        "dealership_id": "eq.tenant-9",
+        "status": "eq.pending",
+        "next_retry_at": "eq.2026-08-29T10:01:00+00:00",
+    }
+    assert finalized is False
+
+
+def test_finalize_reports_success_only_when_conditional_update_returns_row():
+    with patch.object(
+        wdw.requests, "patch", return_value=_resp(200, [{"id": "d10"}])
+    ):
+        finalized = wdw._mark(
+            "d10",
+            {"status": "dead_letter"},
+            dealership_id="tenant-10",
+            lease_until="2026-08-29T10:01:00+00:00",
+        )
+
+    assert finalized is True

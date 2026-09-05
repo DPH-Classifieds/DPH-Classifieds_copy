@@ -148,3 +148,28 @@ def test_process_one_cancels_when_doc_replaced_between_upload_and_fire():
     assert "approve" not in captured
     assert "emails" not in captured
     assert any(fields.get("state") == "cancelled" for _, fields in captured["marks"])
+
+
+def test_claim_uses_allowed_fired_state_and_duplicate_response_is_noop():
+    responses = [([{"id": "p1", "state": "fired"}], 200), ([], 200)]
+    with patch.object(w, "SUPABASE_URL", "https://supabase.test"), \
+         patch.object(w, "SUPABASE_SERVICE_KEY", "test-service-key"), \
+         patch.object(w, "supabase_request", side_effect=responses) as request:
+        first_claim = w._claim("p1")
+        duplicate_claim = w._claim("p1")
+
+    assert first_claim is True
+    assert duplicate_claim is False
+    for call in request.call_args_list:
+        assert call.args == (
+            "patch",
+            "/rest/v1/dealer_pending_approvals?id=eq.p1&state=eq.pending",
+        )
+        assert call.kwargs["data"] == {"state": "fired"}
+
+
+def test_claim_rejects_empty_204_conditional_response():
+    with patch.object(w, "SUPABASE_URL", "https://supabase.test"), \
+         patch.object(w, "SUPABASE_SERVICE_KEY", "test-service-key"), \
+         patch.object(w, "supabase_request", return_value=({}, 204)):
+        assert w._claim("p2") is False

@@ -10,9 +10,8 @@ The delayed-action pattern protects against:
   - a dealer uploading, getting auto-approved, then immediately replacing the
     doc with garbage
   - a multi-replica worker trying to fire the same row twice
-    (handled by transitioning state to 'fired'/'cancelled' inside a single
-    PostgREST PATCH; the unique partial index on state='pending' is the
-    real concurrency guard at the DB level)
+    (handled by conditionally transitioning state from 'pending' to 'fired';
+    the unique partial index on state='pending' remains the per-user guard)
 """
 import logging
 import os
@@ -114,9 +113,9 @@ def _claim(row_id):
         return True
     body, status = supabase_request(
         "patch", f"/rest/v1/dealer_pending_approvals?id=eq.{row_id}&state=eq.pending",
-        data={"state": "firing"},
+        data={"state": "fired"},
     )
-    return (status == 204) or (status < 300 and bool(body)) or (not SUPABASE_URL)
+    return status < 300 and isinstance(body, list) and bool(body)
 
 
 def _mark(row_id, **fields):

@@ -55,18 +55,6 @@ def _due_deliveries():
     return r.json() if r.status_code == 200 else []
 
 
-def _recover_stale_deliveries():
-    """Recover leases written by older workers that used status=in_progress."""
-    now_iso = datetime.now(timezone.utc).isoformat()
-    requests.patch(
-        f"{SUPABASE_URL}/rest/v1/dealer_webhook_deliveries",
-        headers=_svc(prefer="return=minimal"),
-        params={"status": "eq.in_progress", "next_retry_at": f"lte.{now_iso}"},
-        json={"status": "pending", "last_error": "recovered_stale_claim"},
-        timeout=10,
-    )
-
-
 def _fetch_webhook(webhook_id, dealership_id):
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/dealer_webhooks",
@@ -108,14 +96,16 @@ def _mark(delivery_id, body, dealership_id=None, lease_until=None):
     if dealership_id:
         params["dealership_id"] = f"eq.{dealership_id}"
     if lease_until:
-        params.update({"status": "eq.in_progress", "next_retry_at": f"eq.{lease_until}"})
-    requests.patch(
+        params.update({"status": "eq.pending", "next_retry_at": f"eq.{lease_until}"})
+    response = requests.patch(
         f"{SUPABASE_URL}/rest/v1/dealer_webhook_deliveries",
-        headers=_svc(prefer="return=minimal"),
+        headers=_svc(prefer="return=representation"),
         params=params,
         json=body,
         timeout=10,
     )
+    rows = response.json() if response.status_code < 300 else []
+    return bool(rows)
 
 
 def _backoff_at(attempt_count):
@@ -257,7 +247,6 @@ def _process(delivery):
 
 
 def run():
-    _recover_stale_deliveries()
     deliveries = _due_deliveries()
     for d in deliveries:
         try:
