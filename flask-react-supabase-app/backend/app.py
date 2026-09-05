@@ -43,6 +43,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
 from application.http_runtime import register_http_runtime
+from application.health_routes import register_health_routes
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
 from services.featured_listings import (
@@ -21266,90 +21267,18 @@ def get_admin_live_users_history(current_user):
         return jsonify({"error": "Failed to compute live visitor history"}), 500
 
 
-@app.route("/api/health", methods=["GET"])
-@app.route("/healthz", methods=["GET"])
-def api_health():
-    try:
-        redis_health = check_redis_health()
-        worker_health = get_worker_heartbeat()
-        backend_health = {
-            "ok": True,
-            "status": "healthy",
-            "message": "Backend API responding",
-            "latency_ms": None,
-            "checked_url": request.base_url,
-        }
-        snapshot = {
-            "id": str(uuid.uuid4()),
-            "checked_at": _isoformat_utc(_utc_now()),
-            "source": "backend",
-            "overall_status": "healthy"
-            if redis_health.get("ok") and worker_health.get("ok")
-            else "degraded",
-            "frontend_status": "skipped",
-            "backend_status": backend_health["status"],
-            "redis_status": redis_health["status"],
-            "worker_status": worker_health["status"],
-            "frontend_latency_ms": None,
-            "backend_latency_ms": None,
-            "redis_latency_ms": redis_health.get("latency_ms"),
-            "worker_latency_ms": None,
-            "details": {
-                "frontend": None,
-                "backend": backend_health,
-                "redis": redis_health,
-                "worker": worker_health,
-            },
-        }
-        # Keep this endpoint liveness-friendly for platform health checks.
-        # The payload still reports degraded dependencies when Redis or the
-        # worker is unavailable, but the container itself remains reachable.
-        return jsonify(snapshot), 200
-    except Exception as exc:
-        logger.error(f"Health check failed: {exc}")
-        return jsonify({"status": "down", "error": str(exc)}), 503
-
-
-@app.route("/api/health/live", methods=["GET"])
-@app.route("/healthz/live", methods=["GET"])
-def api_health_live():
-    try:
-        return jsonify(
-            {
-                "status": "healthy",
-                "service": "backend",
-                "timestamp": _isoformat_utc(_utc_now()),
-            }
-        ), 200
-    except Exception as exc:
-        logger.error(f"Live health check failed: {exc}")
-        return jsonify({"status": "down", "error": str(exc)}), 503
-
-
-@app.route("/api/admin/health", methods=["GET"])
-@token_required
-def admin_health(current_user):
-    try:
-        if not _require_admin_api_user(current_user):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        live_snapshot = build_health_snapshot(include_frontend=True)
-        latest_snapshot, snapshot_error = fetch_latest_health_snapshot()
-        response_payload = {
-            "current": live_snapshot,
-            "latest": latest_snapshot,
-            "latest_error": snapshot_error,
-        }
-
-        if live_snapshot.get("overall_status") != "healthy":
-            send_health_alert(live_snapshot)
-
-        return jsonify(response_payload), 200
-    except Exception as exc:
-        logger.error(f"Failed to build admin health payload: {exc}")
-        return jsonify(
-            {"error": "Failed to fetch health status", "details": str(exc)}
-        ), 500
+register_health_routes(
+    app,
+    check_redis_health=check_redis_health,
+    get_worker_heartbeat=get_worker_heartbeat,
+    utc_now=_utc_now,
+    isoformat_utc=_isoformat_utc,
+    build_health_snapshot=build_health_snapshot,
+    fetch_latest_health_snapshot=fetch_latest_health_snapshot,
+    send_health_alert=send_health_alert,
+    token_required=token_required,
+    require_admin=_require_admin_api_user,
+)
 
 
 # NOTE: /api/admin/ga4-summary was removed in 2026-06. The inline-GA4-KPIs
