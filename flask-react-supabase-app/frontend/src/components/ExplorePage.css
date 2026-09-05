@@ -842,8 +842,11 @@
 }
 
 .explore-v2-card-badge-reddit {
+  /* top offset clears the 44px saved-listing-button-card heart toggle,
+     which sits at the same top:12/right:12 corner (SavedListings.css) —
+     without it the two visibly collided. */
   position: absolute;
-  top: 10px;
+  top: 62px;
   right: 10px;
   padding: 5px 10px;
   border-radius: 999px;
@@ -856,8 +859,9 @@
 }
 
 .explore-v2-card-badge-dealer {
+  /* Same heart-toggle clearance as .explore-v2-card-badge-reddit above. */
   position: absolute;
-  top: 42px;
+  top: 62px;
   right: 10px;
   display: inline-flex;
   align-items: center;
@@ -912,6 +916,10 @@
   font-size: 0.92rem;
   font-weight: 700;
   line-height: 1.32;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .explore-v2-card-head a {
@@ -998,22 +1006,47 @@
 }
 
 @media (max-width: 640px) {
+  /* The fixed header already reserves its own height via .header-spacer
+     (App.css) — this used to ALSO carry 80px of its own on top of that,
+     pushing real content ~150px down before anything but blank page
+     showed. A browse page should read as one immediately, the way a
+     native app's search results do. */
   .explore-v2 {
-    padding-top: 80px;
+    padding-top: 18px;
+    padding-bottom: 48px;
   }
 
   .explore-v2-pageheader {
-    flex-direction: column;
-    align-items: flex-start;
     gap: 10px;
+    padding-top: 0;
   }
 
+  .explore-v2-pageheader p {
+    display: none;
+  }
+
+  /* Posting is a secondary action on a browse/search page — Property
+     Finder and Dubizzle both keep it small and out of the primary flow
+     here. Was a full-width bar stacked above search; now an inline pill
+     next to the title, the way "List your property" sits in their nav
+     rather than dominating results. */
   .explore-v2-postad {
-    width: 100%;
+    width: auto;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 0.82rem;
+  }
+
+  .explore-v2-searchrow {
+    margin-top: 14px;
   }
 
   .explore-v2-searchrow .search-bar {
     max-width: none;
+  }
+
+  .explore-v2-primary-controls {
+    margin-top: 10px;
   }
 
   .explore-v2-select,
@@ -1022,13 +1055,27 @@
     justify-content: center;
   }
 
+  .explore-v2-chips {
+    margin-top: 10px;
+  }
+
   .explore-v2-resultsbar {
     flex-direction: column;
     align-items: flex-start;
+    margin-top: 14px;
   }
 
   .explore-v2-resultsbar-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  /* Single column, full-width cards — a tight 2-up grid was cramming a
+     large hero photo (the card's main job on a vehicle marketplace) into
+     half the screen and forcing long titles to wrap awkwardly. One column
+     matches how Property Finder and Dubizzle both read on a phone. */
+  .explore-v2-listing-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
