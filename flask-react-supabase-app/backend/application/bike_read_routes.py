@@ -24,8 +24,8 @@ class BikeReadDependencies:
     combine_or_groups: Callable[..., dict[str, str]]
     cursor_filter: Callable[[], tuple[str, str] | None]
     collect_listing_filter_pairs: Callable[..., list[tuple[str, str]]]
-    supabase_url: str
-    service_role_key: str
+    supabase_url: Callable[[], str]
+    service_role_key: Callable[[], str]
     listing_image_select: str
     direct_get: Callable[..., Any]
     supabase_request: Callable[..., tuple[Any, int]]
@@ -193,7 +193,7 @@ def register_bike_read_routes(
             )
 
             try:
-                service_role_key = deps.service_role_key
+                service_role_key = deps.service_role_key()
                 headers = {
                     "apikey": service_role_key,
                     "Authorization": f"Bearer {service_role_key}",
@@ -208,7 +208,7 @@ def register_bike_read_routes(
                 query_params.extend(f"{key}={value}" for key, value in filter_pairs)
                 query_string = "&".join(query_params)
                 url = (
-                    f"{deps.supabase_url}/rest/v1/bikes?{query_string}"
+                    f"{deps.supabase_url()}/rest/v1/bikes?{query_string}"
                     f"&select={_bike_select(deps, include_source=True)}"
                 )
 

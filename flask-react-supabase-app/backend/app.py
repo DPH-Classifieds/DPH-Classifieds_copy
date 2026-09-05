@@ -14960,8 +14960,8 @@ def _bike_read_dependencies():
         collect_listing_filter_pairs=lambda *args: _collect_listing_filter_pairs(
             *args
         ),
-        supabase_url=app.config["SUPABASE_URL"],
-        service_role_key=app.config["SUPABASE_SERVICE_ROLE_KEY"],
+        supabase_url=lambda: app.config["SUPABASE_URL"],
+        service_role_key=lambda: app.config["SUPABASE_SERVICE_ROLE_KEY"],
         listing_image_select=LISTING_IMAGE_SELECTS["bikes"],
         direct_get=lambda *args, **kwargs: requests.get(*args, **kwargs),
         supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),

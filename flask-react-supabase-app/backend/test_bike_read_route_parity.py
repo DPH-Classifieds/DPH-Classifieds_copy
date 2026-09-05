@@ -1,9 +1,11 @@
 import logging
+from unittest.mock import patch
 from urllib.parse import quote
 
 import pytest
 from flask import Flask, jsonify, make_response, request
 
+import app as backend
 from application.bike_read_routes import (
     BikeReadDependencies,
     register_bike_read_routes,
@@ -135,8 +137,8 @@ def _register_app(**overrides):
         "combine_or_groups": _combine_or_groups,
         "cursor_filter": lambda: None,
         "collect_listing_filter_pairs": _collect_listing_filter_pairs,
-        "supabase_url": "https://supabase.test",
-        "service_role_key": "service-role-key",
+        "supabase_url": lambda: "https://supabase.test",
+        "service_role_key": lambda: "service-role-key",
         "listing_image_select": IMAGE_SELECT,
         "direct_get": direct_get,
         "supabase_request": supabase_request,
@@ -200,6 +202,93 @@ def test_list_cache_hit_returns_cached_payload_without_provider_calls():
     assert state["direct_calls"] == []
     assert state["supabase_calls"] == []
     assert state["cache_sets"] == []
+
+
+def test_root_adapter_list_cache_hit_does_not_require_supabase_config(monkeypatch):
+    cached = [{"id": "root-cached-bike"}]
+    monkeypatch.delitem(backend.app.config, "SUPABASE_URL", raising=False)
+    monkeypatch.delitem(
+        backend.app.config, "SUPABASE_SERVICE_ROLE_KEY", raising=False
+    )
+
+    with (
+        patch.object(backend, "_build_api_cache_key", return_value="bike-cache"),
+        patch.object(backend, "_api_cache_get", return_value=cached),
+        patch.object(
+            backend.requests,
+            "get",
+            side_effect=AssertionError("cache hit must not call the provider"),
+        ),
+        patch.object(
+            backend,
+            "supabase_request",
+            side_effect=AssertionError("cache hit must not call Supabase"),
+        ),
+    ):
+        response = backend.app.test_client().get("/api/bikes")
+
+    assert response.status_code == 200
+    assert response.get_json() == cached
+
+
+def test_root_adapter_detail_cache_hit_does_not_require_supabase_config(monkeypatch):
+    cached = {"id": "root-cached-bike", "make": "Honda"}
+    monkeypatch.delitem(backend.app.config, "SUPABASE_URL", raising=False)
+    monkeypatch.delitem(
+        backend.app.config, "SUPABASE_SERVICE_ROLE_KEY", raising=False
+    )
+
+    with (
+        patch.object(backend, "_optional_user_id", return_value=None),
+        patch.object(backend, "_api_cache_get", return_value=cached),
+        patch.object(
+            backend,
+            "supabase_request",
+            side_effect=AssertionError("cache hit must not call Supabase"),
+        ),
+    ):
+        response = backend.app.test_client().get("/api/bikes/root-cached-bike")
+
+    assert response.status_code == 200
+    assert response.get_json() == cached
+
+
+def test_root_adapter_missing_list_config_preserves_supabase_fallback(monkeypatch):
+    fallback_row = {
+        "id": "fallback-bike",
+        "user_id": None,
+        "status": "approved",
+        "is_approved": True,
+        "bike_images": [],
+    }
+    monkeypatch.delitem(backend.app.config, "SUPABASE_URL", raising=False)
+    monkeypatch.setitem(
+        backend.app.config, "SUPABASE_SERVICE_ROLE_KEY", "service-role-key"
+    )
+
+    def fallback_request(method, path, **kwargs):
+        if (
+            method == "get"
+            and path == "/rest/v1/bikes"
+            and kwargs.get("use_service_role") is True
+        ):
+            return [fallback_row], 200
+        raise AssertionError(f"unexpected Supabase call: {method} {path} {kwargs}")
+
+    with (
+        patch.object(backend, "_api_cache_get", return_value=None),
+        patch.object(backend, "_api_cache_set"),
+        patch.object(backend, "supabase_request", side_effect=fallback_request),
+        patch.object(
+            backend.requests,
+            "get",
+            side_effect=AssertionError("missing config must fall back before HTTP"),
+        ),
+    ):
+        response = backend.app.test_client().get("/api/bikes")
+
+    assert response.status_code == 200
+    assert response.get_json()[0]["id"] == "fallback-bike"
 
 
 def test_list_defaults_preserve_direct_query_visibility_headers_and_cache():
@@ -457,6 +546,40 @@ def test_detail_missing_payload_preserves_not_found_envelope(payload):
     assert response.get_json() == {"error": "Bike not found"}
 
 
+def test_detail_malformed_provider_payload_preserves_500_envelope():
+    app, _views, _state = _register_app(
+        supabase_request=lambda *_args, **_kwargs: ({"message": "malformed"}, 200)
+    )
+
+    response = app.test_client().get("/api/bikes/malformed")
+
+    assert response.status_code == 500
+    assert response.get_json() == {"error": "0"}
+
+
+def test_detail_non_2xx_empty_provider_response_preserves_not_found_envelope():
+    app, _views, _state = _register_app(
+        supabase_request=lambda *_args, **_kwargs: ([], 503)
+    )
+
+    response = app.test_client().get("/api/bikes/provider-error")
+
+    assert response.status_code == 404
+    assert response.get_json() == {"error": "Bike not found"}
+
+
+def test_detail_provider_exception_preserves_500_envelope():
+    def provider_failure(*_args, **_kwargs):
+        raise RuntimeError("provider unavailable")
+
+    app, _views, _state = _register_app(supabase_request=provider_failure)
+
+    response = app.test_client().get("/api/bikes/provider-error")
+
+    assert response.status_code == 500
+    assert response.get_json() == {"error": "provider unavailable"}
+
+
 def test_detail_hidden_record_preserves_not_found_envelope():
     app, _views, state = _register_app(
         supabase_request=lambda method, path, **kwargs: (
@@ -569,6 +692,38 @@ def test_detail_image_provider_error_preserves_empty_images_success():
 
     assert response.status_code == 200
     assert response.get_json()["images"] == []
+
+
+def test_detail_malformed_image_provider_payload_preserves_500_envelope():
+    def supabase_request(_method, path, **_kwargs):
+        if "/rest/v1/bikes?" in path:
+            return [{"id": "bike-1", "user_id": None}], 200
+        if "/rest/v1/bike_images?" in path:
+            return {"message": "malformed"}, 200
+        raise AssertionError(path)
+
+    app, _views, _state = _register_app(supabase_request=supabase_request)
+
+    response = app.test_client().get("/api/bikes/bike-1")
+
+    assert response.status_code == 500
+    assert response.get_json() == {"error": "'str' object has no attribute 'get'"}
+
+
+def test_detail_image_provider_exception_preserves_500_envelope():
+    def supabase_request(_method, path, **_kwargs):
+        if "/rest/v1/bikes?" in path:
+            return [{"id": "bike-1", "user_id": None}], 200
+        if "/rest/v1/bike_images?" in path:
+            raise RuntimeError("image provider unavailable")
+        raise AssertionError(path)
+
+    app, _views, _state = _register_app(supabase_request=supabase_request)
+
+    response = app.test_client().get("/api/bikes/bike-1")
+
+    assert response.status_code == 500
+    assert response.get_json() == {"error": "image provider unavailable"}
 
 
 def test_detail_unexpected_errors_preserve_public_500_envelope():
