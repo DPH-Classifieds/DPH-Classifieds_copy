@@ -44,6 +44,7 @@ from xml.sax.saxutils import escape as xml_escape
 from analytics_metrics import build_platform_metrics, classify_platform_path
 from application.http_runtime import register_http_runtime
 from application.health_routes import register_health_routes
+from application.listing_count_routes import register_listing_count_route
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
 from services.featured_listings import (
@@ -6706,31 +6707,16 @@ def _approved_reddit_table_count(table):
     )
 
 
-# Total live listing counts per category (public) — headline numbers for the
-# Explore/browse pages. Doesn't affect pagination/loading on those pages,
-# it's a separate cheap count-only call. Honors the same per-category filter
-# spec as the data routes so the tab badge reflects the user's active search.
-@app.route("/api/listings/counts", methods=["GET"])
-def get_listing_counts():
-    cache_key = _build_api_cache_key()
-    cached_payload = _api_cache_get(cache_key)
-    if cached_payload is not None:
-        return jsonify(cached_payload), 200
-
-    counts = {key: _filtered_count(table, key, request.args) for key, table in _LISTING_COUNT_TABLES.items()}
-    counts["all"] = sum(counts.values())
-    # Reddit isn't a separate table — it's a source_platform on rows already
-    # counted above — so this is informational (a filtered view), not added
-    # into "all".
-    counts["reddit"] = sum(
-        _approved_reddit_table_count(table) for table in _LISTING_COUNT_TABLES.values()
-    )
-    counts["buying_requests"] = _table_count(
-        "buying_requests",
-        {"status": "in.(approved,active)", "is_archived": "eq.false", "expired_at": "is.null"},
-    )
-    _api_cache_set(cache_key, counts, ttl_seconds=60)
-    return jsonify(counts), 200
+register_listing_count_route(
+    app,
+    build_cache_key=_build_api_cache_key,
+    cache_get=_api_cache_get,
+    cache_set=_api_cache_set,
+    filtered_count=_filtered_count,
+    approved_reddit_count=_approved_reddit_table_count,
+    table_count=_table_count,
+    count_tables=_LISTING_COUNT_TABLES,
+)
 
 
 # Get all cars (public)
