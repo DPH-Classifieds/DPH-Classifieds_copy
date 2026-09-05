@@ -17,6 +17,11 @@ browser artifacts.
   module and fail the change if it imports `app.py` or imports from `app`.
   Extracted code receives runtime dependencies through
   `current_app.extensions` or explicit injection.
+- Health boundary: run `pytest -q test_health_route_module.py
+  test_api_error_contracts.py test_route_manifest.py` and confirm
+  `rg -n 'from app|import app' application/health_routes.py
+  application/http_runtime.py` returns no matches. Health aliases must retain
+  their legacy endpoint names and liveness responses.
 - Full backend: from `flask-react-supabase-app/backend`, run
   `./.venv/bin/pytest -q`.
 - Docker API E2E: from `flask-react-supabase-app/backend`, run `./e2e/run.sh`.
@@ -30,6 +35,9 @@ browser artifacts.
 - Frontend: from `flask-react-supabase-app/frontend`, run
   `CI=true npm test -- --watchAll=false`, `npm run build`,
   `npm run check:bundle`, and `npm run audit:media`.
+  The decorative Three.js hero is intentionally idle-deferred so the initial
+  homepage paint does not request its large vendor chunk; keep this behavior
+  covered when changing the homepage shell.
 - Mobile: from `flask-react-supabase-app/mobile`, run
   `npx tsc --noEmit` and `npm test -- --runInBand`.
 

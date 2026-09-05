@@ -14911,15 +14911,26 @@ def update_user_email(current_user):
     if current_email == new_email:
         return jsonify({"error": "New email is the same as the current email"}), 400
 
+    email_pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$"
+    if any(
+        len(email) > 254 or not re.fullmatch(email_pattern, email)
+        for email in (current_email, new_email)
+    ):
+        return jsonify({"error": "Enter valid email addresses"}), 400
+
     authenticated_email = str(
         (getattr(request, "user_data", {}) or {}).get("email") or ""
     ).strip().lower()
     if authenticated_email and current_email != authenticated_email:
         return jsonify({"error": "Current email does not match the signed-in user"}), 403
 
+    service_role_key = (SUPABASE_SERVICE_ROLE_KEY or "").strip()
+    if not service_role_key:
+        return jsonify({"error": "Email update service is not configured"}), 503
+
     headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
         "Content-Type": "application/json",
     }
 
@@ -14937,18 +14948,12 @@ def update_user_email(current_user):
         )
 
         if update_resp.status_code not in (200, 204):
-            error_msg = "Failed to update email in auth system"
-            try:
-                err = update_resp.json()
-                error_msg = err.get("msg") or err.get("message") or error_msg
-            except Exception:
-                pass
-            return jsonify({"error": error_msg}), 500
+            return jsonify({"error": "Failed to update email. Please try again."}), 502
 
         # Update email in local users table
         db_headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
             "Content-Type": "application/json",
         }
         db_resp = requests.patch(
@@ -14957,6 +14962,12 @@ def update_user_email(current_user):
             json={"email": new_email, "email_verified": False},
             timeout=10,
         )
+        if db_resp.status_code not in (200, 204):
+            logger.error(
+                "Email auth update succeeded but local user sync failed: %s",
+                db_resp.status_code,
+            )
+            return jsonify({"error": "Failed to synchronize email changes"}), 502
 
         # Resend confirmation to new email
         resend_url = f"{SUPABASE_URL}/auth/v1/resend"
@@ -14965,12 +14976,18 @@ def update_user_email(current_user):
             "email": new_email,
             "redirect_to": redirect_to,
         }
-        requests.post(
+        resend_resp = requests.post(
             resend_url,
             headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
             json=resend_payload,
             timeout=10,
         )
+        if resend_resp.status_code not in (200, 204):
+            logger.error(
+                "Email auth update succeeded but confirmation resend failed: %s",
+                resend_resp.status_code,
+            )
+            return jsonify({"error": "Email updated but confirmation could not be sent"}), 502
 
         return jsonify(
             {"message": "Email updated successfully. Confirmation sent to new address."}

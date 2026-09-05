@@ -20,6 +20,39 @@ import './ExplorePage.css';
 
 const HeroBackground = lazy(() => import('./HeroBackground'));
 
+function DeferredHeroBackground() {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+    let idleId;
+    const reveal = () => setIsReady(true);
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(reveal, { timeout: 1800 });
+    } else {
+      timeoutId = window.setTimeout(reveal, 1200);
+    }
+
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function' && idleId !== undefined) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
+  if (!isReady) return null;
+
+  return (
+    <Suspense fallback={null}>
+      <HeroBackground />
+    </Suspense>
+  );
+}
+
 const marketplaceInsights = [
   {
     id: 1,
@@ -240,9 +273,7 @@ const HomePage = () => {
             fetchPriority="high"
             decoding="async"
           />
-          <Suspense fallback={null}>
-            <HeroBackground />
-          </Suspense>
+          <DeferredHeroBackground />
           <div className="cn-hero-vignette" />
           <div className="cn-hero-glow" />
         </div>
