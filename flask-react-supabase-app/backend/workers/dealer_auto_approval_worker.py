@@ -10,12 +10,13 @@ The delayed-action pattern protects against:
   - a dealer uploading, getting auto-approved, then immediately replacing the
     doc with garbage
   - a multi-replica worker trying to fire the same row twice
-    (handled by conditionally transitioning state from 'pending' to 'fired';
-    the unique partial index on state='pending' remains the per-user guard)
+    (handled by an expiring ``fired_at`` lease while state remains 'pending';
+    terminal updates must match that exact lease, and the unique partial index
+    on state='pending' remains the per-user guard)
 """
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -29,6 +30,7 @@ SUPABASE_SERVICE_KEY = (
 )
 DEFAULT_DELAY_SECONDS = int(os.getenv("DEALER_AUTO_APPROVAL_DELAY_SECONDS", "300"))
 DEFAULT_THRESHOLD = float(os.getenv("DEALER_AUTO_APPROVAL_OCR_THRESHOLD", "0.90"))
+CLAIM_LEASE_SECONDS = max(30, int(os.getenv("DEALER_AUTO_APPROVAL_LEASE_SECONDS", "60")))
 
 
 def _truthy(value):
@@ -108,18 +110,41 @@ def _fetch_active_docs(user_id):
 
 
 def _claim(row_id):
-    """Atomically claim a pending row; only one replica may continue."""
+    """Lease a pending row without leaving the migration's allowed states.
+
+    ``fired_at`` is a temporary lease marker while state remains ``pending``.
+    An expired marker can be claimed by the next worker tick; finalization
+    must match the exact marker returned here.
+    """
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    claim_lease = (now + timedelta(seconds=CLAIM_LEASE_SECONDS)).isoformat()
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        return True
+        return claim_lease
     body, status = supabase_request(
-        "patch", f"/rest/v1/dealer_pending_approvals?id=eq.{row_id}&state=eq.pending",
-        data={"state": "fired"},
+        "patch", "/rest/v1/dealer_pending_approvals",
+        params={
+            "id": f"eq.{row_id}",
+            "state": "eq.pending",
+            "or": f"(fired_at.is.null,fired_at.lt.{now_iso})",
+        },
+        data={"fired_at": claim_lease},
+    )
+    return claim_lease if status < 300 and isinstance(body, list) and bool(body) else None
+
+
+def _mark(row_id, claim_lease=None, **fields):
+    if not claim_lease:
+        return False
+    body, status = supabase_request(
+        "patch", f"/rest/v1/dealer_pending_approvals?id=eq.{row_id}",
+        params={
+            "state": "eq.pending",
+            "fired_at": f"eq.{claim_lease}",
+        },
+        data=fields,
     )
     return status < 300 and isinstance(body, list) and bool(body)
-
-
-def _mark(row_id, **fields):
-    supabase_request("patch", f"/rest/v1/dealer_pending_approvals?id=eq.{row_id}", data=fields)
 
 
 def _approve_user(user_id):
@@ -190,7 +215,8 @@ def _fire_pending_approval(row, current_docs=None, user_row=None,
 
 def _process_one(row):
     """Apply the pure decision to one row + persist the transition."""
-    if not _claim(row["id"]):
+    claim_lease = _claim(row["id"])
+    if not claim_lease:
         return {"decision": "skip", "reason": "already_claimed"}
     threshold = float(row.get("threshold") or DEFAULT_THRESHOLD)
     current_docs = _fetch_active_docs(row["user_id"])
@@ -204,18 +230,24 @@ def _process_one(row):
     if decision["decision"] == "wait":
         return decision
     if decision["decision"] == "skip":
-        _mark(row["id"], state="cancelled", cancelled_reason=decision["reason"],
+        _mark(row["id"], claim_lease=claim_lease,
+              state="cancelled", cancelled_reason=decision["reason"],
               fired_at=_utc_now_iso())
         return decision
     if decision["decision"] == "cancel":
-        _mark(row["id"], state="cancelled", cancelled_reason=decision["reason"],
+        _mark(row["id"], claim_lease=claim_lease,
+              state="cancelled", cancelled_reason=decision["reason"],
               fired_at=_utc_now_iso())
         return decision
     # approve
     _approve_documents(current_docs)
     _approve_user(row["user_id"])
-    _mark(row["id"], state="fired", fired_at=_utc_now_iso())
-    _send_approval_email(row["user_id"])
+    finalized = _mark(
+        row["id"], claim_lease=claim_lease,
+        state="fired", fired_at=_utc_now_iso(),
+    )
+    if finalized:
+        _send_approval_email(row["user_id"])
     return decision
 
 

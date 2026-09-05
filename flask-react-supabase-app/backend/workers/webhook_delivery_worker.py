@@ -92,6 +92,8 @@ def _claim(delivery):
 
 
 def _mark(delivery_id, body, dealership_id=None, lease_until=None):
+    if not lease_until:
+        return False
     params = {"id": f"eq.{delivery_id}"}
     if dealership_id:
         params["dealership_id"] = f"eq.{dealership_id}"
@@ -253,10 +255,17 @@ def run():
             _process(d)
         except Exception as e:
             logger.exception("delivery worker crashed on %s", d.get("id"))
-            _mark(d.get("id"), {
-                "status": "dead_letter",
-                "last_error": f"worker_exception: {str(e)[:200]}",
-            }, d.get("dealership_id"), d.get("_lease_until"))
+            lease_until = d.get("_lease_until")
+            if lease_until:
+                _mark(d.get("id"), {
+                    "status": "dead_letter",
+                    "last_error": f"worker_exception: {str(e)[:200]}",
+                }, d.get("dealership_id"), lease_until)
+            else:
+                logger.warning(
+                    "delivery ownership unknown; skipping exception finalization for %s",
+                    d.get("id"),
+                )
     return len(deliveries)
 
 

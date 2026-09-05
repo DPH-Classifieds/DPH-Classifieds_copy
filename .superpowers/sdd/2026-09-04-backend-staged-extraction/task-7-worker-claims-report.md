@@ -113,3 +113,14 @@ exit 0, no output
 
 No migration, frontend, mobile, route, startup-thread, or unrelated queue file
 was changed.
+
+## Fix-round result
+
+Focused verification after the review follow-up:
+
+```text
+pytest -q test_webhook_delivery_worker.py test_dealer_auto_approval_worker.py
+24 passed, 1 warning in 0.17s
+```
+
+No additional test failures or in-scope code changes were required in this round.

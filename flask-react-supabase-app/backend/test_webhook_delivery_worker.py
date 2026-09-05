@@ -1,3 +1,4 @@
+from requests import Timeout
 from unittest.mock import patch, MagicMock
 from workers import webhook_delivery_worker as wdw
 
@@ -154,7 +155,7 @@ def test_finalize_requires_the_owned_pending_lease_and_reports_noop():
 def test_finalize_reports_success_only_when_conditional_update_returns_row():
     with patch.object(
         wdw.requests, "patch", return_value=_resp(200, [{"id": "d10"}])
-    ):
+    ) as patch_call:
         finalized = wdw._mark(
             "d10",
             {"status": "dead_letter"},
@@ -163,3 +164,31 @@ def test_finalize_reports_success_only_when_conditional_update_returns_row():
         )
 
     assert finalized is True
+    assert patch_call.call_args.kwargs["headers"]["Prefer"] == "return=representation"
+
+
+def test_unowned_finalize_is_a_safe_noop():
+    with patch.object(wdw.requests, "patch") as patch_call:
+        finalized = wdw._mark(
+            "d11", {"status": "dead_letter"}, dealership_id="tenant-11"
+        )
+
+    assert finalized is False
+    patch_call.assert_not_called()
+
+
+@patch("workers.webhook_delivery_worker.requests")
+def test_claim_timeout_does_not_trigger_unowned_exception_finalize(mock_requests):
+    mock_requests.get.return_value = _resp(200, [{
+        "id": "d12", "webhook_id": "w12", "dealership_id": "tenant-12",
+        "event_type": "lead.created", "payload": {}, "attempt_count": 0,
+        "next_retry_at": "2026-08-29T10:00:00+00:00",
+    }])
+    claim_response = _resp(200, [{"id": "d12"}])
+    claim_response.json.side_effect = Timeout("lease response body timed out")
+    mock_requests.patch.return_value = claim_response
+
+    with patch.object(wdw, "_mark") as mark:
+        assert wdw.run() == 1
+
+    mark.assert_not_called()
