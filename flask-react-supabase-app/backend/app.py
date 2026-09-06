@@ -17503,47 +17503,66 @@ def admin_get_cars(current_user):
         if not user_details or not user_details.get("is_admin"):
             return jsonify({"error": "Admin access required"}), 403
 
+        limit, offset = _parse_pagination_args()
+
         # Get ALL cars regardless of status for admin review
         response, status_code = supabase_request(
             "get",
             "/rest/v1/cars",
-            params={"select": "*", "order": "created_at.desc"},
+            params={
+                "select": "*",
+                "order": "created_at.desc",
+                "limit": str(limit),
+                "offset": str(offset),
+            },
             use_service_role=True,
         )
 
         if status_code >= 400:
             return jsonify({"error": "Failed to fetch cars"}), status_code
 
-        if not response:
+        if not isinstance(response, list):
             response = []
 
-        # Fetch images for each car
-        for car in response:
-            car_id = car.get("id")
-            if car_id:
+        car_ids = [
+            str(car.get("id"))
+            for car in response
+            if isinstance(car, dict) and car.get("id")
+        ]
+        images_by_car = defaultdict(list)
+        if car_ids:
+            try:
                 images_response, images_status = supabase_request(
                     "get",
                     "/rest/v1/car_images",
                     params={
                         "select": "*",
-                        "car_id": f"eq.{car_id}",
+                        "car_id": f"in.({','.join(car_ids)})",
                         "order": "uploaded_at.asc",
                     },
                     use_service_role=True,
                 )
+            except Exception as image_error:
+                logger.warning("Failed to fetch admin car images: %s", image_error)
+                images_response, images_status = [], 500
 
-                if images_status < 400:
-                    for image in images_response:
-                        if "url" in image and "image_url" not in image:
-                            image["image_url"] = image["url"]
-                    car["images"] = images_response
-                else:
-                    car["images"] = []
-            else:
-                car["images"] = []
+            if images_status < 400:
+                for image in images_response or []:
+                    if not isinstance(image, dict):
+                        continue
+                    if "url" in image and "image_url" not in image:
+                        image["image_url"] = image["url"]
+                    car_id = image.get("car_id")
+                    if car_id:
+                        images_by_car[str(car_id)].append(image)
+
+        for car in response:
+            if isinstance(car, dict):
+                car["images"] = images_by_car.get(str(car.get("id")), [])
 
         logger.info(f"Admin fetched {len(response)} cars (all statuses)")
-        return jsonify(response), 200
+        page_response = jsonify(response)
+        return _attach_page_headers(page_response, response, limit), 200
 
     except Exception as e:
         logger.error(f"Error in admin_get_cars: {str(e)}")
