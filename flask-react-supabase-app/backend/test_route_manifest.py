@@ -26,12 +26,12 @@ EXPECTED_METHODS = {
 
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
     "false": {
-        "count": 215,
-        "sha256": "7f6d3ec54c0eb4abb7d37c675da24d85caa23618633c8a3aacb62feee05e38b2",
+        "count": 214,
+        "sha256": "e66bc66d3123ba351fbd48dc9a535d18bc180055b3cd967a31f9c16238f318d3",
     },
     "true": {
-        "count": 257,
-        "sha256": "c40dacf445f1a8df23b3baf1f48670fe51ed11c789a98dc60867fa6c7016538c",
+        "count": 256,
+        "sha256": "a50ada299a7c184f78e441b2165d38b3c73125fc46dde5f1a8556fee76534204",
     },
 }
 
@@ -42,9 +42,6 @@ EXPECTED_PATH_METHOD_COLLISIONS = {
     ("/api/admin/dealers/<dealer_id>/info-requests", "OPTIONS"),
     ("/api/admin/featured-listings", "OPTIONS"),
     ("/api/admin/featured-listings/<row_id>", "OPTIONS"),
-    ("/api/admin/listings/<item_type>/<item_id>/overview", "GET"),
-    ("/api/admin/listings/<item_type>/<item_id>/overview", "HEAD"),
-    ("/api/admin/listings/<item_type>/<item_id>/overview", "OPTIONS"),
     ("/api/bikes", "OPTIONS"),
     ("/api/bikes/<string:bike_id>", "OPTIONS"),
     ("/api/buying-requests", "OPTIONS"),

@@ -10,6 +10,7 @@ from werkzeug.datastructures import FileStorage
 
 import app as backend
 from routes import ocr as ocr_route
+from routes import admin as admin_route
 from services import registration_ocr
 
 
@@ -715,62 +716,54 @@ class RegistrationOCRRouteTests(unittest.TestCase):
 
 
 class RegistrationScanAdminTests(unittest.TestCase):
-    @patch.object(backend, "_require_admin_api_user", return_value=True)
-    @patch.object(
-        backend,
-        "_admin_fetch_user_rows",
-        return_value={"id": "user-1", "email": "owner@example.com"},
-    )
-    @patch.object(backend, "supabase_request")
+    @patch.object(admin_route.requests, "get")
+    @patch.object(backend, "_admin_attach_latest_verification_scan")
+    @patch.object(backend, "_admin_listing_display_status", return_value="approved")
+    @patch.object(backend, "_sync_listing_lifecycle", side_effect=lambda _table, row, **_kwargs: row)
     def test_admin_listing_overview_includes_latest_verification_scan(
-        self,
-        mock_supabase_request,
-        _mock_owner,
-        _mock_require_admin,
+        self, _sync_lifecycle, _display_status, mock_attach_scan, mock_get
     ):
-        def side_effect(method, path, params=None, **kwargs):
-            if path == "/rest/v1/cars":
-                return ([{"id": "car-1", "user_id": "user-1", "status": "approved"}], 200)
-            if path in {
-                "/rest/v1/car_images",
-                "/rest/v1/lead_events",
-                "/rest/v1/reports",
-                "/rest/v1/listing_deletion_events",
-            }:
-                return ([], 200)
-            if path == "/rest/v1/listing_verification_scans":
-                return (
-                    [{
-                        "id": "scan-1",
-                        "listing_type": "car",
-                        "listing_id": "car-1",
-                        "fields": {
-                            "make": "Toyota",
-                            "model": "Camry",
-                            "year": "2021",
-                            "vin": "JTNB11HK0M1234567",
-                        },
-                        "vin_validation": {"valid": True},
-                        "confidence": {"overall": 0.98},
-                        "needs_review": False,
-                        "raw_text": "TOYOTA CAMRY 2021",
-                        "document_type": "mulkiya",
-                        "created_at": "2026-05-26T00:00:00+00:00",
-                    }],
-                    200,
-                )
-            raise AssertionError(f"Unexpected Supabase path: {path}")
+        scan = {
+            "id": "scan-1",
+            "listing_type": "car",
+            "listing_id": "car-1",
+            "fields": {"make": "Toyota", "model": "Camry", "year": "2021"},
+            "vin_validation": {"valid": True},
+            "confidence": {"overall": 0.98},
+            "needs_review": False,
+        }
+        listing = {"id": "car-1", "user_id": "user-1", "status": "approved"}
 
-        mock_supabase_request.side_effect = side_effect
+        def attach_scan(row):
+            row["latest_verification_scan"] = scan
+            row["verification_status"] = {"vin_valid": True, "confidence": 0.98}
 
-        with backend.app.test_request_context("/api/admin/listings/cars/car-1/overview"):
-            response, status_code = backend.get_admin_listing_overview.__wrapped__(
-                "admin-user",
-                "cars",
-                "car-1",
-            )
+        mock_attach_scan.side_effect = attach_scan
 
-        self.assertEqual(status_code, 200)
+        def upstream(payload, status_code=200):
+            response = Mock()
+            response.status_code = status_code
+            response.json.return_value = payload
+            return response
+
+        mock_get.side_effect = [
+            upstream({"id": "admin-user", "role": "authenticated"}),
+            upstream([{"is_admin": True}]),
+            upstream([listing]),
+            upstream([{"id": "user-1", "email": "owner@example.com", "email_verified": True}]),
+            upstream([]),
+            upstream([]),
+            upstream([]),
+            upstream([]),
+            upstream([]),
+        ]
+
+        response = backend.app.test_client().get(
+            "/api/admin/listings/cars/car-1/overview",
+            headers={"Authorization": "Bearer test-admin-token"},
+        )
+
+        self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertIn("latest_verification_scan", payload)
         self.assertFalse(payload["latest_verification_scan"]["needs_review"])
