@@ -156,8 +156,25 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
     def test_listing_endpoints_have_dealer_check(self):
         """All 4 listing creation endpoints must call _require_dealer_verified."""
         source = self._read_app_source()
-        # Count occurrences of the dealer check in listing creation
-        count = source.count("dealer_check = _require_dealer_verified(current_user)")
+        # Creation routes are progressively extracted from app.py. Count the
+        # concrete route modules as well as the compatibility root so this
+        # contract test follows the implementation rather than file layout.
+        route_sources = [source]
+        backend_dir = os.path.dirname(__file__)
+        for module_name in (
+            "car_create_routes.py",
+            "bike_create_routes.py",
+            "plate_create_routes.py",
+        ):
+            module_path = os.path.join(backend_dir, "application", module_name)
+            with open(module_path, "r") as module_file:
+                route_sources.append(module_file.read())
+        count = route_sources[0].count(
+            "dealer_check = _require_dealer_verified(current_user)"
+        ) + sum(
+            route_source.count("require_dealer_verified(current_user)")
+            for route_source in route_sources[1:]
+        )
         self.assertGreaterEqual(
             count,
             4,

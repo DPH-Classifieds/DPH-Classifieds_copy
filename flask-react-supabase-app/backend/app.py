@@ -17584,6 +17584,10 @@ _plate_create_views = register_plate_create_route(
 )
 create_plate = _plate_create_views["create_plate"]
 create_plate_with_image = _plate_create_views["create_plate_with_image"]
+# Compatibility alias for legacy direct-call tests and internal callers. The
+# token decorator uses functools.wraps, so __wrapped__ is the route body that
+# accepts the already-authenticated user id.
+_create_plate_with_image_impl = create_plate.__wrapped__
 
 
 def get_user_email(user_id):
