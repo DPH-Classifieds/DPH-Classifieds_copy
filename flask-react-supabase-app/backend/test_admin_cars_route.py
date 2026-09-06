@@ -53,7 +53,7 @@ def test_admin_cars_passes_bounded_pagination_to_car_query():
     assert cars_call.kwargs["params"] == {
         "select": "*",
         "order": "created_at.desc",
-        "limit": str(backend.MAX_LIST_LIMIT),
+        "limit": str(backend.MAX_LIST_LIMIT + 1),
         "offset": "0",
     }
 
@@ -120,12 +120,53 @@ def test_admin_cars_batches_images_and_preserves_list_shape_and_headers():
             ],
         },
     ]
-    assert response.headers["X-Has-More"] == "true"
+    assert response.headers["X-Has-More"] == "false"
     assert response.headers["X-Next-Cursor"] == "2026-09-04T12:00:00Z"
     assert [call.args[1] for call in supabase.call_args_list] == [
         "/rest/v1/cars",
         "/rest/v1/car_images",
     ]
+
+
+def test_admin_cars_compatibility_handler_skips_malformed_rows_and_ids():
+    cars = [
+        {"id": "car-1", "created_at": "2026-09-05T12:00:00Z"},
+        {"id": "bad,id", "created_at": "2026-09-04T12:00:00Z"},
+        "not-a-car-row",
+    ]
+    calls = []
+
+    def fake_supabase(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        if path == "/rest/v1/cars":
+            return cars, 200
+        assert path == "/rest/v1/car_images"
+        assert kwargs["params"]["car_id"] == "in.(car-1)"
+        return [], 200
+
+    with backend.app.test_request_context("/api/admin/cars?limit=2"):
+        with patch.object(
+            backend,
+            "_get_user_details_with_admin_status",
+            return_value={"id": "admin-1", "is_admin": True},
+        ), patch.object(backend, "supabase_request", side_effect=fake_supabase):
+            result = backend.admin_get_cars.__wrapped__("admin-1")
+
+    response, status = _view_response(result)
+    assert status == 200
+    assert [row["id"] for row in response.get_json()] == ["car-1", "bad,id"]
+    assert len(calls) == 2
+
+
+def test_admin_cars_url_dispatches_canonical_blueprint_first():
+    rules = [
+        rule
+        for rule in backend.app.url_map.iter_rules()
+        if rule.rule == "/api/admin/cars" and "GET" in rule.methods
+    ]
+
+    assert rules
+    assert rules[0].endpoint == "admin.get_cars"
 
 
 def test_admin_cars_returns_empty_images_when_batch_image_query_fails():

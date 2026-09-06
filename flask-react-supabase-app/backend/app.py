@@ -17512,7 +17512,9 @@ def admin_get_cars(current_user):
             params={
                 "select": "*",
                 "order": "created_at.desc",
-                "limit": str(limit),
+                # Read one sentinel row so an exact final page does not
+                # advertise a non-existent next page.
+                "limit": str(limit + 1),
                 "offset": str(offset),
             },
             use_service_role=True,
@@ -17523,11 +17525,14 @@ def admin_get_cars(current_user):
 
         if not isinstance(response, list):
             response = []
+        response = [car for car in response if isinstance(car, dict)]
+        has_more = len(response) > limit
+        response = response[:limit]
 
         car_ids = [
             str(car.get("id"))
             for car in response
-            if isinstance(car, dict) and car.get("id")
+            if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(car.get("id") or ""))
         ]
         images_by_car = defaultdict(list)
         if car_ids:
@@ -17562,7 +17567,12 @@ def admin_get_cars(current_user):
 
         logger.info(f"Admin fetched {len(response)} cars (all statuses)")
         page_response = jsonify(response)
-        return _attach_page_headers(page_response, response, limit), 200
+        page_response.headers["X-Has-More"] = "true" if has_more else "false"
+        if response:
+            page_response.headers["X-Next-Cursor"] = str(
+                response[-1].get("created_at") or ""
+            )
+        return page_response, 200
 
     except Exception as e:
         logger.error(f"Error in admin_get_cars: {str(e)}")
