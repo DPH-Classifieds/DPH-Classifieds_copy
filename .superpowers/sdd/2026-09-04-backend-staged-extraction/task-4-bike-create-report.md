@@ -452,3 +452,74 @@ The pre-report and final post-evidence `git diff --check` runs exited 0. Module
 compilation and the unchanged extracted-route diff check both exited 0. Static
 boundary scanning found no forbidden `app` import and no direct environment or
 `app.config` access in `application/bike_create_routes.py`.
+
+## Task 4b fix round 5 evidence
+
+The round-five review found that `_validate_listing_image_reference` validated
+the path from an otherwise trusted absolute URL but did not reject query or
+fragment components. Absolute public listing-image URLs must now be the exact
+canonical server-issued object URL; a literal query or fragment delimiter is
+rejected. Relative paths continue through the existing path validation without
+any contract change.
+
+`_is_valid_listing_crop_meta` now catches `UnicodeEncodeError` explicitly and
+returns false. This keeps Unicode surrogate encoding failures on the existing
+400 image-validation path rather than allowing a 500. The exception was already
+behaviorally covered by the broader `ValueError` catch because
+`UnicodeEncodeError` subclasses `ValueError`; the explicit branch documents and
+locks the intended boundary without changing valid metadata or explicit-`None`
+compatibility.
+
+### RED
+
+Command from `flask-react-supabase-app/backend`:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_media_upload_security.py::test_listing_image_reference_rejects_noncanonical_absolute_url_components test_media_upload_security.py::test_listing_crop_meta_rejects_unicode_surrogate_encoding_failure test_bike_create_route_parity.py::test_unsafe_image_reference_is_rejected_before_listing_or_image_insert
+```
+
+Result before implementation: exit 1; `4 failed, 19 passed in 0.34s`. The two
+direct helper cases accepted absolute image URLs containing a query or fragment,
+and the two matching bike-route cases returned 201 instead of 400. The surrogate
+helper and route cases passed before implementation due to the existing
+`ValueError` catch described above.
+
+### GREEN regression slice
+
+The same command after the minimal helper changes exited 0 with `23 passed in
+0.39s`.
+
+### Focused bike, media, and manifest tests
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py test_bike_read_route_parity.py test_media_upload_security.py test_route_manifest.py
+```
+
+Result: exit 0; `135 passed in 1.20s`. This includes the preserved valid metadata,
+explicit-`None`, private PDF document, image ordering, and response-shape
+coverage.
+
+### Full backend pytest
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q
+```
+
+Result: exit 0; `1019 passed, 11 skipped, 65 warnings, 10 subtests passed in
+12.87s`.
+
+### Docker API E2E
+
+`./e2e/run.sh` ran from `flask-react-supabase-app/backend` and exited 0. The
+production image built, the container became ready, liveness returned 200,
+readiness returned 200, the unknown route returned 404, the auth-gated route
+returned 401, and the script ended with `E2E PASSED`.
+
+### Diff and import boundaries
+
+The pre-report `git diff --check` exited 0. Both `app.py` and
+`application/bike_create_routes.py` compiled with the verified virtualenv
+interpreter. The extracted-route diff against `a12aece2` was empty, and static
+scans exited 0 with `no forbidden app imports` and `no direct environment or app
+config access`. The final post-evidence `git diff --check` also exited 0 with no
+output.

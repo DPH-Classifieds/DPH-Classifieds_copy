@@ -8146,6 +8146,8 @@ def _validate_listing_image_reference(value, user_id):
             or not parsed.netloc
             or not expected_host
             or parsed.netloc != expected_host
+            or "?" in value
+            or "#" in value
         ):
             return False
         path = parsed.path
@@ -8223,6 +8225,8 @@ def _is_valid_listing_crop_meta(value):
             allow_nan=False,
             separators=(",", ":"),
         ).encode("utf-8")
+    except UnicodeEncodeError:
+        return False
     except (OverflowError, RecursionError, TypeError, ValueError):
         return False
     return len(encoded) <= _LISTING_CROP_META_MAX_BYTES

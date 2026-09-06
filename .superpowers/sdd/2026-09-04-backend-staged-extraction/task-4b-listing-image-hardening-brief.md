@@ -57,3 +57,15 @@ deployment, or the legacy contract beyond rejecting unsafe image references.
   with `E2E PASSED`.
 - `git diff --check`, module compilation, and the forbidden-import/direct-config
   static boundary checks all passed.
+- Round-five canonical-URL RED exited 1 with `4 failed, 19 passed`: absolute
+  same-origin public object URLs containing a query or fragment were accepted
+  by the helper and reached the bike route's 201 persistence path. The Unicode
+  surrogate helper and route regressions already passed because
+  `UnicodeEncodeError` is a `ValueError`; the handler now catches it explicitly.
+- The round-five regression slice passed `23 passed`; focused bike-read/create,
+  media-security, and route-manifest verification passed `135 passed`. Full
+  backend verification passed `1019 passed, 11 skipped, 65 warnings, 10
+  subtests passed`.
+- Round-five Docker API E2E ended with `E2E PASSED`. Diff integrity, root and
+  extracted-module compilation, the unchanged extracted-route check, and both
+  static dependency-boundary scans passed.

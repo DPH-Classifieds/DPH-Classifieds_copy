@@ -573,6 +573,8 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
             "https://project-ref.supabase.co/storage/v1/object/public/"
             "listing-images/user-1/bike.pdf"
         ),
+        f"{VALID_IMAGE_URL}?download=1",
+        f"{VALID_IMAGE_URL}#preview",
         17,
         {},
         {"image_url": 17},
@@ -592,6 +594,10 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
                 "a": {"b": {"c": {"d": {"e": {"f": "too deep"}}}}}
             },
         },
+        {
+            "image_url": VALID_IMAGE_URL,
+            "crop_meta": {"label": "\ud800"},
+        },
         (
             "https://project-ref.supabase.co/storage/v1/object/public/"
             "listing-images/other-user/bike.jpg"
@@ -609,6 +615,8 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         "external-url",
         "malformed-one-slash-https-url",
         "public-listing-pdf",
+        "absolute-url-with-query",
+        "absolute-url-with-fragment",
         "non-string-scalar",
         "empty-image-object",
         "non-string-object-reference",
@@ -620,6 +628,7 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         "non-object-crop-meta",
         "oversized-crop-meta",
         "overly-deep-crop-meta",
+        "unicode-surrogate-crop-meta",
         "wrong-user-scope",
         "wrong-bucket",
         "wrong-public-object-prefix",

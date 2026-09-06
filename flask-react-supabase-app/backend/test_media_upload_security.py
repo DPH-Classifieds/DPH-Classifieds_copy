@@ -136,6 +136,26 @@ def test_listing_image_reference_rejects_malformed_urls_and_documents(reference)
     assert not backend._validate_listing_image_reference(reference, "user-123")
 
 
+@pytest.mark.parametrize(
+    "reference",
+    [
+        (
+            "https://project-ref.supabase.co/storage/v1/object/public/"
+            "listing-images/user-123/abc12345.jpg?download=1"
+        ),
+        (
+            "https://project-ref.supabase.co/storage/v1/object/public/"
+            "listing-images/user-123/abc12345.jpg#preview"
+        ),
+    ],
+    ids=["query", "fragment"],
+)
+def test_listing_image_reference_rejects_noncanonical_absolute_url_components(
+    reference,
+):
+    assert not backend._validate_listing_image_reference(reference, "user-123")
+
+
 @pytest.mark.parametrize("extension", ["jpg", "jpeg", "png", "gif", "webp"])
 def test_listing_image_reference_preserves_supported_public_urls_and_paths(extension):
     path = (
@@ -253,6 +273,10 @@ def test_listing_image_entry_rejects_malformed_or_unbounded_crop_metadata(
     assert not backend._validate_listing_image_entry(
         {"image_url": good, "crop_meta": crop_meta}, "user-123"
     )
+
+
+def test_listing_crop_meta_rejects_unicode_surrogate_encoding_failure():
+    assert not backend._is_valid_listing_crop_meta({"label": "\ud800"})
 
 
 def test_listing_image_entry_allows_explicit_none_optional_metadata():
