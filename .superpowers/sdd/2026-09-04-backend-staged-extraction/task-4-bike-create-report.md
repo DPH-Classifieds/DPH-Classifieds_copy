@@ -28,6 +28,10 @@ frontend, or mobile file changed.
   shared listing-image validator before listing persistence. Arbitrary hosts,
   non-string scalars, malformed objects, another user's path, the wrong bucket,
   and the wrong public-object prefix return 400 before any listing/image insert.
+- Supplied focal coordinates must be finite JSON numbers in the `0..100` crop
+  range. Non-null crop metadata must be a JSON object bounded to 8 KiB, five
+  nesting levels, and 64 aggregate members. Omitted and explicit-null optional
+  metadata remain valid.
 - Valid server-issued string and object references retain their submitted
   order and existing row mapping. Image persistence failure remains nonfatal
   with `images: []`.
@@ -177,17 +181,18 @@ Command:
 /Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q
 ```
 
-Result: exit 1; `1 failed, 974 passed, 11 skipped, 65 warnings, 10 subtests
-passed in 12.91s`.
+At this initial Task 4b checkpoint, the result was exit 1; `1 failed, 974
+passed, 11 skipped, 65 warnings, 10 subtests passed in 12.91s`.
 
 The sole failure is
 `test_admin_stats_and_posts.py::PostListingSmokeTests::test_post_bike_payload_succeeds`.
-Its fixture submits three `https://example.com/...` image URLs and expects 201;
-the hardened route correctly returns 400. A fresh isolated rerun reproduced
-the exact `AssertionError: 400 != 201` (`1 failed in 0.16s`). The Task 4b
-ownership boundary permits only the focused bike-create test file, so this
-stale shared smoke fixture was not edited and production validation was not
-weakened to satisfy it.
+Its fixture submitted three `https://example.com/...` image URLs and expected
+201; the hardened route correctly returned 400. A fresh isolated rerun
+reproduced `AssertionError: 400 != 201` (`1 failed in 0.16s`). Commit `578cb707`
+subsequently corrected that stale fixture to use authenticated-user Supabase
+listing-image URLs; the full suite then passed `975 passed`. Later fix rounds
+raised the then-current committed `d90edb6e` verification to `993 passed, 11
+skipped, 65 warnings, 10 subtests passed`, as recorded below.
 
 ### Docker API E2E
 
@@ -380,3 +385,70 @@ returned 401, and the script ended with `E2E PASSED`.
 
 The pre-report and post-evidence `git diff --check` runs both exited 0 with no
 output.
+
+## Task 4b fix round 4 evidence
+
+The round-four review found that valid public image objects could still attach
+unchecked persistence metadata. `_validate_listing_image_entry` now validates
+non-null `focal_x` and `focal_y` as non-boolean finite `int`/`float` values in
+the inclusive `0..100` crop range. Non-null `crop_meta` must be a JSON object
+with JSON-safe finite values, no more than five nesting levels, 64 aggregate
+members, and an 8 KiB compact UTF-8 encoding. Omitted and explicit `None`
+metadata retain the prior optional-field behavior.
+
+The bike route still returns the existing 400 image-validation envelope before
+listing/image persistence. Valid boundary focal coordinates, realistic nested
+crop metadata, submitted image order, row mapping, and the 201 response path
+remain unchanged.
+
+### RED and compatibility correction
+
+The initial round-four metadata regression command exited 1 with `22 failed,
+11 passed in 0.38s`; the new malformed metadata cases reached the old 201 path
+or were accepted directly by the shared validator. That first matrix also
+treated three explicit-null optional metadata cases as invalid. After review
+corrected that expectation and added positive route/helper coverage, those two
+compatibility tests failed against the interim strict validator with `2 failed
+in 0.27s`.
+
+### GREEN metadata regression slice
+
+Command from `flask-react-supabase-app/backend`:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py::test_server_issued_image_rows_preserve_string_dict_order_and_metadata test_bike_create_route_parity.py::test_unsafe_image_reference_is_rejected_before_listing_or_image_insert test_media_upload_security.py::test_listing_image_entry_rejects_invalid_supplied_focal_metadata test_media_upload_security.py::test_listing_image_entry_rejects_malformed_or_unbounded_crop_metadata test_media_upload_security.py::test_listing_image_entry_allows_explicit_none_optional_metadata
+```
+
+Result: exit 0; `31 passed in 0.41s`.
+
+### Focused bike, media, and manifest tests
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py test_bike_read_route_parity.py test_media_upload_security.py test_route_manifest.py
+```
+
+Result: exit 0; `129 passed in 1.11s`.
+
+### Full backend pytest
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q
+```
+
+Result: exit 0; `1013 passed, 11 skipped, 65 warnings, 10 subtests passed in
+12.55s`.
+
+### Docker API E2E
+
+`./e2e/run.sh` ran from `flask-react-supabase-app/backend` after the explicit
+`None` compatibility correction and exited 0. The production image built, the
+container became ready, liveness returned 200, readiness returned 200, the
+unknown route returned 404, the auth-gated route returned 401, and the script
+ended with `E2E PASSED`.
+
+### Diff and import boundaries
+
+The pre-report and final post-evidence `git diff --check` runs exited 0. Module
+compilation and the unchanged extracted-route diff check both exited 0. Static
+boundary scanning found no forbidden `app` import and no direct environment or
+`app.config` access in `application/bike_create_routes.py`.

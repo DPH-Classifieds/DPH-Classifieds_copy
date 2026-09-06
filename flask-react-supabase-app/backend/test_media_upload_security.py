@@ -193,6 +193,85 @@ def test_listing_image_entry_allows_omitted_or_none_optional_reference():
     )
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("focal_x", "50"),
+        ("focal_y", True),
+        ("focal_x", float("nan")),
+        ("focal_y", float("inf")),
+        ("focal_x", -0.01),
+        ("focal_y", 100.01),
+    ],
+    ids=[
+        "numeric-string",
+        "boolean",
+        "nan",
+        "infinity",
+        "below-range",
+        "above-range",
+    ],
+)
+def test_listing_image_entry_rejects_invalid_supplied_focal_metadata(field, value):
+    good = (
+        "https://project-ref.supabase.co/storage/v1/object/public/"
+        "listing-images/user-123/abc12345.jpg"
+    )
+
+    assert not backend._validate_listing_image_entry(
+        {"image_url": good, field: value}, "user-123"
+    )
+
+
+@pytest.mark.parametrize(
+    "crop_meta",
+    [
+        [],
+        "{}",
+        {"value": float("nan")},
+        {"blob": "x" * 20_000},
+        {str(index): index for index in range(1_000)},
+        {"a": {"b": {"c": {"d": {"e": {"f": "too deep"}}}}}},
+    ],
+    ids=[
+        "array-root",
+        "string",
+        "non-finite-number",
+        "oversized",
+        "too-many-members",
+        "too-deep",
+    ],
+)
+def test_listing_image_entry_rejects_malformed_or_unbounded_crop_metadata(
+    crop_meta,
+):
+    good = (
+        "https://project-ref.supabase.co/storage/v1/object/public/"
+        "listing-images/user-123/abc12345.jpg"
+    )
+
+    assert not backend._validate_listing_image_entry(
+        {"image_url": good, "crop_meta": crop_meta}, "user-123"
+    )
+
+
+def test_listing_image_entry_allows_explicit_none_optional_metadata():
+    good = (
+        "https://project-ref.supabase.co/storage/v1/object/public/"
+        "listing-images/user-123/abc12345.jpg"
+    )
+
+    assert backend._validate_listing_image_entry(
+        {
+            "image_url": good,
+            "focal_x": None,
+            "focal_y": None,
+            "crop_meta": None,
+        },
+        "user-123",
+    )
+
+
 def test_info_request_document_rejects_html_disguised_as_pdf():
     with pytest.raises(ValueError, match="content"):
         backend._validate_info_request_document(

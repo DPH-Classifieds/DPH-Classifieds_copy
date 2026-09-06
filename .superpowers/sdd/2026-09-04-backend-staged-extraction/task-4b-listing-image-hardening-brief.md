@@ -22,6 +22,9 @@ deployment, or the legacy contract beyond rejecting unsafe image references.
 
 - Reject arbitrary external URLs, non-string/scalar entries, malformed image
   objects, paths owned by another user, and untrusted buckets/prefixes.
+- Validate supplied focal coordinates as finite numbers in the supported
+  `0..100` crop range. Validate non-null `crop_meta` as a bounded JSON object;
+  omitted and explicit-null optional metadata remain valid.
 - Preserve valid server-issued listing uploads, image ordering, response shape,
   and rollback behavior.
 - Add focused red/green tests for safe/unsafe paths and ensure no listing or
@@ -31,18 +34,25 @@ deployment, or the legacy contract beyond rejecting unsafe image references.
 
 ## Completion ledger
 
-- RED: focused parity test run exited 1 with `7 failed, 23 passed`; every unsafe
-  fixture incorrectly reached 201 before the fix.
-- GREEN: focused bike-create parity passed `30 passed`; the combined bike-read,
-  bike-create, media-security, and route-manifest run passed `91 passed`.
+- The initial hardening RED exited 1 with `7 failed, 23 passed`; every unsafe
+  reference fixture incorrectly reached 201 before the fix.
+- Commit `578cb707` later corrected the stale shared bike smoke fixture to use
+  authenticated-user Supabase listing-image URLs. The full suite then passed
+  `975 passed`; this supersedes the initial `1 failed, 974 passed` checkpoint.
+- Fix rounds two and three closed falsey-reference, malformed-URL, and public
+  PDF gaps. At committed `d90edb6e`, the then-current final backend verification
+  was `993 passed, 11 skipped, 65 warnings, 10 subtests passed`.
+- Round-four metadata RED initially produced `22 failed, 11 passed`; review then
+  corrected three invalid explicit-null expectations. The explicit-null
+  compatibility tests failed `2 failed` against the interim strict validator,
+  then the final metadata regression slice passed `31 passed`.
+- The final round-four bike-read/create, media-security, and route-manifest run
+  passed `129 passed`. Full backend passed `1013 passed, 11 skipped, 65 warnings,
+  10 subtests passed`.
 - Unsafe requests now return 400 before listing or image persistence. Valid
-  server-issued string/object references preserve ordering, response shape,
-  and existing valid-reference image-failure behavior.
-- Full backend pytest: `1 failed, 974 passed, 11 skipped, 65 warnings, 10
-  subtests passed`. The sole failure is the out-of-scope shared smoke fixture
-  `test_admin_stats_and_posts.py::PostListingSmokeTests::test_post_bike_payload_succeeds`,
-  which still expects arbitrary `example.com` image URLs to return 201; the
-  hardened route returns 400.
+  server-issued string/object references, boundary focal values, realistic
+  nested crop metadata, explicit-null optional metadata, ordering, response
+  shape, and existing valid-reference image-failure behavior are preserved.
 - Docker API E2E passed all liveness/readiness/404/auth assertions and ended
   with `E2E PASSED`.
 - `git diff --check`, module compilation, and the forbidden-import/direct-config

@@ -472,11 +472,27 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         {
             "image_url": CROPPED_IMAGE_URL,
             "display_url": DISPLAY_IMAGE_URL,
-            "focal_x": 20,
-            "focal_y": 80,
-            "crop_meta": {"aspect": "4:3"},
+            "focal_x": 0,
+            "focal_y": 100,
+            "crop_meta": {
+                "source_width": 1600,
+                "source_height": 1200,
+                "crop_box": {
+                    "left": 0,
+                    "top": 0,
+                    "right": 1600,
+                    "bottom": 1200,
+                },
+                "zoom": 1.25,
+                "sort_index": 1,
+            },
         },
-        {"url": URL_ONLY_IMAGE_URL},
+        {
+            "url": URL_ONLY_IMAGE_URL,
+            "focal_x": None,
+            "focal_y": None,
+            "crop_meta": None,
+        },
         {"display_url": DISPLAY_ONLY_IMAGE_URL},
     ]
 
@@ -502,9 +518,20 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
                         "url": CROPPED_IMAGE_URL,
                         "image_url": CROPPED_IMAGE_URL,
                         "display_url": DISPLAY_IMAGE_URL,
-                        "focal_x": 20,
-                        "focal_y": 80,
-                        "crop_meta": {"aspect": "4:3"},
+                        "focal_x": 0,
+                        "focal_y": 100,
+                        "crop_meta": {
+                            "source_width": 1600,
+                            "source_height": 1200,
+                            "crop_box": {
+                                "left": 0,
+                                "top": 0,
+                                "right": 1600,
+                                "bottom": 1200,
+                            },
+                            "zoom": 1.25,
+                            "sort_index": 1,
+                        },
                         "cropped_at": "2026-09-06T00:00:00+00:00",
                     },
                     {
@@ -550,6 +577,21 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         {},
         {"image_url": 17},
         {"image_url": VALID_IMAGE_URL, "display_url": 0},
+        {"image_url": VALID_IMAGE_URL, "focal_x": "50"},
+        {"image_url": VALID_IMAGE_URL, "focal_y": True},
+        {"image_url": VALID_IMAGE_URL, "focal_x": -0.01},
+        {"image_url": VALID_IMAGE_URL, "focal_y": 100.01},
+        {"image_url": VALID_IMAGE_URL, "crop_meta": []},
+        {
+            "image_url": VALID_IMAGE_URL,
+            "crop_meta": {"blob": "x" * 20_000},
+        },
+        {
+            "image_url": VALID_IMAGE_URL,
+            "crop_meta": {
+                "a": {"b": {"c": {"d": {"e": {"f": "too deep"}}}}}
+            },
+        },
         (
             "https://project-ref.supabase.co/storage/v1/object/public/"
             "listing-images/other-user/bike.jpg"
@@ -571,6 +613,13 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         "empty-image-object",
         "non-string-object-reference",
         "falsey-non-string-object-reference",
+        "numeric-string-focal-x",
+        "boolean-focal-y",
+        "focal-x-below-crop-range",
+        "focal-y-above-crop-range",
+        "non-object-crop-meta",
+        "oversized-crop-meta",
+        "overly-deep-crop-meta",
         "wrong-user-scope",
         "wrong-bucket",
         "wrong-public-object-prefix",

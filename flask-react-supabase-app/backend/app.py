@@ -20,6 +20,7 @@ import hashlib
 import threading
 import logging
 import json
+import math
 import uuid
 import os
 import re
@@ -8159,6 +8160,74 @@ def _validate_listing_image_reference(value, user_id):
     )[-1].lower() in {"jpg", "jpeg", "png", "gif", "webp"}
 
 
+_LISTING_CROP_META_MAX_BYTES = 8 * 1024
+_LISTING_CROP_META_MAX_DEPTH = 5
+_LISTING_CROP_META_MAX_MEMBERS = 64
+
+
+def _is_valid_listing_focal_coordinate(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    if isinstance(value, float) and not math.isfinite(value):
+        return False
+    return 0 <= value <= 100
+
+
+def _is_bounded_json_value(value, *, depth, remaining_members):
+    if depth > _LISTING_CROP_META_MAX_DEPTH:
+        return False
+    if value is None or isinstance(value, (str, bool, int)):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value)
+    if isinstance(value, list):
+        if len(value) > remaining_members[0]:
+            return False
+        remaining_members[0] -= len(value)
+        return all(
+            _is_bounded_json_value(
+                item,
+                depth=depth + 1,
+                remaining_members=remaining_members,
+            )
+            for item in value
+        )
+    if isinstance(value, dict):
+        if len(value) > remaining_members[0] or not all(
+            isinstance(key, str) for key in value
+        ):
+            return False
+        remaining_members[0] -= len(value)
+        return all(
+            _is_bounded_json_value(
+                item,
+                depth=depth + 1,
+                remaining_members=remaining_members,
+            )
+            for item in value.values()
+        )
+    return False
+
+
+def _is_valid_listing_crop_meta(value):
+    if not isinstance(value, dict) or not _is_bounded_json_value(
+        value,
+        depth=0,
+        remaining_members=[_LISTING_CROP_META_MAX_MEMBERS],
+    ):
+        return False
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    except (OverflowError, RecursionError, TypeError, ValueError):
+        return False
+    return len(encoded) <= _LISTING_CROP_META_MAX_BYTES
+
+
 def _validate_listing_image_entry(entry, user_id):
     if isinstance(entry, dict):
         references = [
@@ -8166,7 +8235,24 @@ def _validate_listing_image_entry(entry, user_id):
             for key in ("url", "image_url", "display_url")
             if key in entry and entry[key] is not None
         ]
-        return bool(references) and all(_validate_listing_image_reference(ref, user_id) for ref in references)
+        if not references or not all(
+            _validate_listing_image_reference(ref, user_id) for ref in references
+        ):
+            return False
+        if any(
+            field in entry
+            and entry[field] is not None
+            and not _is_valid_listing_focal_coordinate(entry[field])
+            for field in ("focal_x", "focal_y")
+        ):
+            return False
+        if (
+            "crop_meta" in entry
+            and entry["crop_meta"] is not None
+            and not _is_valid_listing_crop_meta(entry["crop_meta"])
+        ):
+            return False
+        return True
     return _validate_listing_image_reference(entry, user_id)
 
 
