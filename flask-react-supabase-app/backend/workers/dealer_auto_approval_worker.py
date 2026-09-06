@@ -106,7 +106,7 @@ def _fetch_active_docs(user_id):
     )
     if status < 400 and isinstance(body, list):
         return body
-    return []
+    return None
 
 
 def _claim(row_id):
@@ -149,7 +149,7 @@ def _mark(row_id, claim_lease=None, **fields):
 
 def _approve_user(user_id):
     """Transition the user to verified + approved. Idempotent."""
-    supabase_request(
+    body, status = supabase_request(
         "patch",
         f"/rest/v1/users?id=eq.{user_id}",
         params={"dealer_verified": "not.is.true"},
@@ -159,21 +159,26 @@ def _approve_user(user_id):
             "dealer_application_status": "approved",
         },
     )
+    return status < 300 and isinstance(body, list)
 
 
 def _approve_documents(documents):
     """Record that OCR auto-approved the active required documents."""
     now = datetime.utcnow().isoformat()
+    succeeded = True
     for doc in documents or []:
         doc_id = doc.get("id")
         if not doc_id or doc.get("status") == "approved":
             continue
-        supabase_request(
+        body, status = supabase_request(
             "patch",
             f"/rest/v1/dealer_documents?id=eq.{doc_id}",
             params={"status": "neq.approved"},
             data={"status": "approved", "reviewed_at": now},
         )
+        if status >= 300 or not isinstance(body, list):
+            succeeded = False
+    return succeeded
 
 
 def _send_approval_email(user_id):
@@ -226,7 +231,11 @@ def _process_one(row):
         return {"decision": "skip", "reason": "already_claimed"}
     threshold = float(row.get("threshold") or DEFAULT_THRESHOLD)
     current_docs = _fetch_active_docs(row["user_id"])
+    if current_docs is None:
+        return {"decision": "wait", "reason": "document_read_failed"}
     user_row = _fetch_user(row["user_id"])
+    if user_row is None:
+        return {"decision": "wait", "reason": "user_read_failed"}
     decision = _fire_pending_approval(
         row,
         current_docs=current_docs,
@@ -255,8 +264,10 @@ def _process_one(row):
               fired_at=_utc_now_iso())
         return decision
     # approve
-    _approve_documents(current_docs)
-    _approve_user(row["user_id"])
+    if not _approve_documents(current_docs):
+        return {"decision": "wait", "reason": "document_write_failed"}
+    if not _approve_user(row["user_id"]):
+        return {"decision": "wait", "reason": "user_write_failed"}
     finalized = _mark(
         row["id"], claim_lease=claim_lease,
         state="fired", fired_at=_utc_now_iso(),

@@ -209,3 +209,93 @@ exit 0, no output
   exact pending-lease finalization behavior.
 - Fix-round code/test changes are limited to the dealer auto-approval worker
   and its focused test file; this report is the only other changed file.
+
+## Fix round 3: provider failures and write-gated finalization
+
+The round-2 review found two remaining loss-of-retry paths. Failed or malformed
+document reads were collapsed to a valid empty document list, and document/user
+approval PATCH results were ignored before the queue row was finalized as
+`fired`.
+
+The fix now keeps a successful empty document response as `[]` while returning
+`None` for provider errors or malformed responses. `_process_one` treats failed
+document or user reads as a non-terminal `wait`, leaving the row `pending` under
+its current lease for retry after expiry. `_approve_documents` and
+`_approve_user` now report success; `_process_one` finalizes only after both
+report successful or idempotent writes. Existing `status=neq.approved` and
+`dealer_verified=not.is.true` predicates make partial retries resume without
+rewriting completed approvals or their audit timestamps.
+
+Focused red command:
+
+```text
+pytest -q test_dealer_auto_approval_worker.py
+7 failed, 15 passed, 19 warnings in 0.20s
+```
+
+The seven failures proved that provider document failures still became `[]`,
+document/user read failures could reach terminal handling, document/user write
+failures still finalized `fired`, and partial retries could not finish the
+failed write.
+
+Focused green command and result:
+
+```text
+pytest -q test_webhook_delivery_worker.py test_dealer_auto_approval_worker.py
+35 passed, 25 warnings in 0.15s
+```
+
+The stateful regressions prove both document and user write failures leave the
+owned row `pending`, send no email, and retry after lease expiry. The successful
+retry writes each document and user approval once, finalizes `fired` once, and
+sends one email. Separate read regressions prove failed document/user reads do
+not call approval or terminal updates, while a valid empty document response
+still follows the existing ineligible cancellation path.
+
+Full backend suite:
+
+```text
+/tmp/dph-task7-venv.BsVUgK/bin/python -m pytest -q
+882 passed, 11 skipped, 49 warnings in 12.74s
+```
+
+Docker API E2E:
+
+```text
+./e2e/run.sh
+liveness /healthz/live -> 200
+readiness /healthz -> 200
+unknown route -> 404
+auth-gated route -> 401
+E2E PASSED
+```
+
+Worker smoke:
+
+```text
+./e2e/worker.sh
+Worker smoke passed: health endpoint returned 200 and heartbeat was written.
+```
+
+Final scope and contract checks:
+
+```text
+git diff --check
+exit 0, no output
+
+git diff --exit-code -- \
+  flask-react-supabase-app/backend/workers/webhook_delivery_worker.py \
+  flask-react-supabase-app/backend/test_webhook_delivery_worker.py \
+  flask-react-supabase-app/backend/migrations/2026_08_18_dealer_listing_upgrade_requests.sql
+exit 0, no output
+```
+
+- Queue claiming still requires `state=eq.pending` plus
+  `(fired_at.is.null,fired_at.lt.<now>)`.
+- Terminal updates still require `state=eq.pending` plus the exact
+  `fired_at=eq.<claim_lease>` marker.
+- Dealer queue terminal writes remain limited to migration-approved `fired`
+  and `cancelled`; the migration's one-pending-per-user index is unchanged.
+- Webhook behavior and files are unchanged.
+- Fix-round-3 code/test changes are limited to the dealer auto-approval worker
+  and its focused test file; this report is the only other changed file.

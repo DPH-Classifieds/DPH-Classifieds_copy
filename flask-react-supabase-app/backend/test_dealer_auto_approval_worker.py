@@ -96,7 +96,6 @@ class _ApprovalRecoveryStore(_PendingApprovalStore):
                 "ocr_confidence": 0.92, "replaced_at": None, "status": "pending",
             },
         }
-        self.failed_document_once = False
         self.failed_finalize_once = False
         self.successful_user_approvals = 0
         self.successful_document_approvals = {doc_id: 0 for doc_id in self.documents}
@@ -126,8 +125,70 @@ class _ApprovalRecoveryStore(_PendingApprovalStore):
         if "dealer_documents" in path:
             doc_id = path.split("id=eq.", 1)[1]
             doc = self.documents[doc_id]
-            if doc_id == "doc-trn" and not self.failed_document_once:
-                self.failed_document_once = True
+            if params.get("status") == "neq.approved" and doc["status"] == "approved":
+                return [], 200
+            doc.update(data)
+            self.successful_document_approvals[doc_id] += 1
+            return [dict(doc)], 200
+
+        if "/rest/v1/users" in path:
+            if (
+                params.get("dealer_verified") == "not.is.true"
+                and self.user["dealer_verified"] is True
+            ):
+                return [], 200
+            self.user.update(data)
+            self.successful_user_approvals += 1
+            return [dict(self.user)], 200
+
+        raise AssertionError(f"unexpected request: {method} {path}")
+
+
+class _ApprovalWriteFailureStore(_PendingApprovalStore):
+    """Queue + approval rows with one selected transient write failure."""
+
+    def __init__(self, failure):
+        super().__init__()
+        self.failure = failure
+        self.failure_seen = False
+        self.user = {"id": "u1", "dealer_verified": False}
+        self.documents = {
+            "doc-trade": {
+                "id": "doc-trade", "document_type": "trade_license",
+                "ocr_confidence": 0.95, "replaced_at": None, "status": "pending",
+            },
+            "doc-trn": {
+                "id": "doc-trn", "document_type": "tax_registration",
+                "ocr_confidence": 0.92, "replaced_at": None, "status": "pending",
+            },
+        }
+        self.successful_user_approvals = 0
+        self.successful_document_approvals = {doc_id: 0 for doc_id in self.documents}
+        self.terminal_states = []
+
+    def active_documents(self, user_id):
+        assert user_id == self.user["id"]
+        return [dict(doc) for doc in self.documents.values()]
+
+    def current_user(self, user_id):
+        assert user_id == self.user["id"]
+        return dict(self.user)
+
+    def request(self, method, path, data=None, params=None):
+        params = params or {}
+        data = data or {}
+
+        if "dealer_pending_approvals" in path:
+            body, status = super().request(method, path, data=data, params=params)
+            if body and data.get("state") in {"fired", "cancelled"}:
+                self.terminal_states.append(data["state"])
+            return body, status
+
+        if "dealer_documents" in path:
+            doc_id = path.split("id=eq.", 1)[1]
+            doc = self.documents[doc_id]
+            if self.failure == "document" and doc_id == "doc-trn" and not self.failure_seen:
+                self.failure_seen = True
                 return {"error": "temporary document update failure"}, 500
             if params.get("status") == "neq.approved" and doc["status"] == "approved":
                 return [], 200
@@ -136,6 +197,9 @@ class _ApprovalRecoveryStore(_PendingApprovalStore):
             return [dict(doc)], 200
 
         if "/rest/v1/users" in path:
+            if self.failure == "user" and not self.failure_seen:
+                self.failure_seen = True
+                return {"error": "temporary user update failure"}, 500
             if (
                 params.get("dealer_verified") == "not.is.true"
                 and self.user["dealer_verified"] is True
@@ -165,6 +229,31 @@ def _run_failed_finalize_recovery():
         retry_decision = w._process_one(_row())
 
     return store, emails, first_decision, retry_decision
+
+
+def _run_approval_write_failure_recovery(failure):
+    store = _ApprovalWriteFailureStore(failure)
+    emails = []
+    _FrozenDateTime.current = datetime(2026, 9, 6, 10, 0, tzinfo=timezone.utc)
+    with patch.object(w, "SUPABASE_URL", "https://supabase.test"), \
+         patch.object(w, "SUPABASE_SERVICE_KEY", "test-service-key"), \
+         patch.object(w, "datetime", _FrozenDateTime), \
+         patch.object(w, "supabase_request", side_effect=store.request), \
+         patch.object(w, "_fetch_active_docs", side_effect=store.active_documents), \
+         patch.object(w, "_fetch_user", side_effect=store.current_user), \
+         patch.object(w, "_send_approval_email", side_effect=emails.append), \
+         patch.object(w, "_utc_now_iso", return_value="2026-09-06T10:01:01+00:00"):
+        first_decision = w._process_one(_row())
+        first_state = {
+            "queue": dict(store.row),
+            "user": dict(store.user),
+            "documents": {key: dict(value) for key, value in store.documents.items()},
+            "emails": list(emails),
+        }
+        _FrozenDateTime.current += timedelta(seconds=w.CLAIM_LEASE_SECONDS + 1)
+        retry_decision = w._process_one(_row())
+
+    return store, emails, first_state, first_decision, retry_decision
 
 
 def test_fire_approves_when_still_high_confidence():
@@ -215,6 +304,17 @@ def test_fire_waits_if_not_due():
     assert out["decision"] == "wait"
 
 
+def test_fetch_active_docs_distinguishes_valid_empty_from_provider_failure():
+    with patch.object(
+        w,
+        "supabase_request",
+        side_effect=[([], 200), ({"error": "temporary read failure"}, 500), ({}, 200)],
+    ):
+        assert w._fetch_active_docs("u1") == []
+        assert w._fetch_active_docs("u1") is None
+        assert w._fetch_active_docs("u1") is None
+
+
 # --- _process_one (DB integration via monkey-patch) --------------------------
 
 def test_process_one_calls_approve_then_marks_fired():
@@ -222,6 +322,7 @@ def test_process_one_calls_approve_then_marks_fired():
 
     def fake_approve(uid):
         captured["approve_user_id"] = uid
+        return True
 
     def fake_mark(rid, **fields):
         captured.setdefault("marks", []).append((rid, fields))
@@ -292,6 +393,68 @@ def test_process_one_cancels_when_doc_replaced_between_upload_and_fire():
     assert "approve" not in captured
     assert "emails" not in captured
     assert any(fields.get("state") == "cancelled" for _, fields in captured["marks"])
+
+
+def test_process_one_transient_document_read_failure_keeps_pending_claim():
+    with patch.object(w, "_claim", return_value="lease-1"), \
+         patch.object(w, "_fetch_active_docs", return_value=None), \
+         patch.object(w, "_fetch_user") as fetch_user, \
+         patch.object(w, "_approve_documents") as approve_documents, \
+         patch.object(w, "_approve_user") as approve_user, \
+         patch.object(w, "_mark") as mark, \
+         patch.object(w, "_send_approval_email") as send_email:
+        decision = w._process_one(_row())
+
+    assert decision == {"decision": "wait", "reason": "document_read_failed"}
+    fetch_user.assert_not_called()
+    approve_documents.assert_not_called()
+    approve_user.assert_not_called()
+    mark.assert_not_called()
+    send_email.assert_not_called()
+
+
+def test_process_one_valid_empty_documents_remains_ineligible():
+    marks = []
+    with patch.object(w, "_claim", return_value="lease-1"), \
+         patch.object(w, "_fetch_active_docs", return_value=[]), \
+         patch.object(w, "_fetch_user", return_value={"dealer_verified": False}), \
+         patch.object(w, "_approve_documents") as approve_documents, \
+         patch.object(w, "_approve_user") as approve_user, \
+         patch.object(w, "_mark", side_effect=lambda row_id, **fields: marks.append((row_id, fields))):
+        decision = w._process_one(_row())
+
+    assert decision == {
+        "decision": "cancel",
+        "reason": "missing:trade_license,tax_registration",
+    }
+    approve_documents.assert_not_called()
+    approve_user.assert_not_called()
+    assert marks[0][0] == "p1"
+    assert marks[0][1]["claim_lease"] == "lease-1"
+    assert marks[0][1]["state"] == "cancelled"
+
+
+def test_process_one_transient_user_read_failure_keeps_pending_claim():
+    docs = [
+        {"id": "doc-trade", "document_type": "trade_license", "ocr_confidence": 0.95,
+         "replaced_at": None, "status": "pending"},
+        {"id": "doc-trn", "document_type": "tax_registration", "ocr_confidence": 0.92,
+         "replaced_at": None, "status": "pending"},
+    ]
+    with patch.object(w, "_claim", return_value="lease-1"), \
+         patch.object(w, "_fetch_active_docs", return_value=docs), \
+         patch.object(w, "_fetch_user", return_value=None), \
+         patch.object(w, "_approve_documents") as approve_documents, \
+         patch.object(w, "_approve_user") as approve_user, \
+         patch.object(w, "_mark") as mark, \
+         patch.object(w, "_send_approval_email") as send_email:
+        decision = w._process_one(_row())
+
+    assert decision == {"decision": "wait", "reason": "user_read_failed"}
+    approve_documents.assert_not_called()
+    approve_user.assert_not_called()
+    mark.assert_not_called()
+    send_email.assert_not_called()
 
 
 def test_claim_lease_keeps_one_pending_guard_and_blocks_second_replica():
@@ -377,11 +540,38 @@ def test_finalization_retry_does_not_duplicate_approval_writes():
     assert store.successful_user_approvals == 1
 
 
+@pytest.mark.parametrize("failure", ["document", "user"])
+def test_approval_write_failure_never_finalizes_and_retries_after_lease(failure):
+    store, emails, first_state, first_decision, retry_decision = (
+        _run_approval_write_failure_recovery(failure)
+    )
+
+    assert first_decision == {"decision": "wait", "reason": f"{failure}_write_failed"}
+    assert first_state["queue"]["state"] == "pending"
+    assert first_state["user"]["dealer_verified"] is False
+    assert first_state["emails"] == []
+    assert store.row["state"] == "fired"
+    assert store.terminal_states == ["fired"]
+    assert retry_decision["decision"] == "approve"
+    assert emails == ["u1"]
+
+
+@pytest.mark.parametrize("failure", ["document", "user"])
+def test_partial_approval_write_retry_is_idempotent(failure):
+    store, _, _, _, _ = _run_approval_write_failure_recovery(failure)
+
+    assert store.successful_document_approvals == {
+        "doc-trade": 1,
+        "doc-trn": 1,
+    }
+    assert store.successful_user_approvals == 1
+
+
 def test_approval_writes_are_conditioned_on_unapproved_records():
     docs = [{"id": "doc-pending", "status": "pending"}]
     with patch.object(w, "supabase_request", return_value=([{"id": "updated"}], 200)) as request:
-        w._approve_documents(docs)
-        w._approve_user("u1")
+        assert w._approve_documents(docs) is True
+        assert w._approve_user("u1") is True
 
     document_call, user_call = request.call_args_list
     assert document_call.args == (
