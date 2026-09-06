@@ -998,9 +998,20 @@ def delete_listing(listing_id):
 @admin_bp.route("/reports", methods=["GET"])
 @admin_required
 def get_reports():
-    """Get all reports"""
+    """Get a bounded report page with batched reporter enrichment."""
     try:
-        status = request.args.get("status")  # pending, resolved, dismissed
+        status = request.args.get("status")
+        if status and status not in {"pending", "resolved", "dismissed"}:
+            return jsonify({"error": "Invalid report status"}), 400
+        try:
+            limit = int(request.args.get("limit", "50"))
+        except (TypeError, ValueError):
+            limit = 50
+        limit = min(max(limit, 1), 200)
+        try:
+            offset = max(int(request.args.get("offset", "0")), 0)
+        except (TypeError, ValueError):
+            offset = 0
 
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -1008,31 +1019,77 @@ def get_reports():
             "Content-Type": "application/json",
         }
 
-        # Fetch reports
-        query = f"{SUPABASE_URL}/rest/v1/reports?select=*&order=created_at.desc"
-
+        query_parts = [
+            "select=*",
+            "order=created_at.desc",
+            f"limit={limit + 1}",
+            f"offset={offset}",
+        ]
         if status:
-            query += f"&status=eq.{status}"
+            query_parts.append(f"status=eq.{status}")
 
-        response = requests.get(query, headers=headers, timeout=10)
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/reports?{'&'.join(query_parts)}",
+            headers=headers,
+            timeout=10,
+        )
 
-        if response.status_code == 200:
-            reports = response.json()
-
-            # Enhance with reporter info
-            for report in reports:
-                reporter_id = report.get("reporter_id")
-                if reporter_id:
-                    user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{reporter_id}&select=email,username"
-                    user_response = requests.get(user_query, headers=headers, timeout=5)
-                    if user_response.status_code == 200 and user_response.json():
-                        reporter = user_response.json()[0]
-                        report["reporter_email"] = reporter.get("email")
-                        report["reporter_username"] = reporter.get("username")
-
-            return jsonify(reports), 200
-        else:
+        if response.status_code not in (200, 206):
             return jsonify({"error": "Failed to fetch reports"}), response.status_code
+        try:
+            reports = response.json()
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid report response"}), 502
+        if not isinstance(reports, list):
+            return jsonify({"error": "Invalid report response"}), 502
+        reports = [
+            report
+            for report in reports
+            if isinstance(report, dict)
+            and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(report.get("id") or ""))
+        ]
+        has_more = len(reports) > limit
+        reports = reports[:limit]
+
+        reporter_ids = {
+            str(report.get("reporter_id"))
+            for report in reports
+            if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(report.get("reporter_id") or ""))
+        }
+        reporters_by_id = {}
+        if reporter_ids:
+            users_response = requests.get(
+                f"{SUPABASE_URL}/rest/v1/users",
+                headers=headers,
+                params={
+                    "id": f"in.({','.join(sorted(reporter_ids))})",
+                    "select": "id,email,username",
+                },
+                timeout=10,
+            )
+            if users_response.status_code in (200, 206):
+                try:
+                    users = users_response.json()
+                except (TypeError, ValueError):
+                    users = []
+                if isinstance(users, list):
+                    reporters_by_id = {
+                        str(user.get("id")): user
+                        for user in users
+                        if isinstance(user, dict) and user.get("id")
+                    }
+
+        for report in reports:
+            reporter = reporters_by_id.get(str(report.get("reporter_id") or ""))
+            if reporter:
+                report["reporter_email"] = reporter.get("email")
+                report["reporter_username"] = reporter.get("username")
+
+        page_response = jsonify(reports)
+        page_response.headers["X-Has-More"] = "true" if has_more else "false"
+        if reports and has_more:
+            page_response.headers["X-Next-Cursor"] = str(offset + len(reports))
+        return page_response, 200
 
     except Exception as e:
         logger.error(f"Error fetching reports: {e}")
