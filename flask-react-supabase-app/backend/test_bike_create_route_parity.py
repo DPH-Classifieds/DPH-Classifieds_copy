@@ -541,6 +541,7 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         17,
         {},
         {"image_url": 17},
+        {"image_url": VALID_IMAGE_URL, "display_url": 0},
         (
             "https://project-ref.supabase.co/storage/v1/object/public/"
             "listing-images/other-user/bike.jpg"
@@ -559,6 +560,7 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         "non-string-scalar",
         "empty-image-object",
         "non-string-object-reference",
+        "falsey-non-string-object-reference",
         "wrong-user-scope",
         "wrong-bucket",
         "wrong-public-object-prefix",

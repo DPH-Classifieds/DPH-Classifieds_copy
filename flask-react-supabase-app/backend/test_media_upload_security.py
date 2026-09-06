@@ -105,6 +105,32 @@ def test_listing_image_reference_is_user_scoped_for_all_listing_types(listing_ty
     assert not backend._validate_listing_image_entry(good.replace("user-123", "other"), "user-123")
 
 
+@pytest.mark.parametrize("malformed_field", ["url", "image_url", "display_url"])
+def test_listing_image_entry_rejects_supplied_falsey_non_string_reference(
+    malformed_field,
+):
+    good = (
+        "https://project-ref.supabase.co/storage/v1/object/public/"
+        "listing-images/user-123/abc12345.jpg"
+    )
+    valid_field = "image_url" if malformed_field == "url" else "url"
+    entry = {valid_field: good, malformed_field: 0}
+
+    assert not backend._validate_listing_image_entry(entry, "user-123")
+
+
+def test_listing_image_entry_allows_omitted_or_none_optional_reference():
+    good = (
+        "https://project-ref.supabase.co/storage/v1/object/public/"
+        "listing-images/user-123/abc12345.jpg"
+    )
+
+    assert backend._validate_listing_image_entry({"image_url": good}, "user-123")
+    assert backend._validate_listing_image_entry(
+        {"image_url": good, "display_url": None}, "user-123"
+    )
+
+
 def test_info_request_document_rejects_html_disguised_as_pdf():
     with pytest.raises(ValueError, match="content"):
         backend._validate_info_request_document(

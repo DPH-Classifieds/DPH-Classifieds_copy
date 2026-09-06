@@ -8151,7 +8151,11 @@ def _validate_listing_image_reference(value, user_id):
 
 def _validate_listing_image_entry(entry, user_id):
     if isinstance(entry, dict):
-        references = [entry.get(key) for key in ("url", "image_url", "display_url") if entry.get(key)]
+        references = [
+            entry[key]
+            for key in ("url", "image_url", "display_url")
+            if key in entry and entry[key] is not None
+        ]
         return bool(references) and all(_validate_listing_image_reference(ref, user_id) for ref in references)
     return _validate_listing_image_reference(entry, user_id)
 
