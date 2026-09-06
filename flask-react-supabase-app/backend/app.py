@@ -15732,6 +15732,9 @@ def _bike_create_dependencies():
         sync_gate_error=lambda listing_type, payload, photo_count: (
             _sync_gate_error(listing_type, payload, photo_count)
         ),
+        validate_listing_image_entry=lambda entry, user_id: (
+            _validate_listing_image_entry(entry, user_id)
+        ),
         get_user_email=lambda user_id: get_user_email(user_id),
         create_listing_with_lifecycle_fallback=lambda *args, **kwargs: (
             _create_listing_with_lifecycle_fallback(*args, **kwargs)

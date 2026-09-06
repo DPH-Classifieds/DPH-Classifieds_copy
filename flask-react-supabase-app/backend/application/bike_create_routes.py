@@ -28,6 +28,7 @@ class BikeCreateDependencies:
     validate_description_word_count: Callable[..., Any]
     validate_no_profanity: Callable[..., Any]
     sync_gate_error: Callable[[str, dict[str, Any], int], Any]
+    validate_listing_image_entry: Callable[[Any, str], bool]
     get_user_email: Callable[[str], str]
     create_listing_with_lifecycle_fallback: Callable[..., tuple[Any, int]]
     friendly_db_error: Callable[[Any, int, str], tuple[Any, int]]
@@ -190,6 +191,17 @@ def register_bike_create_route(
                 return jsonify(
                     {
                         "error": "At least one image is required for a bike listing."
+                    }
+                ), 400
+            if any(
+                not deps.validate_listing_image_entry(image, current_user)
+                for image in images
+            ):
+                return jsonify(
+                    {
+                        "error": (
+                            "Images must be public listing uploads for this user"
+                        )
                     }
                 ), 400
 

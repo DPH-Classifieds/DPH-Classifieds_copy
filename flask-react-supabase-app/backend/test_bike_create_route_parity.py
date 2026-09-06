@@ -13,6 +13,15 @@ from application.bike_create_routes import (
 
 
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
+VALID_IMAGE_URL = (
+    "https://project-ref.supabase.co/storage/v1/object/public/"
+    "listing-images/user-1/bike.jpg"
+)
+ORIGINAL_IMAGE_URL = VALID_IMAGE_URL.replace("bike.jpg", "original.jpg")
+CROPPED_IMAGE_URL = VALID_IMAGE_URL.replace("bike.jpg", "cropped.jpg")
+DISPLAY_IMAGE_URL = VALID_IMAGE_URL.replace("bike.jpg", "display.jpg")
+URL_ONLY_IMAGE_URL = VALID_IMAGE_URL.replace("bike.jpg", "url-only.jpg")
+DISPLAY_ONLY_IMAGE_URL = VALID_IMAGE_URL.replace("bike.jpg", "display-only.jpg")
 
 
 def _token_required(view):
@@ -33,7 +42,7 @@ def _payload(**overrides):
         "year": 2024,
         "price": 32000,
         "mileage": 5000,
-        "images": ["https://cdn.example/bike.jpg"],
+        "images": [VALID_IMAGE_URL],
     }
     payload.update(overrides)
     return payload
@@ -160,6 +169,7 @@ def _register_app(**overrides):
         "validate_description_word_count": validate_description,
         "validate_no_profanity": validate_profanity,
         "sync_gate_error": sync_gate,
+        "validate_listing_image_entry": lambda _entry, _user_id: True,
         "get_user_email": lambda _user_id: "owner@example.com",
         "create_listing_with_lifecycle_fallback": create_listing,
         "friendly_db_error": friendly_db_error,
@@ -446,20 +456,28 @@ def test_aliases_lifecycle_vin_numeric_defaults_and_whitelist_reach_insert():
     assert state["initial_status_calls"] == 2
 
 
-def test_image_rows_preserve_string_dict_and_other_scalar_behavior():
-    app, _view, state = _register_app()
+def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
+    monkeypatch,
+):
+    import app as backend
+
+    monkeypatch.setattr(
+        backend, "SUPABASE_URL", "https://project-ref.supabase.co"
+    )
+    app, _view, state = _register_app(
+        validate_listing_image_entry=backend._validate_listing_image_entry
+    )
     images = [
-        "https://cdn.example/original.jpg",
+        ORIGINAL_IMAGE_URL,
         {
-            "image_url": "https://cdn.example/cropped.jpg",
-            "display_url": "https://cdn.example/display.jpg",
+            "image_url": CROPPED_IMAGE_URL,
+            "display_url": DISPLAY_IMAGE_URL,
             "focal_x": 20,
             "focal_y": 80,
             "crop_meta": {"aspect": "4:3"},
         },
-        {"url": "https://cdn.example/url-only.jpg"},
-        {"display_url": "https://cdn.example/missing-source.jpg"},
-        17,
+        {"url": URL_ONLY_IMAGE_URL},
+        {"display_url": DISPLAY_ONLY_IMAGE_URL},
     ]
 
     response = app.test_client().post(
@@ -475,15 +493,15 @@ def test_image_rows_preserve_string_dict_and_other_scalar_behavior():
                 "data": [
                     {
                         "bike_id": "bike-1",
-                        "url": "https://cdn.example/original.jpg",
-                        "image_url": "https://cdn.example/original.jpg",
+                        "url": ORIGINAL_IMAGE_URL,
+                        "image_url": ORIGINAL_IMAGE_URL,
                         "cropped_at": "2026-09-06T00:00:00+00:00",
                     },
                     {
                         "bike_id": "bike-1",
-                        "url": "https://cdn.example/cropped.jpg",
-                        "image_url": "https://cdn.example/cropped.jpg",
-                        "display_url": "https://cdn.example/display.jpg",
+                        "url": CROPPED_IMAGE_URL,
+                        "image_url": CROPPED_IMAGE_URL,
+                        "display_url": DISPLAY_IMAGE_URL,
                         "focal_x": 20,
                         "focal_y": 80,
                         "crop_meta": {"aspect": "4:3"},
@@ -491,8 +509,8 @@ def test_image_rows_preserve_string_dict_and_other_scalar_behavior():
                     },
                     {
                         "bike_id": "bike-1",
-                        "url": "https://cdn.example/url-only.jpg",
-                        "image_url": "https://cdn.example/url-only.jpg",
+                        "url": URL_ONLY_IMAGE_URL,
+                        "image_url": URL_ONLY_IMAGE_URL,
                         "display_url": None,
                         "focal_x": None,
                         "focal_y": None,
@@ -501,18 +519,12 @@ def test_image_rows_preserve_string_dict_and_other_scalar_behavior():
                     },
                     {
                         "bike_id": "bike-1",
-                        "url": "https://cdn.example/missing-source.jpg",
-                        "image_url": "https://cdn.example/missing-source.jpg",
-                        "display_url": "https://cdn.example/missing-source.jpg",
+                        "url": DISPLAY_ONLY_IMAGE_URL,
+                        "image_url": DISPLAY_ONLY_IMAGE_URL,
+                        "display_url": DISPLAY_ONLY_IMAGE_URL,
                         "focal_x": None,
                         "focal_y": None,
                         "crop_meta": None,
-                        "cropped_at": "2026-09-06T00:00:00+00:00",
-                    },
-                    {
-                        "bike_id": "bike-1",
-                        "url": 17,
-                        "image_url": 17,
                         "cropped_at": "2026-09-06T00:00:00+00:00",
                     },
                 ],
@@ -522,17 +534,60 @@ def test_image_rows_preserve_string_dict_and_other_scalar_behavior():
     ]
 
 
-def test_nonempty_invalid_dict_images_preserve_empty_bulk_insert_and_201():
-    app, _view, state = _register_app()
+@pytest.mark.parametrize(
+    "unsafe_image",
+    [
+        "https://evil.example/bike.jpg",
+        17,
+        {},
+        {"image_url": 17},
+        (
+            "https://project-ref.supabase.co/storage/v1/object/public/"
+            "listing-images/other-user/bike.jpg"
+        ),
+        (
+            "https://project-ref.supabase.co/storage/v1/object/public/"
+            "profile-photos/user-1/bike.jpg"
+        ),
+        (
+            "https://project-ref.supabase.co/storage/v1/object/"
+            "listing-images/user-1/bike.jpg"
+        ),
+    ],
+    ids=[
+        "external-url",
+        "non-string-scalar",
+        "empty-image-object",
+        "non-string-object-reference",
+        "wrong-user-scope",
+        "wrong-bucket",
+        "wrong-public-object-prefix",
+    ],
+)
+def test_unsafe_image_reference_is_rejected_before_listing_or_image_insert(
+    unsafe_image, monkeypatch
+):
+    import app as backend
 
-    response = app.test_client().post(
-        "/api/bikes", headers=AUTH_HEADERS, json=_payload(images=[{}])
+    monkeypatch.setattr(
+        backend, "SUPABASE_URL", "https://project-ref.supabase.co"
+    )
+    app, _view, state = _register_app(
+        validate_listing_image_entry=backend._validate_listing_image_entry
     )
 
-    assert response.status_code == 201
-    assert response.get_json()["images"] == []
-    assert state["supabase_calls"][0][2]["data"] == []
-    assert state["review_triggers"] == 1
+    response = app.test_client().post(
+        "/api/bikes", headers=AUTH_HEADERS, json=_payload(images=[unsafe_image])
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {
+        "error": "Images must be public listing uploads for this user"
+    }
+    assert state["create_calls"] == []
+    assert state["supabase_calls"] == []
+    assert state["effects"] == []
+    assert state["review_triggers"] == 0
 
 
 def test_image_insert_failure_is_nonfatal_and_preserves_empty_images():
@@ -595,8 +650,8 @@ def test_success_returns_bike_and_runs_notifications_then_review_only():
             {
                 "id": "image-1",
                 "bike_id": "bike-1",
-                "url": "https://cdn.example/bike.jpg",
-                "image_url": "https://cdn.example/bike.jpg",
+                "url": VALID_IMAGE_URL,
+                "image_url": VALID_IMAGE_URL,
                 "cropped_at": "2026-09-06T00:00:00+00:00",
             }
         ],
@@ -686,6 +741,11 @@ def test_compatibility_root_registers_extracted_route_with_lazy_dependencies(
         "_require_verified_user_for_listing",
         lambda user_id: ("verified", user_id),
     )
+    monkeypatch.setattr(
+        backend,
+        "_validate_listing_image_entry",
+        lambda entry, user_id: ("validated", entry, user_id),
+    )
 
     assert backend.app.view_functions["create_bike"] is backend.create_bike
     assert backend.create_bike.__wrapped__.__module__ == (
@@ -694,6 +754,11 @@ def test_compatibility_root_registers_extracted_route_with_lazy_dependencies(
     assert deps.initial_listing_status() == "patched-after-construction"
     assert deps.require_verified_user_for_listing("user-lazy") == (
         "verified",
+        "user-lazy",
+    )
+    assert deps.validate_listing_image_entry("image-ref", "user-lazy") == (
+        "validated",
+        "image-ref",
         "user-lazy",
     )
     assert deps.minimum_allowed_year == backend.MIN_ALLOWED_YEAR

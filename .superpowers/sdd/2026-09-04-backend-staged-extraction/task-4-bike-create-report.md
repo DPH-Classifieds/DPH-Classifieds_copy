@@ -2,11 +2,11 @@
 
 ## Status
 
-Implemented the bounded authenticated `POST /api/bikes` extraction. The route
-now lives in `backend/application/bike_create_routes.py`, receives its auth,
-configuration, validation, persistence, media, notification, and review
-collaborators from the compatibility root, and remains registered as endpoint
-`create_bike`.
+Implemented the bounded authenticated `POST /api/bikes` extraction and the
+Task 4b listing-image hardening. The route now lives in
+`backend/application/bike_create_routes.py`, receives its auth, configuration,
+validation, persistence, media, notification, and review collaborators from
+the compatibility root, and remains registered as endpoint `create_bike`.
 
 No car/plate/part write, bike update/delete, VIN/admin route, worker, migration,
 frontend, or mobile file changed.
@@ -24,10 +24,13 @@ frontend, or mobile file changed.
   aliases, WhatsApp alignment, numeric bounds, engine parsing, description and
   profanity validation, sync-gate ordering, field whitelisting, database error
   translation, and the 201 response body.
-- Preserved bike image behavior exactly: at least one submitted entry is
-  required; string, dictionary, and other scalar entries retain their current
-  row mapping; nonempty invalid dictionaries can produce an empty bulk insert;
-  and image persistence failure remains nonfatal with `images: []`.
+- Task 4b now requires every submitted bike image entry to pass the existing
+  shared listing-image validator before listing persistence. Arbitrary hosts,
+  non-string scalars, malformed objects, another user's path, the wrong bucket,
+  and the wrong public-object prefix return 400 before any listing/image insert.
+- Valid server-issued string and object references retain their submitted
+  order and existing row mapping. Image persistence failure remains nonfatal
+  with `images: []`.
 - Preserved notification isolation and asynchronous review triggering. The
   legacy bike-create handler has no create-time public-cache invalidation and
   emits no PostHog event, so the extraction does neither.
@@ -122,14 +125,79 @@ virtualenv interpreter. Static scans found no `app`/`app.py` import and no
 
 ## Concerns
 
-- The requested `task-4-bike-create-brief.md` was not present in the isolated
-  worktree, main checkout, Git history, or targeted user-home search. The
-  global plan, live legacy handler, existing tests, and immediately preceding
-  car-create extraction/report were used as the operative contract sources.
+- The task brief, global plan, live legacy handler, existing tests, and
+  immediately preceding car-create extraction/report were used as the
+  operative contract sources.
 - The full backend suite retains 65 pre-existing warnings, chiefly datetime,
   pytest-return-value, and matplotlib parsing deprecations.
 - Docker API E2E verifies the credential-free production image boundary; it
   does not create a real Supabase bike listing.
 - Current bike-create image persistence semantics are weaker than car-create:
-  an image insert failure still returns 201, and no listing rollback occurs.
-  This task preserves that behavior rather than changing it.
+  for a valid image reference, an image insert failure still returns 201, and
+  no listing rollback occurs. Task 4b preserves that behavior rather than
+  changing it.
+
+## Task 4b listing-image hardening evidence
+
+### RED
+
+Command from `flask-react-supabase-app/backend`:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py
+```
+
+Result before implementation: exit 1; `7 failed, 23 passed in 0.34s`. Each
+external URL, scalar, malformed-object, wrong-user, wrong-bucket, and
+wrong-prefix case reached the old 201 path instead of the required 400.
+
+### GREEN focused
+
+Command:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py
+```
+
+Result: exit 0; `30 passed in 0.32s`.
+
+Fresh focused bike/media/manifest command:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py test_bike_read_route_parity.py test_media_upload_security.py test_route_manifest.py
+```
+
+Result: exit 0; `91 passed in 1.17s`.
+
+### Full backend pytest
+
+Command:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q
+```
+
+Result: exit 1; `1 failed, 974 passed, 11 skipped, 65 warnings, 10 subtests
+passed in 12.91s`.
+
+The sole failure is
+`test_admin_stats_and_posts.py::PostListingSmokeTests::test_post_bike_payload_succeeds`.
+Its fixture submits three `https://example.com/...` image URLs and expects 201;
+the hardened route correctly returns 400. A fresh isolated rerun reproduced
+the exact `AssertionError: 400 != 201` (`1 failed in 0.16s`). The Task 4b
+ownership boundary permits only the focused bike-create test file, so this
+stale shared smoke fixture was not edited and production validation was not
+weakened to satisfy it.
+
+### Docker API E2E
+
+`./e2e/run.sh` ran from `flask-react-supabase-app/backend` and exited 0. The
+production image built, the container became ready, liveness returned 200,
+readiness returned 200, the unknown route returned 404, the auth-gated route
+returned 401, and the script ended with `E2E PASSED`.
+
+### Diff and import boundaries
+
+`git diff --check` exited 0 with no output. The verified virtualenv interpreter
+compiled `application/bike_create_routes.py`. Static scans exited 0 with `no
+forbidden app imports` and `no direct environment or app config access`.
