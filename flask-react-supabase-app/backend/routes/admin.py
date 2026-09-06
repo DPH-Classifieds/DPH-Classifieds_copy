@@ -531,10 +531,22 @@ def get_all_listings():
         listing_type = request.args.get("type", "cars")  # cars, bikes, plates, parts
         status = request.args.get("status")  # pending, approved, rejected
 
+        try:
+            limit = int(request.args.get("limit", 50))
+        except (TypeError, ValueError):
+            limit = 50
+        try:
+            offset = int(request.args.get("offset", 0))
+        except (TypeError, ValueError):
+            offset = 0
+        limit = max(1, min(limit, 200))
+        offset = max(offset, 0)
+
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
             "Content-Type": "application/json",
+            "Prefer": "count=exact",
         }
 
         # Build query
@@ -552,11 +564,26 @@ def get_all_listings():
 
         if status:
             query += f"&status=eq.{status}"
+        query += f"&limit={limit}&offset={offset}"
 
         response = requests.get(query, headers=headers, timeout=10)
 
-        if response.status_code == 200:
-            listings = response.json()
+        if response.status_code in (200, 206):
+            try:
+                listings = response.json()
+            except (TypeError, ValueError):
+                listings = []
+            if not isinstance(listings, list):
+                listings = []
+            listings = [listing for listing in listings if isinstance(listing, dict)]
+            listings = listings[:limit]
+
+            total_count = None
+            content_range = response.headers.get("Content-Range", "")
+            if "/" in content_range:
+                total_value = content_range.rsplit("/", 1)[-1].strip()
+                if total_value.isdigit():
+                    total_count = int(total_value)
 
             # Enhance with user info for display
             for listing in listings:
@@ -593,7 +620,19 @@ def get_all_listings():
                         f"{listing.get('title', 'Unknown listing')} — posted by {listing['user_name']}"
                     )
 
-            return jsonify(listings), 200
+            page_response = jsonify(listings)
+            if total_count is not None:
+                has_more = offset + len(listings) < total_count
+            else:
+                has_more = len(listings) >= limit
+            page_response.headers["X-Has-More"] = "true" if has_more else "false"
+            if listings:
+                page_response.headers["X-Next-Cursor"] = str(
+                    listings[-1].get("created_at") or ""
+                )
+            if total_count is not None:
+                page_response.headers["X-Total-Count"] = str(total_count)
+            return page_response, 200
         else:
             return jsonify({"error": "Failed to fetch listings"}), response.status_code
 
