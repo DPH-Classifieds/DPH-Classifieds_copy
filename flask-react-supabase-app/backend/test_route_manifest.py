@@ -26,12 +26,12 @@ EXPECTED_METHODS = {
 
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
     "false": {
-        "count": 218,
-        "sha256": "ea3a73c6df7449d31f0c12ad57ff9444c1a18cdb5c3c9b73717c4f364f53c887",
+        "count": 215,
+        "sha256": "7f6d3ec54c0eb4abb7d37c675da24d85caa23618633c8a3aacb62feee05e38b2",
     },
     "true": {
-        "count": 260,
-        "sha256": "7e0c2adb3f60beea46c6b2779651c9f502d13b4700631dae26dbe2cc02be04bd",
+        "count": 257,
+        "sha256": "c40dacf445f1a8df23b3baf1f48670fe51ed11c789a98dc60867fa6c7016538c",
     },
 }
 
@@ -40,20 +40,11 @@ EXPECTED_PATH_METHOD_COLLISIONS = {
     ("/api/admin/approve/<item_type>/<item_id>/reject", "OPTIONS"),
     ("/api/admin/approve/<item_type>/<item_id>/reject", "POST"),
     ("/api/admin/dealers/<dealer_id>/info-requests", "OPTIONS"),
-    ("/api/admin/dealers/<dealer_id>/overview", "GET"),
-    ("/api/admin/dealers/<dealer_id>/overview", "HEAD"),
-    ("/api/admin/dealers/<dealer_id>/overview", "OPTIONS"),
     ("/api/admin/featured-listings", "OPTIONS"),
     ("/api/admin/featured-listings/<row_id>", "OPTIONS"),
-    ("/api/admin/lead-metrics", "GET"),
-    ("/api/admin/lead-metrics", "HEAD"),
-    ("/api/admin/lead-metrics", "OPTIONS"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "GET"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "HEAD"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "OPTIONS"),
-    ("/api/admin/users/<user_id>/overview", "GET"),
-    ("/api/admin/users/<user_id>/overview", "HEAD"),
-    ("/api/admin/users/<user_id>/overview", "OPTIONS"),
     ("/api/bikes", "OPTIONS"),
     ("/api/bikes/<string:bike_id>", "OPTIONS"),
     ("/api/buying-requests", "OPTIONS"),
