@@ -3838,378 +3838,6 @@ def token_required_optional(f):
     return decorated
 
 
-@app.route("/api/user/saved-listings", methods=["GET"])
-@token_required
-def get_user_saved_listings(current_user):
-    payload, status_code = _fetch_saved_listing_cards(current_user)
-    return jsonify(payload), status_code
-
-
-@app.route("/api/user/saved-listings", methods=["POST"])
-@token_required
-def create_user_saved_listing(current_user):
-    data = request.json or {}
-    listing_type = _normalize_saved_listing_type(data.get("listing_type"))
-    listing_id = str(data.get("listing_id") or "").strip()
-
-    if not listing_type or not listing_id:
-        return jsonify({"error": "listing_type and listing_id are required"}), 400
-
-    saved_rows, existing_status = supabase_request(
-        "get",
-        "/rest/v1/saved_listings",
-        params={
-            "select": "id,user_id,listing_id,listing_type,created_at",
-            "user_id": f"eq.{current_user}",
-            "listing_id": f"eq.{listing_id}",
-            "listing_type": f"eq.{listing_type}",
-            "limit": 1,
-        },
-        user_id=current_user,
-    )
-    if existing_status >= 400 and _looks_like_missing_table(saved_rows):
-        return (
-            jsonify(
-                {
-                    "error": "Supabase table saved_listings is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_ecosystem_tables.sql"
-                }
-            ),
-            501,
-        )
-    if existing_status < 400 and saved_rows:
-        card, _, _ = _load_saved_listing_card(
-            current_user, listing_type, listing_id, saved_rows[0]
-        )
-        return jsonify({"saved": True, "listing": card}), 200
-
-    card, error_payload, error_status = _load_saved_listing_card(
-        current_user, listing_type, listing_id
-    )
-    if error_payload:
-        return jsonify(error_payload), error_status
-    if not card or card.get("isUnavailable"):
-        return jsonify({"error": "Listing not found"}), 404
-
-    insert_payload = {
-        "user_id": current_user,
-        "listing_id": listing_id,
-        "listing_type": listing_type,
-    }
-    insert_response, insert_status = supabase_request(
-        "post",
-        "/rest/v1/saved_listings",
-        data=insert_payload,
-        user_id=current_user,
-    )
-    if insert_status >= 400:
-        if insert_status == 409:
-            return jsonify({"saved": True, "listing": card}), 200
-        if _looks_like_missing_table(insert_response):
-            return (
-                jsonify(
-                    {
-                        "error": "Supabase table saved_listings is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_ecosystem_tables.sql"
-                    }
-                ),
-                501,
-            )
-        return jsonify(insert_response), insert_status
-
-    capture_posthog_event(
-        "listing_saved",
-        current_user,
-        {"listing_type": listing_type},
-    )
-    return jsonify(
-        {
-            "saved": True,
-            "listing": card,
-            "saved_listing": insert_response[0]
-            if isinstance(insert_response, list) and insert_response
-            else insert_response,
-        }
-    ), 200
-
-
-@app.route(
-    "/api/user/saved-listings/<string:listing_type>/<string:listing_id>",
-    methods=["DELETE"],
-)
-@token_required
-def delete_user_saved_listing(current_user, listing_type, listing_id):
-    normalized_type = _normalize_saved_listing_type(listing_type)
-    if not normalized_type:
-        return jsonify({"error": "Invalid listing type"}), 400
-
-    delete_response, delete_status = supabase_request(
-        "delete",
-        "/rest/v1/saved_listings",
-        params={
-            "user_id": f"eq.{current_user}",
-            "listing_type": f"eq.{normalized_type}",
-            "listing_id": f"eq.{listing_id}",
-        },
-        user_id=current_user,
-    )
-
-    if delete_status >= 400:
-        if _looks_like_missing_table(delete_response):
-            return (
-                jsonify(
-                    {
-                        "error": "Supabase table saved_listings is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_ecosystem_tables.sql"
-                    }
-                ),
-                501,
-            )
-        return jsonify(delete_response), delete_status
-
-    return jsonify(
-        {"saved": False, "listing_type": normalized_type, "listing_id": listing_id}
-    ), 200
-
-
-SAVED_SEARCH_CATEGORIES = {
-    "all",
-    "cars",
-    "car",
-    "bikes",
-    "bike",
-    "parts",
-    "part",
-    "car-parts",
-    "plates",
-    "plate",
-}
-
-
-def _normalize_saved_search_category(value):
-    normalized = str(value or "all").strip().lower()
-    mapping = {
-        "car": "cars",
-        "bike": "bikes",
-        "part": "parts",
-        "car-parts": "parts",
-        "plate": "plates",
-    }
-    normalized = mapping.get(normalized, normalized)
-    return normalized if normalized in SAVED_SEARCH_CATEGORIES else "all"
-
-
-def _clean_saved_search_filters(value):
-    if not isinstance(value, dict):
-        return {}
-    cleaned = {}
-    for key, raw_value in value.items():
-        if raw_value in (None, ""):
-            continue
-        if isinstance(raw_value, dict):
-            nested = _clean_saved_search_filters(raw_value)
-            if nested:
-                cleaned[str(key)] = nested
-            continue
-        if isinstance(raw_value, list):
-            nested_list = [
-                item
-                for item in raw_value
-                if item not in (None, "", [], {})
-            ]
-            if nested_list:
-                cleaned[str(key)] = nested_list
-            continue
-        cleaned[str(key)] = raw_value
-    return cleaned
-
-
-def _build_saved_search_key(category, route_path, query_text, filters):
-    normalized_payload = {
-        "category": _normalize_saved_search_category(category),
-        "route_path": str(route_path or "").strip()[:300],
-        "query_text": str(query_text or "").strip().lower(),
-        "filters": _clean_saved_search_filters(filters),
-    }
-    encoded = json.dumps(normalized_payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-
-def _saved_search_missing_table_response():
-    return (
-        jsonify(
-            {
-                "error": "Supabase table saved_searches is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_saved_searches_and_reminders_20260618.sql"
-            }
-        ),
-        501,
-    )
-
-
-@app.route("/api/user/saved-searches", methods=["GET"])
-@token_required
-def get_user_saved_searches(current_user):
-    response, status_code = supabase_request(
-        "get",
-        "/rest/v1/saved_searches",
-        params={
-            "select": "*",
-            "user_id": f"eq.{current_user}",
-            "order": "updated_at.desc",
-            "limit": "100",
-        },
-        user_id=current_user,
-    )
-    if status_code >= 400:
-        if _looks_like_missing_table(response):
-            return _saved_search_missing_table_response()
-        return jsonify({"error": "Failed to load saved searches"}), status_code
-    return jsonify({"searches": response or []}), 200
-
-
-@app.route("/api/user/push-token", methods=["POST"])
-@token_required
-def register_push_token(current_user):
-    """Register/refresh an Expo push token for the signed-in user."""
-    payload = request.get_json(silent=True) or {}
-    token = str(payload.get("expo_push_token") or "").strip()
-    if not token:
-        return jsonify({"error": "expo_push_token is required"}), 400
-    if not is_valid_expo_token(token):
-        return jsonify({"error": "invalid expo_push_token"}), 400
-    now_iso = _isoformat_utc(_utc_now())
-    record = {
-        "user_id": current_user,
-        "expo_push_token": token,
-        "platform": (str(payload.get("platform") or "").strip()[:20] or None),
-        "device_id": (str(payload.get("device_id") or "").strip()[:200] or None),
-        "enabled": True,
-        "updated_at": now_iso,
-        "last_used_at": now_iso,
-    }
-    # Delete-then-insert upsert on the unique expo_push_token (house convention).
-    # Deleting by token (not user) reassigns a device that switched accounts.
-    supabase_request(
-        "delete",
-        "/rest/v1/push_tokens",
-        params={"expo_push_token": f"eq.{token}"},
-        use_service_role=True,
-    )
-    resp, status_code = supabase_request(
-        "post",
-        "/rest/v1/push_tokens",
-        data=record,
-        use_service_role=True,
-    )
-    if status_code >= 400:
-        return jsonify({"error": "Failed to save push token"}), status_code
-    saved = resp[0] if isinstance(resp, list) and resp else resp
-    return jsonify({"saved": True, "token": saved}), 200
-
-
-@app.route("/api/user/push-token", methods=["DELETE"])
-@token_required
-def delete_push_token(current_user):
-    """Remove a push token (device opted out or signed out)."""
-    token = str(request.args.get("expo_push_token") or "").strip()
-    params = {"user_id": f"eq.{current_user}"}
-    if token:
-        params["expo_push_token"] = f"eq.{token}"
-    supabase_request(
-        "delete",
-        "/rest/v1/push_tokens",
-        params=params,
-        use_service_role=True,
-    )
-    return jsonify({"removed": True}), 200
-
-
-@app.route("/api/user/saved-searches", methods=["POST"])
-@token_required
-def save_user_search(current_user):
-    payload = request.get_json(silent=True) or {}
-    category = _normalize_saved_search_category(payload.get("category"))
-    route_path = str(payload.get("route_path") or payload.get("routePath") or "").strip()[:300]
-    query_text = str(
-        payload.get("query")
-        or payload.get("query_text")
-        or payload.get("search")
-        or ""
-    ).strip()[:300]
-    filters = _clean_saved_search_filters(payload.get("filters") or {})
-    result_count = payload.get("result_count", payload.get("resultCount"))
-    try:
-        result_count = int(result_count) if result_count not in (None, "") else None
-    except (TypeError, ValueError):
-        result_count = None
-
-    search_key = _build_saved_search_key(category, route_path, query_text, filters)
-    now_iso = _isoformat_utc(_utc_now())
-    record = {
-        "user_id": current_user,
-        "search_key": search_key,
-        "category": category,
-        "route_path": route_path,
-        "query_text": query_text,
-        "filters": filters,
-        "result_count": result_count,
-        "last_result_count": result_count,
-        "updated_at": now_iso,
-        "last_used_at": now_iso,
-    }
-    name = str(payload.get("name") or "").strip()[:120]
-    if name:
-        record["name"] = name
-
-    delete_response, delete_status = supabase_request(
-        "delete",
-        "/rest/v1/saved_searches",
-        params={"user_id": f"eq.{current_user}", "search_key": f"eq.{search_key}"},
-        user_id=current_user,
-    )
-    if delete_status >= 400 and _looks_like_missing_table(delete_response):
-        return _saved_search_missing_table_response()
-
-    insert_response, insert_status = supabase_request(
-        "post",
-        "/rest/v1/saved_searches",
-        data=record,
-        user_id=current_user,
-    )
-    if insert_status >= 400:
-        if _looks_like_missing_table(insert_response):
-            return _saved_search_missing_table_response()
-        return jsonify({"error": "Failed to save search"}), insert_status
-
-    saved_record = (
-        insert_response[0]
-        if isinstance(insert_response, list) and insert_response
-        else insert_response
-    )
-    return jsonify({"saved": True, "search": saved_record}), 200
-
-
-@app.route("/api/user/saved-searches/<string:search_id_or_key>", methods=["DELETE"])
-@token_required
-def delete_user_saved_search(current_user, search_id_or_key):
-    identifier = str(search_id_or_key or "").strip()
-    if not identifier:
-        return jsonify({"error": "Missing saved search id"}), 400
-    params = {"user_id": f"eq.{current_user}"}
-    if re.match(r"^[0-9a-fA-F-]{32,36}$", identifier):
-        params["id"] = f"eq.{identifier}"
-    else:
-        params["search_key"] = f"eq.{identifier}"
-    response, status_code = supabase_request(
-        "delete",
-        "/rest/v1/saved_searches",
-        params=params,
-        user_id=current_user,
-    )
-    if status_code >= 400:
-        if _looks_like_missing_table(response):
-            return _saved_search_missing_table_response()
-        return jsonify({"error": "Failed to delete saved search"}), status_code
-    return jsonify({"deleted": True}), 200
-
-
 def _soft_delete_user_listing_table(table_name, user_id):
     now_iso = _isoformat_utc(_utc_now())
     full_payload = {
@@ -6006,6 +5634,32 @@ try:
     logger.info("OCR API routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register OCR API routes: {e}")
+
+# Import and register authenticated user routes.  The compatibility imports
+# keep existing internal callers stable while URL ownership lives in the
+# dedicated blueprint.
+try:
+    from routes.user import (
+        SAVED_SEARCH_CATEGORIES,
+        _build_saved_search_key,
+        _clean_saved_search_filters,
+        _normalize_saved_search_category,
+        _saved_search_missing_table_response,
+        delete_push_token,
+        delete_user_saved_listing,
+        delete_user_saved_search,
+        get_user_saved_listings,
+        get_user_saved_searches,
+        register_push_token,
+        save_user_search,
+        create_user_saved_listing,
+        user_bp,
+    )
+
+    app.register_blueprint(user_bp)
+    logger.info("Authenticated user routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register authenticated user routes: {e}")
 
 logger.info("Admin web routes registered successfully")
 
@@ -23584,6 +23238,12 @@ def dealer_verification_list_messages(current_user):
     if status_code >= 400:
         return jsonify({"error": "Failed to load messages"}), 500
     return jsonify({"messages": rows or []}), 200
+
+
+# Runtime dependency registry used by extracted route modules.  Keeping the
+# registry on the Flask app avoids circular imports from the compatibility
+# root while allowing tests to patch the original functions in place.
+app.extensions["dph_user_backend"] = globals()
 
 
 if __name__ == "__main__":
