@@ -47,6 +47,10 @@ from application.car_read_routes import CarReadDependencies, register_car_read_r
 from application.http_runtime import register_http_runtime
 from application.health_routes import register_health_routes
 from application.listing_count_routes import register_listing_count_route
+from application.part_read_routes import (
+    PartReadDependencies,
+    register_part_read_route,
+)
 from application.plate_read_routes import PlateReadDependencies, register_plate_read_route
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
@@ -16763,225 +16767,46 @@ def delete_plate(current_user, plate_id):
 
 
 # Car Parts Endpoints
-@app.route("/api/parts", methods=["GET"])
-def get_parts():
-    try:
-        cache_key = _build_api_cache_key()
-        cached_payload = _api_cache_get(cache_key)
-        if cached_payload is not None:
-            return _cached_json_response(cached_payload)
+def _part_read_dependencies():
+    return PartReadDependencies(
+        build_cache_key=lambda: _build_api_cache_key(),
+        cache_get=lambda key: _api_cache_get(key),
+        cache_set=lambda *args, **kwargs: _api_cache_set(*args, **kwargs),
+        cached_json_response=lambda *args, **kwargs: _cached_json_response(
+            *args, **kwargs
+        ),
+        parse_pagination_args=lambda: _parse_pagination_args(),
+        getenv=lambda name: os.getenv(name),
+        reddit_on_explore=lambda: _reddit_on_explore(),
+        should_hide_reddit=lambda *args: _should_hide_reddit(*args),
+        search_or_group=lambda *args, **kwargs: _search_or_group(*args, **kwargs),
+        combine_or_groups=lambda *groups: _combine_or_groups(*groups),
+        cursor_filter=lambda: _cursor_filter(),
+        collect_listing_filter_pairs=lambda *args: _collect_listing_filter_pairs(
+            *args
+        ),
+        supabase_url=lambda: app.config["SUPABASE_URL"],
+        service_role_key=lambda: app.config["SUPABASE_SERVICE_ROLE_KEY"],
+        listing_image_select=LISTING_IMAGE_SELECTS["car_parts"],
+        direct_get=lambda *args, **kwargs: requests.get(*args, **kwargs),
+        supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),
+        filter_public_listing_records=lambda table, records: (
+            _filter_public_listing_records(table, records)
+        ),
+        batch_fetch_seller_map=lambda *args, **kwargs: _batch_fetch_seller_map(
+            *args, **kwargs
+        ),
+        apply_seller_to_listing=lambda item, seller: _apply_seller_to_listing(
+            item, seller
+        ),
+        attach_page_headers=lambda response, items, limit: _attach_page_headers(
+            response, items, limit
+        ),
+        logger=logger,
+    )
 
-        # Get query parameters
-        limit, offset = _parse_pagination_args()
-        order = request.args.get("order", "created_at")
 
-        # Construct parameters for Supabase query
-        params = {
-            "limit": limit,
-            "offset": offset,
-            "order": order,
-            "status": "eq.approved",  # Only show approved parts
-            "is_approved": "eq.true",  # Ensure consistency
-        }
-
-        # Filter out any underscore parameters
-        params = {k: v for k, v in params.items() if not k.startswith("_")}
-
-        # Reddit imports appear only in the dedicated Reddit tab; also honour the
-        # per-user ?exclude_reddit=true toggle (mirrors /api/cars).
-        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
-        reddit_or_group = None
-        if request.args.get("source_platform") == "reddit":
-            params["source_platform"] = "eq.reddit"
-            if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
-                params.pop("is_approved", None)
-        elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
-            reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
-
-        # Two encodings of the same or/and clause — see the matching comment
-        # in get_bikes() for why: the direct-request path splices params into
-        # a raw URL string (needs url_encode=True), the supabase_request(...)
-        # fallback further down encodes its own params (would double-encode).
-        params.update(_combine_or_groups(
-            reddit_or_group,
-            _search_or_group(["name", "part_type", "description"], url_encode=True),
-        ))
-        fallback_or_and = _combine_or_groups(
-            reddit_or_group,
-            _search_or_group(["name", "part_type", "description"]),
-        )
-
-        cursor_pair = _cursor_filter()
-        if cursor_pair:
-            params[cursor_pair[0]] = cursor_pair[1]
-
-        # car_parts table columns (verified against migrations/00_COMPLETE_SCHEMA.sql:161-193):
-        # condition / part_type / price / area. Adds area + price_range so the
-        # Explore drawer can move server-side. car_city is NOT a column on this table.
-        filter_pairs = _collect_listing_filter_pairs(
-            {
-                "condition": "condition",
-                "part_type": "part_type",
-                "area": "area",
-            },
-            {"price": "price"},
-        )
-
-        logger.info(f"Fetching parts with params: {params} filters: {filter_pairs}")
-
-        try:
-            # Use direct request with service role key for admin operations
-            service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-            headers = {
-                "apikey": service_role_key,
-                "Authorization": f"Bearer {service_role_key}",
-                "Content-Type": "application/json",
-            }
-
-            # Construct query string
-            query_params = []
-            for key, value in params.items():
-                if key == "order":
-                    query_params.append(f"order={value}")
-                else:
-                    query_params.append(f"{key}={value}")
-            query_params.extend(f"{k}={v}" for k, v in filter_pairs)
-
-            query_string = "&".join(query_params)
-            # Build query with join for images
-            url = (
-                f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}"
-                "&select=id,user_id,name,part_type,condition,price,location,area,emirate,"
-                "description,contact_number,country_code,source_platform,source_url,status,is_approved,created_at,updated_at,"
-                "compatible_makes,compatible_models,compatible_years,"
-                "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
-                "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
-                "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
-            )
-
-            logger.info(f"Making direct request to: {url}")
-            response = requests.get(url, headers=headers)
-
-            if response.status_code == 200:
-                parts = response.json()
-                parts = _filter_public_listing_records("car_parts", parts)
-
-                seller_map = _batch_fetch_seller_map(
-                    [part.get("user_id") for part in parts], headers=headers
-                )
-                for part in parts:
-                    part_images = part.pop("part_images", [])
-                    part["images"] = [
-                        {
-                            "id": img.get("id"),
-                            "url": img.get("url") or img.get("image_url"),
-                            "image_url": img.get("image_url") or img.get("url"),
-                            "display_url": img.get("display_url"),
-                            "focal_x": img.get("focal_x"),
-                            "focal_y": img.get("focal_y"),
-                            "crop_meta": img.get("crop_meta"),
-                        }
-                        for img in part_images
-                        if img.get("url") or img.get("image_url")
-                    ]
-                    # Fallback for main image
-                    if not part["images"]:
-                        if part.get("image_url") or part.get("url"):
-                            main_url = part.get("image_url") or part.get("url")
-                            part["images"] = [
-                                {
-                                    "id": "main",
-                                    "url": main_url,
-                                    "image_url": main_url,
-                                    "display_url": part.get("display_url"),
-                                    "focal_x": part.get("focal_x"),
-                                    "focal_y": part.get("focal_y"),
-                                    "crop_meta": part.get("crop_meta"),
-                                }
-                            ]
-                    part["primary_image_url"] = (
-                        part["images"][0].get("image_url") if part["images"] else None
-                    )
-                    _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
-
-                _api_cache_set(cache_key, parts)
-                return _attach_page_headers(_cached_json_response(parts), parts, limit)
-            else:
-                logger.error(
-                    f"Direct request failed: {response.status_code} - {response.text}"
-                )
-                raise Exception("Direct request failed")
-
-        except Exception as e:
-            logger.error(f"Error in direct request: {str(e)}")
-            # Fallback to regular Supabase client (single joined query; no N+1 image fetch)
-            fallback_params = {
-                **params,
-                **fallback_or_and,
-                **dict(filter_pairs),
-                "select": (
-                    "id,user_id,name,part_type,condition,price,location,area,emirate,"
-                    "description,contact_number,country_code,status,is_approved,created_at,updated_at,"
-                    "compatible_makes,compatible_models,compatible_years,"
-                    "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
-                    "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
-                    "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
-                ),
-            }
-            response, status_code = supabase_request(
-                "get", "/rest/v1/car_parts", params=fallback_params, use_service_role=True
-            )
-            if status_code < 400 and response:
-                parts = _filter_public_listing_records("car_parts", response)
-
-                seller_map = _batch_fetch_seller_map(
-                    [part.get("user_id") for part in parts], headers=headers
-                )
-                for part in parts:
-                    part_images = part.pop("part_images", []) or []
-                    part["images"] = [
-                        {
-                            "id": img.get("id"),
-                            "url": img.get("url") or img.get("image_url"),
-                            "image_url": img.get("image_url") or img.get("url"),
-                            "display_url": img.get("display_url"),
-                            "focal_x": img.get("focal_x"),
-                            "focal_y": img.get("focal_y"),
-                            "crop_meta": img.get("crop_meta"),
-                        }
-                        for img in part_images
-                        if img.get("url") or img.get("image_url")
-                    ]
-
-                    if not part["images"] and (part.get("image_url") or part.get("url")):
-                        main_url = part.get("image_url") or part.get("url")
-                        part["images"] = [
-                            {
-                                "id": "main",
-                                "url": main_url,
-                                "image_url": main_url,
-                                "display_url": part.get("display_url"),
-                                "focal_x": part.get("focal_x"),
-                                "focal_y": part.get("focal_y"),
-                                "crop_meta": part.get("crop_meta"),
-                            }
-                        ]
-
-                    part["primary_image_url"] = (
-                        part["images"][0].get("image_url") if part["images"] else None
-                    )
-                    _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
-
-                _api_cache_set(cache_key, parts)
-                return _attach_page_headers(_cached_json_response(parts), parts, limit)
-            else:
-                empty_payload = []
-                _api_cache_set(cache_key, empty_payload)
-                return _cached_json_response(empty_payload)
-
-    except Exception as e:
-        logger.error(f"Error fetching parts: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+get_parts = register_part_read_route(app, dependencies=_part_read_dependencies)
 
 
 # Create a new car parts listing (authenticated)
