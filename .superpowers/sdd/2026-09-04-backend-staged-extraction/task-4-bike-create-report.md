@@ -584,3 +584,19 @@ interpreter. The extracted bike-create module is unchanged from `b8e914b2`;
 its static scans found no forbidden `app` import and no direct environment or
 `app.config` access. The final post-evidence `git diff --check` also exited 0
 with no output.
+
+## Evidence provenance correction
+
+The commands in the preceding advisory section were copied from the original
+Downloads checkout and are historical evidence only. They are not acceptance
+proof for this staged worktree. A fresh run from
+`/Users/suhayl/.config/superpowers/worktrees/Flask-React-superbase-classified/backend-staged-extraction`
+was completed after the final `f013992c` URL guard and the plate compatibility
+fixes:
+
+- `python3 -m pytest -q test_bike_create_route_parity.py test_media_upload_security.py test_route_manifest.py --disable-warnings`: **105 passed**.
+- `/private/tmp/dph-classified-backend-venv.C3P5gN/bin/python -m pytest -q --disable-warnings` with the declared `defusedxml==0.7.1` dependency available: **1035 passed, 11 skipped, 50 warnings**.
+
+This correction supersedes the stale `1021 passed` total above for current
+branch-wide acceptance. The Docker evidence above remains historical until
+rerun against the current staged commit.
