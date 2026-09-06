@@ -57,3 +57,7 @@ Task 4b listing-image hardening: complete (commits 055c3f5b..f013992c; independe
 Task 4c plate-create extraction: complete (commit f0ed95fc plus compatibility fix 09cd018e; independent review findings were fixed by restoring `_create_plate_with_image_impl` and making dealer-check coverage follow extracted modules; 14 route-isolated plate tests, 16 plate/compatibility tests, 115 combined listing parity tests, and 1035 full backend tests passed; Docker rerun remains pending at the current head).
 
 Ruling: Continue authenticated posting with car parts next. Preserve both JSON and multipart behavior, image upload limits/content validation, lifecycle fallback, image persistence, notifications, and direct-call compatibility. After part creation, verify VIN reveal independently, then address dealer/admin routes and query/worker scalability.
+
+Task 4d part-create extraction: complete (commit de4b5f5e; independent review PASS; 10 focused parity, 104 adjacent/read/media/manifest/admin, 1045 full backend, and current-head Docker API E2E passed; no live Supabase listing write or email-delivery gate was run).
+
+Ruling: The public listing read/write extraction stage is complete for cars, bikes, plates, and parts. The next load-bearing work is VIN visibility/unlock coverage and authenticated dealer/admin flows, followed by bounded query plans and worker duplicate-claim coordination for the 10k-user target. Do not remove the compatibility root wholesale until those consumers are migrated and cross-surface tests pass.
