@@ -60,6 +60,10 @@ from application.part_read_routes import (
     PartReadDependencies,
     register_part_read_route,
 )
+from application.part_create_routes import (
+    PartCreateDependencies,
+    register_part_create_route,
+)
 from application.plate_create_routes import (
     PlateCreateDependencies,
     register_plate_create_route,
@@ -16471,230 +16475,61 @@ def _part_read_dependencies():
 get_parts = register_part_read_route(app, dependencies=_part_read_dependencies)
 
 
-# Create a new car parts listing (authenticated)
-@app.route("/api/parts", methods=["POST"])
-@token_required
-def create_part(current_user):
-    try:
-        logger.info("Creating new car part listing")
+def _part_create_dependencies():
+    return PartCreateDependencies(
+        require_verified_user_for_listing=lambda user_id: (
+            _require_verified_user_for_listing(user_id)
+        ),
+        require_dealer_verified=lambda user_id: _require_dealer_verified(user_id),
+        initial_listing_status=lambda: _initial_listing_status(),
+        new_listing_lifecycle_fields=lambda: _new_listing_lifecycle_fields(),
+        require_whatsapp_prefill_and_phone_alignment=lambda payload, listing_type: (
+            _require_whatsapp_prefill_and_phone_alignment(payload, listing_type)
+        ),
+        sync_gate_error=lambda listing_type, payload, photo_count: (
+            _sync_gate_error(listing_type, payload, photo_count)
+        ),
+        validate_listing_image_entry=lambda entry, user_id: (
+            _validate_listing_image_entry(entry, user_id)
+        ),
+        part_image_max_count=PART_IMAGE_MAX_COUNT,
+        part_image_max_total_bytes=PART_IMAGE_MAX_TOTAL_BYTES,
+        upload_to_supabase_storage=lambda *args, **kwargs: upload_to_supabase_storage(
+            *args, **kwargs
+        ),
+        get_user_email=lambda user_id: get_user_email(user_id),
+        create_listing_with_lifecycle_fallback=lambda *args, **kwargs: (
+            _create_listing_with_lifecycle_fallback(*args, **kwargs)
+        ),
+        friendly_db_error=lambda data, status_code, listing_type: (
+            _friendly_db_error(data, status_code, listing_type)
+        ),
+        validate_description_word_count=lambda *args, **kwargs: (
+            _validate_description_word_count(*args, **kwargs)
+        ),
+        validate_no_profanity=lambda *args, **kwargs: _validate_no_profanity(
+            *args, **kwargs
+        ),
+        isoformat_utc=lambda value: _isoformat_utc(value),
+        utc_now=lambda: _utc_now(),
+        supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),
+        get_user_email_by_id=lambda user_id: _get_user_email_by_id(user_id),
+        send_new_listing_admin_notification=lambda item_type, listing, user_email: (
+            _send_new_listing_admin_notification(item_type, listing, user_email)
+        ),
+        send_new_listing_user_confirmation=lambda user_email, item_type, listing: (
+            _send_new_listing_user_confirmation(user_email, item_type, listing)
+        ),
+        trigger_auto_review_async=lambda: _trigger_auto_review_async(),
+        logger=logger,
+    )
 
-        verification_check = _require_verified_user_for_listing(current_user)
-        if verification_check:
-            return verification_check
 
-        dealer_check = _require_dealer_verified(current_user)
-        if dealer_check:
-            return dealer_check
-
-        # Check if this is FormData or JSON
-        is_form_data = (
-            request.content_type and "multipart/form-data" in request.content_type
-        )
-
-        if is_form_data:
-            # Handle FormData (with file uploads)
-            part_data = {}
-
-            # Get form fields
-            for key, value in request.form.items():
-                if key.startswith("image_"):
-                    continue  # Skip image fields, handle separately
-                elif key == "compatible_makes" or key == "compatible_models":
-                    # Parse JSON strings back to arrays
-                    try:
-                        part_data[key] = json.loads(value) if value else []
-                    except:
-                        part_data[key] = []
-                else:
-                    part_data[key] = value
-
-            # Handle bounded, content-sniffed raster uploads into the public
-            # listing bucket. Never persist multipart bytes under /static/uploads.
-            part_files = [
-                file for key, file in request.files.items()
-                if key.startswith("image_") and file and file.filename
-            ]
-            if len(part_files) > PART_IMAGE_MAX_COUNT:
-                return jsonify({"error": f"A maximum of {PART_IMAGE_MAX_COUNT} images is allowed"}), 413
-            uploaded_files = []
-            total_bytes = 0
-            for file in part_files:
-                try:
-                    file.seek(0)
-                    raw = file.read(PART_IMAGE_MAX_TOTAL_BYTES + 1)
-                    file.seek(0)
-                    total_bytes += len(raw)
-                    if total_bytes > PART_IMAGE_MAX_TOTAL_BYTES:
-                        return jsonify({"error": "Total image upload size is too large"}), 413
-                    metadata, upload_error = upload_to_supabase_storage(
-                        file, bucket_name="listing-images", folder=str(current_user), return_metadata=True
-                    )
-                    if not metadata:
-                        return jsonify({"error": upload_error or "Invalid image upload"}), 400
-                    uploaded_files.append(metadata)
-                except ValueError as validation_error:
-                    return jsonify({"error": str(validation_error)}), 400
-
-        else:
-            # Handle JSON data
-            if not request.json:
-                return jsonify({"error": "Invalid request data"}), 400
-            part_data = request.json.copy()
-            uploaded_files = part_data.pop("images", [])
-            if not isinstance(uploaded_files, list) or len(uploaded_files) > PART_IMAGE_MAX_COUNT:
-                return jsonify({"error": f"A maximum of {PART_IMAGE_MAX_COUNT} images is allowed"}), 400
-            if any(not _validate_listing_image_entry(image, current_user) for image in uploaded_files):
-                return jsonify({"error": "Images must be public listing uploads for this user"}), 400
-
-        # Set required fields
-        part_data["user_id"] = current_user
-        part_data["status"] = _initial_listing_status()
-        part_data.update(_new_listing_lifecycle_fields())
-        try:
-            _require_whatsapp_prefill_and_phone_alignment(part_data, "parts")
-        except ValueError as validation_error:
-            return jsonify({"error": str(validation_error)}), 400
-
-        sync_error = _sync_gate_error("part", part_data, len(uploaded_files))
-        if sync_error:
-            return sync_error
-
-        # Whitelist allowed fields for car parts
-        part_allowed_fields = {
-            "name",
-            "part_type",
-            "condition",
-            "compatible_makes",
-            "compatible_models",
-            "compatible_years",
-            "price",
-            "location",
-            "area",
-            "emirate",
-            "contact_number",
-            "country_code",
-            "whatsapp_number",
-            "whatsapp_prefill_text",
-            "description",
-            "is_negotiable",
-            "status",
-            "user_id",
-            "user_email",
-            "country_code",
-            "is_dealer",
-            "expires_at",
-            "expired_at",
-            "retention_expires_at",
-            "last_extended_at",
-            "extension_count",
-            "is_archived",
-        }
-        part_data = {k: v for k, v in part_data.items() if k in part_allowed_fields}
-        part_data["user_email"] = get_user_email(current_user)
-        # auto_review_reasons is NOT NULL in the car_parts table — default to empty array
-        part_data.setdefault("auto_review_reasons", [])
-
-        # compatible_years is TEXT[] in the DB — coerce string values to array/null
-        cy = part_data.get("compatible_years")
-        if not cy:
-            part_data["compatible_years"] = None
-        elif isinstance(cy, str):
-            part_data["compatible_years"] = [cy]
-
-        # Validate required fields
-        required_fields = ["name", "part_type", "price"]
-        for field in required_fields:
-            if not part_data.get(field):
-                return jsonify({"error": f"Missing required field: {field}"}), 400
-
-        try:
-            _validate_description_word_count(
-                part_data.get("description"), field_name="description"
-            )
-            _validate_no_profanity(
-                part_data.get("description"), field_name="description"
-            )
-            _validate_no_profanity(part_data.get("name"), field_name="name")
-        except ValueError as validation_error:
-            return jsonify({"error": str(validation_error)}), 400
-
-        # Create the part entry
-        logger.info(f"Creating part with data: {part_data}")
-        data, status_code = _create_listing_with_lifecycle_fallback(
-            "/rest/v1/car_parts", part_data, user_id=current_user
-        )
-
-        if status_code >= 400:
-            friendly_data, friendly_status = _friendly_db_error(data, status_code, "part")
-            return jsonify(friendly_data), friendly_status
-
-        part_id = data[0]["id"]
-        logger.info(f"Created part with ID: {part_id}")
-
-        # Add images if any
-        if uploaded_files:
-            image_inserts = []
-            for image_url in uploaded_files:
-                if isinstance(image_url, dict):
-                    url_value = (
-                        image_url.get("image_url")
-                        or image_url.get("url")
-                        or image_url.get("display_url")
-                    )
-                    if not url_value:
-                        continue
-                    image_inserts.append(
-                        {
-                            "part_id": part_id,
-                            "url": image_url.get("url") or url_value,
-                            "image_url": image_url.get("image_url") or url_value,
-                            "display_url": image_url.get("display_url"),
-                            "focal_x": image_url.get("focal_x"),
-                            "focal_y": image_url.get("focal_y"),
-                            "crop_meta": image_url.get("crop_meta"),
-                            "cropped_at": _isoformat_utc(_utc_now()),
-                        }
-                    )
-                    continue
-                image_inserts.append(
-                    {
-                        "part_id": part_id,
-                        "url": image_url,
-                        "image_url": image_url,  # Add image_url field for frontend compatibility
-                        "cropped_at": _isoformat_utc(_utc_now()),
-                    }
-                )
-
-            images_data, images_status = supabase_request(
-                "post", "/rest/v1/part_images", data=image_inserts, user_id=current_user
-            )
-
-            if images_status < 400:
-                data[0]["images"] = images_data
-                logger.info(f"Added {len(images_data)} images to part")
-            else:
-                data[0]["images"] = []
-                logger.warning(f"Failed to add images: {images_data}")
-        else:
-            data[0]["images"] = []
-
-        # Send email notifications
-        try:
-            user_details = _get_user_email_by_id(current_user)
-            user_email = user_details.get("email") if user_details else None
-            if _initial_listing_status() == "pending":
-                _send_new_listing_admin_notification("part", data[0], user_email)
-            if user_email:
-                _send_new_listing_user_confirmation(user_email, "part", data[0])
-        except Exception as email_err:
-            logger.warning(f"Failed to send listing notification emails: {email_err}")
-
-        _trigger_auto_review_async()
-        return jsonify(data[0]), 201
-
-    except Exception as e:
-        logger.error(f"Error creating car part listing: {e}")
-        return jsonify({"error": str(e)}), 500
+create_part = register_part_create_route(
+    app,
+    token_required=token_required,
+    dependencies=_part_create_dependencies,
+)
 
 
 @app.route("/api/parts/<part_id>", methods=["GET", "PUT", "PATCH", "POST"])
