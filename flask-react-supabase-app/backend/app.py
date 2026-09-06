@@ -47,6 +47,7 @@ from application.car_read_routes import CarReadDependencies, register_car_read_r
 from application.http_runtime import register_http_runtime
 from application.health_routes import register_health_routes
 from application.listing_count_routes import register_listing_count_route
+from application.plate_read_routes import PlateReadDependencies, register_plate_read_route
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
 from services.featured_listings import (
@@ -16515,131 +16516,47 @@ def delete_bike(current_user, bike_id):
 
 
 # License Plate Endpoints
-@app.route("/api/plates", methods=["GET"])
-def get_plates():
-    try:
-        cache_key = _build_api_cache_key()
-        cached_payload = _api_cache_get(cache_key)
-        if cached_payload is not None:
-            return _cached_json_response(cached_payload)
+def _plate_read_dependencies():
+    return PlateReadDependencies(
+        build_cache_key=lambda: _build_api_cache_key(),
+        cache_get=lambda key: _api_cache_get(key),
+        cache_set=lambda *args, **kwargs: _api_cache_set(*args, **kwargs),
+        cached_json_response=lambda *args, **kwargs: _cached_json_response(
+            *args, **kwargs
+        ),
+        parse_pagination_args=lambda: _parse_pagination_args(),
+        getenv=lambda name: os.getenv(name),
+        reddit_on_explore=lambda: _reddit_on_explore(),
+        should_hide_reddit=lambda *args: _should_hide_reddit(*args),
+        search_or_group=lambda *args, **kwargs: _search_or_group(*args, **kwargs),
+        combine_or_groups=lambda *groups: _combine_or_groups(*groups),
+        cursor_filter=lambda: _cursor_filter(),
+        collect_listing_filter_pairs=lambda *args: _collect_listing_filter_pairs(
+            *args
+        ),
+        supabase_url=lambda: app.config["SUPABASE_URL"],
+        service_role_key=lambda: app.config["SUPABASE_SERVICE_ROLE_KEY"],
+        direct_get=lambda *args, **kwargs: requests.get(*args, **kwargs),
+        filter_public_listing_records=lambda table, records: (
+            _filter_public_listing_records(table, records)
+        ),
+        fetch_plate_image_map=lambda plate_ids, headers: _fetch_plate_image_map(
+            plate_ids, headers
+        ),
+        batch_fetch_seller_map=lambda *args, **kwargs: _batch_fetch_seller_map(
+            *args, **kwargs
+        ),
+        apply_seller_to_listing=lambda item, seller: _apply_seller_to_listing(
+            item, seller
+        ),
+        attach_page_headers=lambda response, items, limit: _attach_page_headers(
+            response, items, limit
+        ),
+        logger=logger,
+    )
 
-        # Get query parameters
-        limit, offset = _parse_pagination_args()
 
-        logger.info(f"Fetching plates with limit: {limit}, offset: {offset}")
-
-        # Use direct request with service role key
-        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-        headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-            "Content-Type": "application/json",
-        }
-
-        order = request.args.get("order", "created_at.desc")
-
-        # Build query - only get approved plates
-        # is_approved=eq.true is required so the admin "hide reddit listings"
-        # toggle (which bulk-sets is_approved=false on source_platform=reddit
-        # rows) actually removes them here, matching /api/cars|bikes|parts.
-        # Reddit imports appear only in the dedicated Reddit tab.
-        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
-        reddit_or_group = None
-        if request.args.get("source_platform") == "reddit":
-            approved_clause = "status=eq.approved"
-            if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") != "1":
-                approved_clause += "&is_approved=eq.true"
-            source_clause = "&source_platform=eq.reddit"
-        else:
-            approved_clause = "status=eq.approved&is_approved=eq.true"
-            source_clause = ""
-            if _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
-                reddit_or_group = "source_platform.is.null,source_platform.neq.reddit"
-        or_and_group = _combine_or_groups(
-            reddit_or_group,
-            _search_or_group(["code", "number", "city", "description"], url_encode=True),
-        )
-        for key, value in or_and_group.items():
-            source_clause += f"&{key}={value}"
-        cursor_pair = _cursor_filter()
-        cursor_clause = f"&{cursor_pair[0]}={cursor_pair[1]}" if cursor_pair else ""
-        # license_plates table columns (verified against
-        # migrations/00_COMPLETE_SCHEMA.sql:209-242): city / digits / code /
-        # price / area. Adds code + area + price_range so the Explore drawer
-        # can move server-side. car_city is NOT a column on license_plates —
-        # plates use `city`.
-        filter_pairs = _collect_listing_filter_pairs(
-            {
-                "city": "city",
-                "digits": "digits",
-                "code": "code",
-                "area": "area",
-            },
-            {"price": "price"},
-        )
-        filter_clause = "".join(f"&{k}={v}" for k, v in filter_pairs)
-        # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
-        url = (
-            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?{approved_clause}&order={order}"
-            f"{source_clause}{cursor_clause}{filter_clause}"
-            f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
-            "description,contact_phone,contact_name,country_code,source_platform,source_url,status,is_approved,created_at,updated_at,"
-            "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
-            "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at"
-        )
-
-        logger.info(f"Fetching plates from: {url}")
-        response = requests.get(url, headers=headers, timeout=10)
-
-        if response.status_code == 200:
-            plates = response.json()
-            plates = _filter_public_listing_records("license_plates", plates)
-            logger.info(f"Found {len(plates)} plates")
-            plate_images_by_id = _fetch_plate_image_map(
-                [plate.get("id") for plate in plates], headers
-            )
-
-            seller_map = _batch_fetch_seller_map(
-                [plate.get("user_id") for plate in plates], headers=headers
-            )
-            for plate in plates:
-                plate["images"] = plate_images_by_id.get(str(plate.get("id")), [])
-                # Fallback for main image if images list is empty but one of these fields exists
-                if not plate["images"]:
-                    if plate.get("image_url") or plate.get("url"):
-                        main_url = plate.get("image_url") or plate.get("url")
-                        plate["images"] = [
-                            {
-                                "id": "main",
-                                "url": main_url,
-                                "image_url": main_url,
-                                "display_url": plate.get("display_url"),
-                                "focal_x": plate.get("focal_x"),
-                                "focal_y": plate.get("focal_y"),
-                                "crop_meta": plate.get("crop_meta"),
-                            }
-                        ]
-
-                plate["primary_image_url"] = (
-                    plate["images"][0].get("image_url") if plate["images"] else None
-                )
-                _apply_seller_to_listing(plate, seller_map.get(plate.get("user_id")))
-
-            _api_cache_set(cache_key, plates)
-            return _attach_page_headers(_cached_json_response(plates), plates, limit)
-        else:
-            logger.error(
-                f"Failed to fetch plates: {response.status_code} - {response.text}"
-            )
-            empty_payload = []
-            _api_cache_set(cache_key, empty_payload)
-            return _cached_json_response(empty_payload)
-    except Exception as e:
-        logger.error(f"Error fetching plates: {str(e)}", exc_info=True)
-        empty_payload = []
-        if "cache_key" in locals():
-            _api_cache_set(cache_key, empty_payload)
-        return _cached_json_response(empty_payload)
+get_plates = register_plate_read_route(app, dependencies=_plate_read_dependencies)
 
 
 @app.route("/api/plates/<plate_id>", methods=["GET", "PUT", "PATCH", "POST"])
