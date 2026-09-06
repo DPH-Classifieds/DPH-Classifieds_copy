@@ -26,12 +26,12 @@ EXPECTED_METHODS = {
 
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
     "false": {
-        "count": 219,
-        "sha256": "d96008a7b3656ccfcd1f8a349779b42cf6457b861d7226ea29a902c6b16fbd63",
+        "count": 218,
+        "sha256": "ea3a73c6df7449d31f0c12ad57ff9444c1a18cdb5c3c9b73717c4f364f53c887",
     },
     "true": {
-        "count": 261,
-        "sha256": "9e7aa4a39555e83222e1d202b447b287f9a3e6d3f6a8a9c4e8218831d381199a",
+        "count": 260,
+        "sha256": "7e0c2adb3f60beea46c6b2779651c9f502d13b4700631dae26dbe2cc02be04bd",
     },
 }
 
@@ -48,9 +48,6 @@ EXPECTED_PATH_METHOD_COLLISIONS = {
     ("/api/admin/lead-metrics", "GET"),
     ("/api/admin/lead-metrics", "HEAD"),
     ("/api/admin/lead-metrics", "OPTIONS"),
-    ("/api/admin/listing-history", "GET"),
-    ("/api/admin/listing-history", "HEAD"),
-    ("/api/admin/listing-history", "OPTIONS"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "GET"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "HEAD"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "OPTIONS"),

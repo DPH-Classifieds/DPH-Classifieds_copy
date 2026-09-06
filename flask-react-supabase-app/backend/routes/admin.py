@@ -2381,20 +2381,46 @@ def get_expired_listings():
 @admin_bp.route("/listing-history", methods=["GET"])
 @admin_required
 def get_listing_history():
-    """History of listing removals for the admin dashboard."""
+    """Bounded history of listing removals for the admin dashboard."""
     try:
-        limit = max(min(int(request.args.get("limit", 200)), 500), 1)
+        try:
+            limit = int(request.args.get("limit", 50))
+        except (TypeError, ValueError):
+            limit = 50
+        limit = min(max(limit, 1), 200)
+        try:
+            offset = max(int(request.args.get("offset", 0)), 0)
+        except (TypeError, ValueError):
+            offset = 0
         response = requests.get(
             f"{SUPABASE_URL}/rest/v1/listing_deletion_events",
             headers=_admin_headers(),
-            params={"select": "*", "order": "created_at.desc", "limit": str(limit)},
+            params={
+                "select": "*",
+                "order": "created_at.desc",
+                "limit": str(limit + 1),
+                "offset": str(offset),
+            },
             timeout=15,
         )
-        if response.status_code != 200:
+        if response.status_code not in (200, 206):
             return jsonify(
                 {"error": "Failed to fetch listing history"}
             ), response.status_code
-        return jsonify(response.json() or []), 200
+        try:
+            rows = response.json()
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid listing history response"}), 502
+        if not isinstance(rows, list):
+            return jsonify({"error": "Invalid listing history response"}), 502
+        rows = [row for row in rows if isinstance(row, dict)]
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        page_response = jsonify(rows)
+        page_response.headers["X-Has-More"] = "true" if has_more else "false"
+        if rows and has_more:
+            page_response.headers["X-Next-Cursor"] = str(offset + len(rows))
+        return page_response, 200
     except Exception as e:
         logger.error(f"Error fetching listing history: {e}")
         return _internal_error("Admin route failed", e)
