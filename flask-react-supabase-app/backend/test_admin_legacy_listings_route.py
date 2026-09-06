@@ -213,3 +213,64 @@ def test_live_admin_cars_route_dispatches_through_blueprint_and_batches_images()
     assert payload["listings"][0]["images"][0]["image_url"] == "https://img.test/car.jpg"
     assert response.headers["X-Has-More"] == "false"
     assert fetch.call_count == 5
+
+
+def test_canonical_inventory_accepts_partial_rows_and_malformed_batch_payloads():
+    listing_response = _upstream_response(
+        [{"id": "car-1", "user_id": "seller-1", "created_at": "2026-09-05T12:00:00Z"}],
+        status_code=206,
+        headers={"Content-Range": "0-0/*"},
+    )
+    malformed_users = _upstream_response({"unexpected": "object"}, status_code=200)
+    malformed_images = _upstream_response({"unexpected": "object"}, status_code=206)
+
+    with backend.app.test_request_context("/api/admin/cars?limit=1"):
+        with patch.object(
+            admin_routes, "_admin_cache_get", return_value=None
+        ), patch.object(
+            admin_routes, "_admin_cache_set"
+        ), patch.object(
+            admin_routes.requests,
+            "get",
+            side_effect=[listing_response, malformed_users, malformed_images],
+        ):
+            result = admin_routes._admin_serve_listings("cars")
+
+    response, status = _view_response(result)
+    assert status == 200
+    assert response.get_json()["listings"] == [
+        {
+            "id": "car-1",
+            "user_id": "seller-1",
+            "created_at": "2026-09-05T12:00:00Z",
+            "user_email": "N/A",
+            "user_name": "Unknown",
+            "user_account_status": None,
+            "car_owner_phone_number": "N/A",
+            "images": [],
+        }
+    ]
+    assert response.headers["X-Has-More"] == "false"
+
+
+def test_canonical_inventory_cache_hit_preserves_pagination_headers():
+    cached_payload = {
+        "listings": [{"id": "car-1", "created_at": "2026-09-05T12:00:00Z"}],
+        "total": 3,
+        "limit": 1,
+        "offset": 0,
+    }
+    with backend.app.test_request_context("/api/admin/cars?limit=1"):
+        with patch.object(
+            admin_routes,
+            "_admin_cache_get",
+            return_value={"payload": cached_payload, "has_more": True},
+        ):
+            result = admin_routes._admin_serve_listings("cars")
+
+    response, status = _view_response(result)
+    assert status == 200
+    assert response.get_json() == cached_payload
+    assert response.headers["X-Has-More"] == "true"
+    assert response.headers["X-Next-Cursor"] == "2026-09-05T12:00:00Z"
+    assert response.headers["X-Total-Count"] == "3"

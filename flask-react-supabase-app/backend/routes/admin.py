@@ -1734,9 +1734,16 @@ def _admin_batch_fetch_users(user_ids):
             },
             timeout=10,
         )
-        if resp.status_code == 200:
-            for row in resp.json() or []:
-                out[row["id"]] = row
+        if resp.status_code in (200, 206):
+            try:
+                rows = resp.json()
+            except (TypeError, ValueError):
+                rows = []
+            if not isinstance(rows, list):
+                rows = []
+            for row in rows:
+                if isinstance(row, dict) and row.get("id"):
+                    out[str(row["id"])] = row
     return out
 
 
@@ -1754,8 +1761,16 @@ def _admin_batch_fetch_images(images_table, image_fk, listing_ids):
             params={"select": "*", image_fk: f"in.({ids_in})"},
             timeout=10,
         )
-        if resp.status_code == 200:
-            for img in resp.json() or []:
+        if resp.status_code in (200, 206):
+            try:
+                images = resp.json()
+            except (TypeError, ValueError):
+                images = []
+            if not isinstance(images, list):
+                images = []
+            for img in images:
+                if not isinstance(img, dict):
+                    continue
                 lid = img.get(image_fk)
                 if not lid:
                     continue
@@ -1778,7 +1793,43 @@ def _admin_serve_listings(slug):
         cache_key = f"admin:list:{slug}:{status_filter}:{search}:{limit}:{offset}"
         cached = _admin_cache_get(cache_key)
         if cached is not None:
-            return jsonify(cached), 200
+            if isinstance(cached, dict) and "payload" in cached:
+                cached_payload = cached.get("payload") or {}
+                cached_has_more = cached.get("has_more")
+            else:
+                # Backward-compatible read of entries written before header
+                # metadata was included in the cache value.
+                cached_payload = cached
+                cached_has_more = None
+            if not isinstance(cached_payload, dict):
+                cached_payload = {
+                    "listings": [],
+                    "total": None,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            response = jsonify(cached_payload)
+            cached_listings = cached_payload.get("listings") or []
+            cached_total = cached_payload.get("total")
+            if cached_has_more is None:
+                try:
+                    cached_has_more = (
+                        int(cached_payload.get("offset") or 0)
+                        + len(cached_listings)
+                        < int(cached_total)
+                        if cached_total is not None
+                        else False
+                    )
+                except (TypeError, ValueError):
+                    cached_has_more = False
+            response.headers["X-Has-More"] = "true" if cached_has_more else "false"
+            if cached_listings:
+                response.headers["X-Next-Cursor"] = str(
+                    cached_listings[-1].get("created_at") or ""
+                )
+            if cached_total is not None:
+                response.headers["X-Total-Count"] = str(cached_total)
+            return response, 200
 
         params = {
             "select": "*",
@@ -1805,7 +1856,7 @@ def _admin_serve_listings(slug):
             params=params,
             timeout=15,
         )
-        if resp.status_code != 200:
+        if resp.status_code not in (200, 206):
             return jsonify({"error": f"Failed to fetch {slug}"}), resp.status_code
 
         try:
@@ -1851,12 +1902,15 @@ def _admin_serve_listings(slug):
             "limit": limit,
             "offset": offset,
         }
-        _admin_cache_set(cache_key, payload)
         response = jsonify(payload)
         if total is not None:
             has_more = offset + len(listings) < total
         else:
             has_more = has_more_without_count
+        _admin_cache_set(
+            cache_key,
+            {"payload": payload, "has_more": has_more},
+        )
         response.headers["X-Has-More"] = "true" if has_more else "false"
         if listings:
             response.headers["X-Next-Cursor"] = str(
