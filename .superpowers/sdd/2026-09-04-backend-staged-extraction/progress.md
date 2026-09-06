@@ -83,3 +83,7 @@ Ruling: Continue with the next collision only when canonical behavior can be pro
 Task 8f canonical listing-history hardening: complete (commit 21f99b69; bounded the live `/api/admin/listing-history` route with sentinel pagination, 200/206 support, malformed-row/payload handling, and exact pagination headers; removed the unreachable 157-line app.py enrichment handler; focused history/reports/dealer/manifest suite 20 passed, full backend 1075 passed/11 skipped, Docker API and worker smoke passed). `app.py` is now 23,935 lines.
 
 Ruling: Keep the next extraction contract-first. Lead metrics and overview endpoints still have richer root implementations but their canonical routes are live; first add parity/scalability tests and move required behavior into the blueprint before deleting those shadows.
+
+Task 8g shadowed admin overview cleanup: complete (commit 7bca4a7c; removed unreachable app.py handlers for admin lead metrics, user overview, and dealer overview after confirming no tracked direct callers and canonical blueprint ownership; updated manifest to 215/257 routes with those collisions removed; focused route suite 20 passed, full backend 1075 passed/11 skipped, Docker API and worker smoke passed). `app.py` is now 23,741 lines.
+
+Ruling: The remaining significant collision is the richer app.py listing-overview handler. It has a direct regression test and must be migrated or its test moved to the canonical blueprint before removal. Continue with contract migration rather than deleting it blind.
