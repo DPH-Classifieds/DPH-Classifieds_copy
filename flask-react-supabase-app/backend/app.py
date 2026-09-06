@@ -43,6 +43,10 @@ from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
 from application.bike_read_routes import BikeReadDependencies, register_bike_read_routes
+from application.car_create_routes import (
+    CarCreateDependencies,
+    register_car_create_route,
+)
 from application.car_read_routes import CarReadDependencies, register_car_read_route
 from application.http_runtime import register_http_runtime
 from application.health_routes import register_health_routes
@@ -7070,378 +7074,71 @@ def cars_options():
     return response
 
 
+def _car_create_dependencies():
+    return CarCreateDependencies(
+        require_verified_user_for_listing=lambda user_id: (
+            _require_verified_user_for_listing(user_id)
+        ),
+        enforce_listing_limit=lambda user_id: _enforce_listing_limit(user_id),
+        require_dealer_verified=lambda user_id: _require_dealer_verified(user_id),
+        new_listing_lifecycle_fields=lambda: _new_listing_lifecycle_fields(),
+        normalize_listing_vin=lambda payload: _normalize_listing_vin(payload),
+        require_whatsapp_prefill_and_phone_alignment=lambda payload, listing_type: (
+            _require_whatsapp_prefill_and_phone_alignment(payload, listing_type)
+        ),
+        to_int=lambda *args, **kwargs: _to_int(*args, **kwargs),
+        current_year=lambda: datetime.datetime.now().year,
+        minimum_allowed_year=MIN_ALLOWED_YEAR,
+        normalize_regional_spec=lambda value: _normalize_regional_spec(value),
+        car_transmission_options=CAR_TRANSMISSION_OPTIONS,
+        is_valid_car_fuel_type=lambda value: _is_valid_car_fuel_type(value),
+        steering_side_options=STEERING_SIDE_OPTIONS,
+        validate_description_word_count=lambda *args, **kwargs: (
+            _validate_description_word_count(*args, **kwargs)
+        ),
+        validate_no_profanity=lambda *args, **kwargs: _validate_no_profanity(
+            *args, **kwargs
+        ),
+        sync_gate_error=lambda listing_type, payload, photo_count: (
+            _sync_gate_error(listing_type, payload, photo_count)
+        ),
+        get_user_email=lambda user_id: get_user_email(user_id),
+        initial_listing_status=lambda: _initial_listing_status(),
+        create_listing_with_lifecycle_fallback=lambda *args, **kwargs: (
+            _create_listing_with_lifecycle_fallback(*args, **kwargs)
+        ),
+        friendly_db_error=lambda data, status_code, listing_type: (
+            _friendly_db_error(data, status_code, listing_type)
+        ),
+        normalize_crop_settings=lambda settings: _normalize_crop_settings(settings),
+        isoformat_utc=lambda value: _isoformat_utc(value),
+        utc_now=lambda: _utc_now(),
+        supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),
+        sort_listing_images=lambda images: _sort_listing_images(images),
+        get_user_email_by_id=lambda user_id: _get_user_email_by_id(user_id),
+        send_new_listing_admin_notification=lambda item_type, listing, user_email: (
+            _send_new_listing_admin_notification(item_type, listing, user_email)
+        ),
+        send_new_listing_user_confirmation=lambda user_email, item_type, listing: (
+            _send_new_listing_user_confirmation(user_email, item_type, listing)
+        ),
+        invalidate_public_inventory_cache=lambda item_type: (
+            _invalidate_public_inventory_cache(item_type)
+        ),
+        trigger_auto_review_async=lambda: _trigger_auto_review_async(),
+        capture_posthog_event=lambda event_name, distinct_id, properties: (
+            capture_posthog_event(event_name, distinct_id, properties)
+        ),
+        logger=logger,
+    )
+
+
 # Create a new car listing (authenticated)
-@app.route("/api/cars", methods=["POST"])
-@token_required
-def create_car(current_user):
-    try:
-        # Log request details for debugging
-        logger.info(f"POST /api/cars - Content-Type: {request.content_type}")
-        logger.info(f"POST /api/cars - Content-Length: {request.content_length}")
-        logger.info(
-            "POST /api/cars request received content_type=%s content_length=%s",
-            request.content_type,
-            request.content_length,
-        )
-
-        # Validate input
-        if not request.json:
-            logger.error("No JSON data in car listing request")
-            return jsonify(
-                {
-                    "error": "Invalid request data - no JSON received",
-                    "content_type": request.content_type,
-                    "raw_data": None,
-                }
-            ), 400
-
-        logger.info(f"Creating car listing for user {current_user}")
-        logger.info(f"Request data keys: {list(request.json.keys())}")
-
-        verification_check = _require_verified_user_for_listing(current_user)
-        if verification_check:
-            return verification_check
-
-        limit_response = _enforce_listing_limit(current_user)
-        if limit_response:
-            return limit_response
-
-        dealer_check = _require_dealer_verified(current_user)
-        if dealer_check:
-            return dealer_check
-
-        car_data = request.json
-        car_data["user_id"] = current_user
-        car_data.update(_new_listing_lifecycle_fields())
-        _normalize_listing_vin(car_data)
-
-        # Normalize legacy/alternate frontend keys.
-        if "description" in car_data and "car_description" not in car_data:
-            car_data["car_description"] = car_data.pop("description")
-        if "location" in car_data and "car_location" not in car_data:
-            car_data["car_location"] = car_data.get("location")
-        if "location" in car_data and "car_city" not in car_data:
-            car_data["car_city"] = car_data.get("location")
-        if "location" in car_data and "area" not in car_data:
-            car_data["area"] = car_data.get("location")
-        if "contact_phone" in car_data and "car_owner_phone_number" not in car_data:
-            car_data["car_owner_phone_number"] = car_data.get("contact_phone")
-        if "car_variant" in car_data and "trim" not in car_data:
-            car_data["trim"] = car_data.get("car_variant")
-        if "exterior_color" in car_data and "color" not in car_data:
-            car_data["color"] = car_data.get("exterior_color")
-        if "mileage" in car_data and "kilometer_driven" not in car_data:
-            car_data["kilometer_driven"] = car_data.get("mileage")
-        if "transmission" in car_data and "transmission_type" not in car_data:
-            car_data["transmission_type"] = car_data.get("transmission")
-        if "engine" in car_data and "engine_capacity" not in car_data:
-            car_data["engine_capacity"] = car_data.get("engine")
-        try:
-            _require_whatsapp_prefill_and_phone_alignment(car_data, "cars")
-        except ValueError as validation_error:
-            return jsonify({"error": str(validation_error)}), 400
-
-        try:
-            logger.info(
-                f"Validating car data: make_year={car_data.get('make_year')}, kilometer_driven={car_data.get('kilometer_driven')}, expected_selling_price={car_data.get('expected_selling_price')}"
-            )
-
-            if "make_year" in car_data:
-                car_data["make_year"] = _to_int(
-                    car_data.get("make_year"),
-                    "make_year",
-                    minimum=MIN_ALLOWED_YEAR,
-                    maximum=datetime.datetime.now().year + 1,
-                    allow_empty=False,
-                )
-            if "kilometer_driven" in car_data:
-                car_data["kilometer_driven"] = _to_int(
-                    car_data.get("kilometer_driven"), "kilometer_driven", minimum=0
-                )
-            if "expected_selling_price" in car_data:
-                car_data["expected_selling_price"] = _to_int(
-                    car_data.get("expected_selling_price"),
-                    "expected_selling_price",
-                    minimum=0,
-                    allow_empty=False,
-                )
-            if "regional_spec" in car_data:
-                car_data["regional_spec"] = _normalize_regional_spec(
-                    car_data.get("regional_spec")
-                )
-            if "transmission_type" in car_data and car_data.get("transmission_type"):
-                if car_data["transmission_type"] not in CAR_TRANSMISSION_OPTIONS:
-                    logger.error(
-                        f"Invalid transmission_type: {car_data.get('transmission_type')}"
-                    )
-                    return jsonify(
-                        {"error": "Transmission must be Automatic or Manual"}
-                    ), 400
-
-            # Validate fuel_type
-            if "fuel_type" in car_data and car_data.get("fuel_type"):
-                if not _is_valid_car_fuel_type(car_data["fuel_type"]):
-                    logger.error(f"Invalid fuel_type: {car_data.get('fuel_type')}")
-                    return jsonify(
-                        {
-                            "error": "Fuel type must be Petrol, Diesel, Electric, Hybrid, Other, or Other - <custom>"
-                        }
-                    ), 400
-
-            # Validate steering_side
-            if "steering_side" in car_data and car_data.get("steering_side"):
-                if car_data["steering_side"] not in STEERING_SIDE_OPTIONS:
-                    logger.error(
-                        f"Invalid steering_side: {car_data.get('steering_side')}"
-                    )
-                    return jsonify(
-                        {"error": "Steering side must be Left or Right"}
-                    ), 400
-
-            _validate_description_word_count(
-                car_data.get("car_description"), field_name="car_description"
-            )
-            _validate_no_profanity(
-                car_data.get("listing_title"), field_name="listing_title"
-            )
-            _validate_no_profanity(
-                car_data.get("car_description"), field_name="car_description"
-            )
-            logger.info("All validations passed")
-        except ValueError as validation_error:
-            logger.error(f"Validation error: {validation_error}")
-            return jsonify({"error": str(validation_error)}), 400
-
-        # Extract extras array and save to JSONB column
-        extras = car_data.get("extras", [])
-        car_data["extras"] = extras
-
-        # Also map extras to boolean columns for backward compatibility
-        extras_mapping = {
-            "Keyless Entry": "keyless_entry",
-            "DVD Player": "dvd_player",
-            "Climate Control": "climate_control",
-            "Navigation System": "navigation_system",
-            "Premium Sound System": "premium_sound_system",
-            "Cooled Seats": "cooled_seats",
-            "Front Wheel Drive": "front_wheel_drive",
-            "Leather Seats": "leather_seats",
-            "Parking Sensors": "parking_sensors",
-            "Rear View Camera": "rear_view_camera",
-        }
-
-        # Set all extras boolean fields to False first
-        for db_field in extras_mapping.values():
-            car_data[db_field] = False
-
-        # Set selected extras to True
-        for extra in extras:
-            if extra in extras_mapping:
-                car_data[extras_mapping[extra]] = True
-
-        # Extract images from the request
-        images = car_data.pop("images", [])
-
-        sync_error = _sync_gate_error("car", car_data, len(images))
-        if sync_error:
-            return sync_error
-
-        # Whitelist allowed columns for cars to avoid schema cache errors
-        # Cars table schema (per cars_schema.sql) - keep only these fields
-        allowed_fields = {
-            "car_manufacturer",
-            "car_model",
-            "trim",
-            "regional_spec",
-            "make_year",
-            "kilometer_driven",
-            "body_type",
-            "is_insured",
-            "expected_selling_price",
-            "car_owner_phone_number",
-            "car_city",
-            "listing_title",
-            "tour_url",
-            "car_description",
-            "fuel_type",
-            "transmission_type",
-            "seating_capacity",
-            "horsepower",
-            "engine_capacity",
-            "steering_side",
-            "color",
-            "cylinders",
-            "doors",
-            "warranty",
-            "service_history",
-            "car_location",
-            "area",
-            "emirate",
-            "vehicle_type",
-            "is_approved",
-            "user_id",
-            "user_email",
-            "country_code",
-            "whatsapp_number",
-            "whatsapp_prefill_text",
-            "vin_number",
-            "latitude",
-            "longitude",
-            "is_dealer",
-            "keyless_entry",
-            "dvd_player",
-            "climate_control",
-            "navigation_system",
-            "premium_sound_system",
-            "cooled_seats",
-            "front_wheel_drive",
-            "leather_seats",
-            "parking_sensors",
-            "rear_view_camera",
-            "lady_driven",
-            "extras",
-            "expires_at",
-            "expired_at",
-            "retention_expires_at",
-            "last_extended_at",
-            "extension_count",
-            "is_archived",
-            "registration_document_url",
-        }
-        car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
-        car_data["user_email"] = get_user_email(current_user)
-        car_data["status"] = _initial_listing_status()
-        # auto_review_reasons is NOT NULL in the cars table — default to empty array
-        car_data.setdefault("auto_review_reasons", [])
-
-        if not images or len(images) == 0:
-            return jsonify(
-                {"error": "At least one image is required for a car listing."}
-            ), 400
-
-        logger.info(f"Creating car with data: {car_data}")
-
-        # Create the car
-        data, status_code = _create_listing_with_lifecycle_fallback(
-            "/rest/v1/cars", car_data, user_id=current_user
-        )
-
-        logger.info(f"Database insert result: status={status_code}, data={data}")
-
-        if status_code >= 400:
-            friendly_data, friendly_status = _friendly_db_error(data, status_code, "car")
-            return jsonify(friendly_data), friendly_status
-
-        car_id = data[0]["id"]
-
-        # Add images if any
-        image_inserts = []
-        for index, image_entry in enumerate(images):
-            if isinstance(image_entry, str):
-                image_url = image_entry
-                display_url = image_url
-                normalized_crop = _normalize_crop_settings({})
-                crop_meta = None
-            elif isinstance(image_entry, dict):
-                image_url = image_entry.get("image_url") or image_entry.get("url")
-                if not image_url:
-                    continue
-                display_url = image_entry.get("display_url") or image_url
-                normalized_crop = _normalize_crop_settings(image_entry)
-                crop_meta = image_entry.get("crop_meta")
-            else:
-                continue
-
-            image_insert = {
-                "car_id": car_id,
-                "url": image_url,
-                "image_url": image_url,
-                "display_url": display_url,
-                "focal_x": normalized_crop["focal_x"],
-                "focal_y": normalized_crop["focal_y"],
-                "crop_meta": crop_meta,
-                "cropped_at": _isoformat_utc(_utc_now()),
-            }
-            image_inserts.append(image_insert)
-
-        if not image_inserts:
-            supabase_request(
-                "delete",
-                "/rest/v1/cars",
-                params={"id": f"eq.{car_id}"},
-                user_id=current_user,
-            )
-            return jsonify({"error": "At least one valid image is required."}), 400
-
-        images_data, images_status = supabase_request(
-            "post", "/rest/v1/car_images", data=image_inserts, user_id=current_user
-        )
-        if images_status < 400:
-            data[0]["images"] = _sort_listing_images(images_data)
-        else:
-            logger.error(
-                f"Bulk image insert failed for car {car_id}: {images_status} - {images_data}"
-            )
-            inserted_images = []
-            for image_insert in image_inserts:
-                img_resp, img_status = supabase_request(
-                    "post",
-                    "/rest/v1/car_images",
-                    data=image_insert,
-                    user_id=current_user,
-                )
-                if img_status < 400 and img_resp:
-                    if isinstance(img_resp, list):
-                        inserted_images.extend(img_resp)
-                    else:
-                        inserted_images.append(img_resp)
-                else:
-                    logger.error(
-                        f"Image insert failed for car {car_id}: {img_status} - {img_resp}"
-                    )
-
-            if not inserted_images:
-                # Roll back the car listing if no images could be saved
-                supabase_request(
-                    "delete",
-                    "/rest/v1/cars",
-                    params={"id": f"eq.{car_id}"},
-                    user_id=current_user,
-                )
-                return jsonify(
-                    {"error": "Failed to save listing images. Please try again."}
-                ), 500
-
-            data[0]["images"] = _sort_listing_images(inserted_images)
-
-        # Send email notifications
-        try:
-            user_details = _get_user_email_by_id(current_user)
-            user_email = user_details.get("email") if user_details else None
-            # Only notify admins immediately if auto-review won't handle it
-            if _initial_listing_status() == "pending":
-                _send_new_listing_admin_notification("car", data[0], user_email)
-            if user_email:
-                _send_new_listing_user_confirmation(user_email, "car", data[0])
-        except Exception as email_err:
-            logger.warning(f"Failed to send listing notification emails: {email_err}")
-
-        _invalidate_public_inventory_cache("cars")
-        _trigger_auto_review_async()
-        capture_posthog_event(
-            "listing_created",
-            current_user,
-            {
-                "listing_type": "car",
-                "has_images": bool(images),
-                "is_dealer": bool(car_data.get("is_dealer")),
-                "submission_status": data[0].get("status"),
-            },
-        )
-        return jsonify(data[0]), 201
-    except Exception as e:
-        logger.error(f"Error creating car listing: {e}")
-        return jsonify({"error": str(e)}), 500
+create_car = register_car_create_route(
+    app,
+    token_required=token_required,
+    dependencies=_car_create_dependencies,
+)
 
 
 # Handle OPTIONS preflight for car update
