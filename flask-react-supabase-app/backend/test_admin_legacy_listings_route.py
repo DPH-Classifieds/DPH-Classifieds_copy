@@ -147,6 +147,18 @@ def test_admin_listings_invalid_pagination_uses_safe_defaults():
     assert response.headers["X-Has-More"] == "false"
 
 
+def test_admin_listings_rejects_unknown_type_and_status():
+    with backend.app.test_request_context("/api/admin/listings?type=unknown"):
+        response, status = _view_response(admin_routes.get_all_listings.__wrapped__())
+    assert status == 400
+    assert response.get_json() == {"error": "Unsupported listing type"}
+
+    with backend.app.test_request_context("/api/admin/listings?status=not-a-status"):
+        response, status = _view_response(admin_routes.get_all_listings.__wrapped__())
+    assert status == 400
+    assert response.get_json() == {"error": "Unsupported listing status"}
+
+
 def test_admin_listings_returns_empty_list_for_malformed_upstream_json():
     upstream = _upstream_response({"error": "unexpected object"})
 
@@ -155,9 +167,8 @@ def test_admin_listings_returns_empty_list_for_malformed_upstream_json():
             result = admin_routes.get_all_listings.__wrapped__()
 
     response, status = _view_response(result)
-    assert status == 200
-    assert response.get_json() == []
-    assert response.headers["X-Has-More"] == "false"
+    assert status == 502
+    assert response.get_json() == {"error": "Invalid listings response"}
 
 
 def test_admin_listings_preserves_upstream_error_status():
@@ -170,3 +181,35 @@ def test_admin_listings_preserves_upstream_error_status():
     response, status = _view_response(result)
     assert status == 503
     assert response.get_json() == {"error": "Failed to fetch listings"}
+
+
+def test_live_admin_cars_route_dispatches_through_blueprint_and_batches_images():
+    auth_response = _upstream_response({"id": "admin-1", "role": "authenticated"})
+    admin_response = _upstream_response([{"is_admin": True}])
+    listing_response = _upstream_response(
+        [{"id": "car-1", "user_id": "seller-1", "created_at": "2026-09-05T12:00:00Z"}],
+        headers={"Content-Range": "0-0/1"},
+    )
+    user_response = _upstream_response(
+        [{"id": "seller-1", "email": "seller@example.com", "first_name": "Seller"}]
+    )
+    image_response = _upstream_response(
+        [{"car_id": "car-1", "url": "https://img.test/car.jpg"}]
+    )
+
+    with patch.object(
+        admin_routes.requests,
+        "get",
+        side_effect=[auth_response, admin_response, listing_response, user_response, image_response],
+    ) as fetch:
+        response = backend.app.test_client().get(
+            "/api/admin/cars?limit=1",
+            headers={"Authorization": "Bearer test-admin-token"},
+        )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["listings"][0]["id"] == "car-1"
+    assert payload["listings"][0]["images"][0]["image_url"] == "https://img.test/car.jpg"
+    assert response.headers["X-Has-More"] == "false"
+    assert fetch.call_count == 5

@@ -528,8 +528,8 @@ def _admin_user_activity(user_id, owned_listing_ids, days=90):
 def get_all_listings():
     """Get all listings with user details for admin review"""
     try:
-        listing_type = request.args.get("type", "cars")  # cars, bikes, plates, parts
-        status = request.args.get("status")  # pending, approved, rejected
+        listing_type = (request.args.get("type", "cars") or "cars").strip().lower()
+        status = (request.args.get("status") or "").strip().lower()
 
         try:
             limit = int(request.args.get("limit", 50))
@@ -559,7 +559,22 @@ def get_all_listings():
             "buying_request": "buying_requests",
         }
 
-        table = table_map.get(listing_type, "cars")
+        if listing_type not in table_map:
+            return jsonify({"error": "Unsupported listing type"}), 400
+        allowed_statuses = {
+            "pending",
+            "approved",
+            "rejected",
+            "active",
+            "draft",
+            "expired",
+            "archived",
+            "sold",
+        }
+        if status and status not in allowed_statuses:
+            return jsonify({"error": "Unsupported listing status"}), 400
+
+        table = table_map[listing_type]
         query = f"{SUPABASE_URL}/rest/v1/{table}?select=*,users(email,first_name,last_name,username)&order=created_at.desc"
 
         if status:
@@ -572,9 +587,9 @@ def get_all_listings():
             try:
                 listings = response.json()
             except (TypeError, ValueError):
-                listings = []
+                return jsonify({"error": "Invalid listings response"}), 502
             if not isinstance(listings, list):
-                listings = []
+                return jsonify({"error": "Invalid listings response"}), 502
             listings = [listing for listing in listings if isinstance(listing, dict)]
             listings = listings[:limit]
 
@@ -588,6 +603,8 @@ def get_all_listings():
             # Enhance with user info for display
             for listing in listings:
                 user_info = listing.pop("users", {})
+                if not isinstance(user_info, dict):
+                    user_info = {}
                 if user_info:
                     listing["user_email"] = user_info.get("email")
                     listing["user_name"] = (
@@ -1766,7 +1783,9 @@ def _admin_serve_listings(slug):
         params = {
             "select": "*",
             "order": "created_at.desc",
-            "limit": str(limit),
+            # Fetch a sentinel row when Content-Range is unavailable so an
+            # exact final page never advertises a phantom next page.
+            "limit": str(limit + 1),
             "offset": str(offset),
         }
         if status_filter and status_filter != "all":
@@ -1789,7 +1808,15 @@ def _admin_serve_listings(slug):
         if resp.status_code != 200:
             return jsonify({"error": f"Failed to fetch {slug}"}), resp.status_code
 
-        listings = resp.json() or []
+        try:
+            raw_listings = resp.json()
+        except (TypeError, ValueError):
+            return jsonify({"error": f"Invalid {slug} response"}), 502
+        if not isinstance(raw_listings, list):
+            return jsonify({"error": f"Invalid {slug} response"}), 502
+        raw_listings = [row for row in raw_listings if isinstance(row, dict)]
+        has_more_without_count = len(raw_listings) > limit
+        listings = raw_listings[:limit]
 
         # Batch user + image lookups
         users_map = _admin_batch_fetch_users([row.get("user_id") for row in listings])
@@ -1825,7 +1852,19 @@ def _admin_serve_listings(slug):
             "offset": offset,
         }
         _admin_cache_set(cache_key, payload)
-        return jsonify(payload), 200
+        response = jsonify(payload)
+        if total is not None:
+            has_more = offset + len(listings) < total
+        else:
+            has_more = has_more_without_count
+        response.headers["X-Has-More"] = "true" if has_more else "false"
+        if listings:
+            response.headers["X-Next-Cursor"] = str(
+                listings[-1].get("created_at") or ""
+            )
+        if total is not None:
+            response.headers["X-Total-Count"] = str(total)
+        return response, 200
     except Exception as exc:
         logger.error(f"Error fetching admin {slug}: {exc}")
         return _internal_error("Admin route failed", exc)
