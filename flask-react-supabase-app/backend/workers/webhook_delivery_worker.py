@@ -250,6 +250,7 @@ def _process(delivery):
 
 def run():
     deliveries = _due_deliveries()
+    processed = 0
     for d in deliveries:
         try:
             _process(d)
@@ -266,7 +267,9 @@ def run():
                     "delivery ownership unknown; skipping exception finalization for %s",
                     d.get("id"),
                 )
-    return len(deliveries)
+        if d.get("_lease_until"):
+            processed += 1
+    return processed
 
 
 if __name__ == "__main__":

@@ -164,12 +164,13 @@ def _approve_user(user_id):
 
 def _approve_documents(documents):
     """Record that OCR auto-approved the active required documents."""
+    unapproved = [doc for doc in documents or [] if doc.get("status") != "approved"]
+    if any(not doc.get("id") for doc in unapproved):
+        return False
     now = datetime.utcnow().isoformat()
     succeeded = True
-    for doc in documents or []:
+    for doc in unapproved:
         doc_id = doc.get("id")
-        if not doc_id or doc.get("status") == "approved":
-            continue
         body, status = supabase_request(
             "patch",
             f"/rest/v1/dealer_documents?id=eq.{doc_id}",
@@ -284,6 +285,9 @@ def run_once():
     results = {"processed": 0, "approved": 0, "cancelled": 0, "skipped": 0, "wait": 0}
     for row in rows:
         d = _process_one(row)
+        if d == {"decision": "skip", "reason": "already_claimed"}:
+            results["skipped"] += 1
+            continue
         results["processed"] += 1
         if d["decision"] == "approve":
             results["approved"] += 1

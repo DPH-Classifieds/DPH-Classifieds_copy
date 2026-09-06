@@ -377,3 +377,86 @@ exit 0, no output
   retry idempotence.
 - Webhook code, migrations, retry behavior, and all files outside the dealer
   worker, its focused test file, and this report are unchanged in fix round 4.
+
+## Fix round 5: document identity and owned-work accounting
+
+The round-4 review found that an unapproved document without an `id` was
+silently skipped and that both worker loops counted fetched rows that lost
+their conditional claim. The fix validates all unapproved document IDs before
+issuing any approval PATCH, so malformed document data leaves the owned queue
+row pending and cannot trigger the user approval, terminal queue update, or
+email. Existing approval fixtures now carry realistic document IDs and status
+values except for the explicit malformed-row regression.
+
+Webhook `run()` now counts a delivery only after `_process` records its owned
+lease marker. A row that loses the conditional claim, or whose claim response
+cannot be read, contributes zero. Dealer `run_once()` preserves the existing
+result keys and counts an `already_claimed` row as `skipped` but not
+`processed`; all decisions reached after a successful claim keep their prior
+accounting.
+
+Focused red command:
+
+```text
+pytest -q test_webhook_delivery_worker.py::test_run_does_not_count_due_delivery_that_lost_claim test_webhook_delivery_worker.py::test_claim_timeout_does_not_trigger_unowned_exception_finalize test_dealer_auto_approval_worker.py::test_approve_documents_rejects_unapproved_document_without_id test_dealer_auto_approval_worker.py::test_process_one_missing_document_id_cannot_finalize_queue test_dealer_auto_approval_worker.py::test_run_once_excludes_already_claimed_rows_from_processed_count
+5 failed, 2 warnings in 0.17s
+```
+
+The failures proved that both webhook claim-loss cases returned `1`, the
+ID-less document approval returned `True`, the malformed document set reached
+an `approve` decision, and dealer accounting returned `processed: 2` instead
+of `processed: 1`.
+
+Focused green results:
+
+```text
+pytest -q test_webhook_delivery_worker.py::test_run_does_not_count_due_delivery_that_lost_claim test_webhook_delivery_worker.py::test_claim_timeout_does_not_trigger_unowned_exception_finalize test_dealer_auto_approval_worker.py::test_approve_documents_rejects_unapproved_document_without_id test_dealer_auto_approval_worker.py::test_process_one_missing_document_id_cannot_finalize_queue test_dealer_auto_approval_worker.py::test_run_once_excludes_already_claimed_rows_from_processed_count
+5 passed in 0.11s
+
+pytest -q test_webhook_delivery_worker.py test_dealer_auto_approval_worker.py
+41 passed, 26 warnings in 0.08s
+```
+
+Full backend suite:
+
+```text
+/tmp/dph-task7-venv.BsVUgK/bin/python -m pytest -q
+888 passed, 11 skipped, 50 warnings in 12.76s
+```
+
+Docker API E2E:
+
+```text
+./e2e/run.sh
+liveness /healthz/live -> 200
+readiness /healthz -> 200
+unknown route -> 404
+auth-gated route -> 401
+E2E PASSED
+```
+
+Worker smoke:
+
+```text
+./e2e/worker.sh
+Worker smoke passed: health endpoint returned 200 and heartbeat was written.
+```
+
+Final contract and scope evidence:
+
+```text
+git diff --check
+exit 0, no output
+```
+
+- Webhook claim and finalization filters remain `status=eq.pending`, and
+  finalization still requires the exact `next_retry_at` lease marker.
+- Dealer claim/finalization remains `state=eq.pending` with the exact
+  `fired_at` lease; terminal values remain the migration-approved `fired` and
+  `cancelled` states.
+- Retry/backoff, dead-letter, successful delivery, partial approval recovery,
+  idempotent conditional writes, and email gating remain covered by the two
+  focused files.
+- No migration, CI, route, frontend, mobile, or startup-thread file changed in
+  fix round 5. Changes are limited to both workers, both focused test files,
+  and this report.

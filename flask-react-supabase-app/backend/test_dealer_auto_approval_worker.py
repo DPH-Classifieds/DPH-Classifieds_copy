@@ -258,18 +258,22 @@ def _run_approval_write_failure_recovery(failure):
 
 def test_fire_approves_when_still_high_confidence():
     docs = [
-        {"document_type": "trade_license", "ocr_confidence": 0.95, "replaced_at": None},
-        {"document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None},
+        {"id": "doc-trade", "document_type": "trade_license", "ocr_confidence": 0.95,
+         "replaced_at": None, "status": "pending"},
+        {"id": "doc-trn", "document_type": "tax_registration", "ocr_confidence": 0.92,
+         "replaced_at": None, "status": "pending"},
     ]
     out = w._fire_pending_approval(_row(), current_docs=docs, delay_seconds=0, threshold=0.90)
     assert out["decision"] == "approve"
 
 
 def test_fire_cancels_if_doc_replaced():
-    replaced = {"document_type": "trade_license", "ocr_confidence": 0.95,
-                "replaced_at": "2026-08-18T10:00:00Z"}
+    replaced = {"id": "doc-trade", "document_type": "trade_license",
+                "ocr_confidence": 0.95, "replaced_at": "2026-08-18T10:00:00Z",
+                "status": "pending"}
     docs = [replaced,
-            {"document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None}]
+            {"id": "doc-trn", "document_type": "tax_registration",
+             "ocr_confidence": 0.92, "replaced_at": None, "status": "pending"}]
     out = w._fire_pending_approval(_row(), current_docs=docs, delay_seconds=0, threshold=0.90)
     assert out["decision"] == "cancel"
     assert out["reason"] == "missing:trade_license"
@@ -277,8 +281,10 @@ def test_fire_cancels_if_doc_replaced():
 
 def test_fire_cancels_if_confidence_dropped():
     docs = [
-        {"document_type": "trade_license", "ocr_confidence": 0.50, "replaced_at": None},
-        {"document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None},
+        {"id": "doc-trade", "document_type": "trade_license", "ocr_confidence": 0.50,
+         "replaced_at": None, "status": "pending"},
+        {"id": "doc-trn", "document_type": "tax_registration", "ocr_confidence": 0.92,
+         "replaced_at": None, "status": "pending"},
     ]
     out = w._fire_pending_approval(_row(), current_docs=docs, delay_seconds=0, threshold=0.90)
     assert out["decision"] == "cancel"
@@ -332,10 +338,13 @@ def test_process_one_calls_approve_then_marks_fired():
         captured["emailed"] = uid
 
     docs = [
-        {"document_type": "trade_license", "ocr_confidence": 0.95, "replaced_at": None},
-        {"document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None},
+        {"id": "doc-trade", "document_type": "trade_license", "ocr_confidence": 0.95,
+         "replaced_at": None, "status": "pending"},
+        {"id": "doc-trn", "document_type": "tax_registration", "ocr_confidence": 0.92,
+         "replaced_at": None, "status": "pending"},
     ]
     with patch.object(w, "_claim", return_value=True), \
+         patch.object(w, "_approve_documents", return_value=True), \
          patch.object(w, "_approve_user", side_effect=fake_approve), \
          patch.object(w, "_mark", side_effect=fake_mark), \
          patch.object(w, "_send_approval_email", side_effect=fake_email), \
@@ -372,10 +381,12 @@ def test_process_one_marks_ocr_verified_documents_approved():
 
 
 def test_process_one_cancels_when_doc_replaced_between_upload_and_fire():
-    replaced = {"document_type": "trade_license", "ocr_confidence": 0.95,
-                "replaced_at": "2026-08-18T10:00:00Z"}
+    replaced = {"id": "doc-trade", "document_type": "trade_license",
+                "ocr_confidence": 0.95, "replaced_at": "2026-08-18T10:00:00Z",
+                "status": "pending"}
     docs = [replaced,
-            {"document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None}]
+            {"id": "doc-trn", "document_type": "tax_registration",
+             "ocr_confidence": 0.92, "replaced_at": None, "status": "pending"}]
     captured = {}
 
     def fake_approve(uid):
@@ -591,6 +602,66 @@ def test_approve_documents_rejects_empty_conditional_update_response():
     docs = [{"id": "doc-pending", "status": "pending"}]
     with patch.object(w, "supabase_request", return_value=([], 200)):
         assert w._approve_documents(docs) is False
+
+
+def test_approve_documents_rejects_unapproved_document_without_id():
+    docs = [
+        {"document_type": "trade_license", "status": "pending"},
+        {"id": "doc-trn", "document_type": "tax_registration", "status": "pending"},
+    ]
+    with patch.object(
+        w, "supabase_request", return_value=([{"id": "doc-trn"}], 200)
+    ) as request:
+        approved = w._approve_documents(docs)
+
+    assert approved is False
+    request.assert_not_called()
+
+
+def test_process_one_missing_document_id_cannot_finalize_queue():
+    docs = [
+        {"document_type": "trade_license", "ocr_confidence": 0.95,
+         "replaced_at": None, "status": "pending"},
+        {"id": "doc-trn", "document_type": "tax_registration", "ocr_confidence": 0.92,
+         "replaced_at": None, "status": "pending"},
+    ]
+    with patch.object(w, "_claim", return_value="lease-1"), \
+         patch.object(w, "_fetch_active_docs", return_value=docs), \
+         patch.object(w, "_fetch_user", return_value={"dealer_verified": False}), \
+         patch.object(
+             w, "supabase_request", return_value=([{"id": "doc-trn"}], 200)
+         ) as request, \
+         patch.object(w, "_approve_user") as approve_user, \
+         patch.object(w, "_mark") as mark, \
+         patch.object(w, "_send_approval_email") as send_email:
+        decision = w._process_one(_row())
+
+    assert decision == {"decision": "wait", "reason": "document_write_failed"}
+    request.assert_not_called()
+    approve_user.assert_not_called()
+    mark.assert_not_called()
+    send_email.assert_not_called()
+
+
+def test_run_once_excludes_already_claimed_rows_from_processed_count():
+    rows = [_row(id="p-owned"), _row(id="p-lost")]
+    decisions = [
+        {"decision": "approve"},
+        {"decision": "skip", "reason": "already_claimed"},
+    ]
+    with patch.object(w, "_truthy", return_value=True), \
+         patch.object(w, "_fetch_due_pending", return_value=rows), \
+         patch.object(w, "_process_one", side_effect=decisions):
+        result = w.run_once()
+
+    assert result == {
+        "status": "ok",
+        "processed": 1,
+        "approved": 1,
+        "cancelled": 0,
+        "skipped": 1,
+        "wait": 0,
+    }
 
 
 def test_claim_rejects_empty_204_conditional_response():

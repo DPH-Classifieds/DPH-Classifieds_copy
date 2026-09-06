@@ -131,6 +131,21 @@ def test_duplicate_webhook_claim_gets_no_lease_from_empty_conditional_response()
     assert duplicate_lease is None
 
 
+def test_run_does_not_count_due_delivery_that_lost_claim():
+    delivery = {
+        "id": "d8-lost", "webhook_id": "w8", "dealership_id": "tenant-8",
+        "event_type": "lead.created", "payload": {}, "attempt_count": 0,
+        "next_retry_at": "2026-08-29T10:00:00+00:00",
+    }
+    with patch.object(wdw, "_due_deliveries", return_value=[delivery]), \
+         patch.object(wdw, "_claim", return_value=None), \
+         patch.object(wdw, "_fetch_webhook") as fetch_webhook:
+        processed = wdw.run()
+
+    assert processed == 0
+    fetch_webhook.assert_not_called()
+
+
 def test_finalize_requires_the_owned_pending_lease_and_reports_noop():
     with patch.object(
         wdw.requests, "patch", return_value=_resp(200, [])
@@ -189,6 +204,6 @@ def test_claim_timeout_does_not_trigger_unowned_exception_finalize(mock_requests
     mock_requests.patch.return_value = claim_response
 
     with patch.object(wdw, "_mark") as mark:
-        assert wdw.run() == 1
+        assert wdw.run() == 0
 
     mark.assert_not_called()
