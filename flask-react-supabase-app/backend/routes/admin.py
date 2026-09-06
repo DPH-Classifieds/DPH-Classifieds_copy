@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import requests
 import os
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,76 @@ def _internal_error(context, exc):
 # Get config from environment
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+_ADMIN_DEALER_REQUIRED_DOCS = ("trade_license", "tax_registration")
+_ADMIN_DEALER_DOCUMENT_LABELS = {
+    "trade_license": "Trade License",
+    "tax_registration": "Tax Registration (TRN)",
+}
+
+
+def _admin_dealer_readiness(user, documents):
+    """Return the document/application verdict used by the admin dealer UI."""
+    user = user if isinstance(user, dict) else {}
+    active_docs = [
+        doc for doc in (documents or [])
+        if isinstance(doc, dict) and not doc.get("replaced_at")
+    ]
+    by_type = {}
+    for doc in active_docs:
+        doc_type = doc.get("document_type")
+        if doc_type in _ADMIN_DEALER_REQUIRED_DOCS and doc_type not in by_type:
+            by_type[doc_type] = doc
+
+    missing_fields = []
+    if not str(user.get("company_name") or "").strip():
+        missing_fields.append("Trading Name")
+    if not str(user.get("legal_business_name") or "").strip():
+        missing_fields.append("Legal Business Name")
+    if len(re.sub(r"\D", "", str(user.get("trn") or ""))) != 15:
+        missing_fields.append("15-digit TRN")
+
+    missing_uploads = [
+        doc_type for doc_type in _ADMIN_DEALER_REQUIRED_DOCS if doc_type not in by_type
+    ]
+    denied = [
+        doc_type for doc_type, doc in by_type.items()
+        if doc.get("status") == "denied"
+    ]
+    pending = [
+        doc_type for doc_type, doc in by_type.items()
+        if doc.get("status") == "pending"
+    ]
+    approved = [
+        doc_type for doc_type, doc in by_type.items()
+        if doc.get("status") == "approved"
+    ]
+    today = datetime.utcnow().date().isoformat()
+    trade_license = by_type.get("trade_license")
+    expired = []
+    if trade_license and trade_license.get("expires_at"):
+        if str(trade_license["expires_at"]) <= today:
+            expired.append("trade_license")
+
+    ready_to_submit = not missing_fields and not missing_uploads and not expired
+    ready_to_approve = (
+        ready_to_submit
+        and not denied
+        and not pending
+        and set(approved) == set(_ADMIN_DEALER_REQUIRED_DOCS)
+    )
+    return {
+        "required_documents": list(_ADMIN_DEALER_REQUIRED_DOCS),
+        "document_labels": _ADMIN_DEALER_DOCUMENT_LABELS,
+        "missing_fields": missing_fields,
+        "missing_uploads": missing_uploads,
+        "pending_documents": pending,
+        "denied_documents": denied,
+        "expired_documents": expired,
+        "approved_documents": approved,
+        "ready_to_submit": ready_to_submit,
+        "ready_to_approve": ready_to_approve,
+    }
 
 
 def admin_required(f):
@@ -1038,9 +1109,27 @@ def get_pending_dealers():
 @admin_bp.route("/dealers", methods=["GET"])
 @admin_required
 def get_dealers():
-    """Get all dealers and pending dealer verification requests"""
+    """Get a bounded dealer page with the readiness contract used by the UI."""
     try:
-        status = request.args.get("status")  # verified, pending, all
+        status = (request.args.get("status") or "all").strip().lower()
+        if status not in {"verified", "pending", "all"}:
+            status = "all"
+        # Older admin links use pending=true/verified=true; keep those links
+        # compatible while the dashboard continues to filter the returned list.
+        if request.args.get("pending", "").lower() == "true":
+            status = "pending"
+        elif request.args.get("verified", "").lower() == "true":
+            status = "verified"
+
+        try:
+            limit = int(request.args.get("limit", "50"))
+        except (TypeError, ValueError):
+            limit = 50
+        limit = min(max(limit, 1), 200)
+        try:
+            offset = max(int(request.args.get("offset", "0")), 0)
+        except (TypeError, ValueError):
+            offset = 0
 
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -1048,21 +1137,82 @@ def get_dealers():
             "Content-Type": "application/json",
         }
 
-        query = f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=*&order=created_at.desc"
+        query_parts = [
+            "is_dealer=eq.true",
+            "select=*",
+            "order=created_at.desc",
+            f"limit={limit + 1}",
+            f"offset={offset}",
+        ]
 
         if status == "verified":
-            query += "&dealer_verified=eq.true"
+            query_parts.append("dealer_verified=eq.true")
         elif status == "pending":
-            query += (
-                "&dealer_verified=eq.false&dealer_verification_requested_at=not.is.null"
+            query_parts.extend(
+                ["dealer_verified=eq.false", "dealer_verification_requested_at=not.is.null"]
             )
 
+        query = f"{SUPABASE_URL}/rest/v1/users?{'&'.join(query_parts)}"
         response = requests.get(query, headers=headers, timeout=10)
 
-        if response.status_code == 200:
-            return jsonify(response.json()), 200
-        else:
+        if response.status_code not in (200, 206):
             return jsonify({"error": "Failed to fetch dealers"}), response.status_code
+
+        try:
+            dealers = response.json()
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid dealer response"}), 502
+        if not isinstance(dealers, list):
+            return jsonify({"error": "Invalid dealer response"}), 502
+        dealers = [
+            dealer
+            for dealer in dealers
+            if isinstance(dealer, dict)
+            and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(dealer.get("id") or ""))
+        ]
+        has_more = len(dealers) > limit
+        dealers = dealers[:limit]
+
+        dealer_ids = [
+            str(dealer.get("id"))
+            for dealer in dealers
+            if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(dealer.get("id") or ""))
+        ]
+        documents_by_user = {}
+        if dealer_ids:
+            document_response = requests.get(
+                f"{SUPABASE_URL}/rest/v1/dealer_documents",
+                headers=headers,
+                params={
+                    "user_id": f"in.({','.join(dealer_ids)})",
+                    "replaced_at": "is.null",
+                    "select": "id,user_id,document_type,status,expires_at,replaced_at,uploaded_at,denial_reason,denial_fix",
+                },
+                timeout=10,
+            )
+            if document_response.status_code in (200, 206):
+                try:
+                    documents = document_response.json()
+                except (TypeError, ValueError):
+                    documents = []
+                if isinstance(documents, list):
+                    for document in documents:
+                        if not isinstance(document, dict):
+                            continue
+                        user_id = str(document.get("user_id") or "")
+                        if user_id in dealer_ids:
+                            documents_by_user.setdefault(user_id, []).append(document)
+
+        for dealer in dealers:
+            dealer["readiness"] = _admin_dealer_readiness(
+                dealer, documents_by_user.get(str(dealer.get("id")), [])
+            )
+
+        page_response = jsonify(dealers)
+        page_response.headers["X-Has-More"] = "true" if has_more else "false"
+        if dealers and has_more:
+            page_response.headers["X-Next-Cursor"] = str(offset + len(dealers))
+        return page_response, 200
 
     except Exception as e:
         logger.error(f"Error fetching dealers: {e}")

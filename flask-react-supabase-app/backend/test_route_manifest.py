@@ -26,12 +26,12 @@ EXPECTED_METHODS = {
 
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
     "false": {
-        "count": 221,
-        "sha256": "103c96b31d0b100ca89c36bee2bb35bdeacdc33f21f55ff45a245b9b114d1c21",
+        "count": 220,
+        "sha256": "08f8906e41be1cbac45f2524118ff474d3af7a6fdda5ffac4fb5a2a5effad9a5",
     },
     "true": {
-        "count": 263,
-        "sha256": "a2561d7f42e47074d3573a7bf4856957bbe2c991f0b01e5f829c9a22b497cebc",
+        "count": 262,
+        "sha256": "b6ea2407b0a220e3f4069933ba3f6731251651ca96d457fbdf62a5bc01c15f61",
     },
 }
 
@@ -39,9 +39,6 @@ EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
 EXPECTED_PATH_METHOD_COLLISIONS = {
     ("/api/admin/approve/<item_type>/<item_id>/reject", "OPTIONS"),
     ("/api/admin/approve/<item_type>/<item_id>/reject", "POST"),
-    ("/api/admin/dealers", "GET"),
-    ("/api/admin/dealers", "HEAD"),
-    ("/api/admin/dealers", "OPTIONS"),
     ("/api/admin/dealers/<dealer_id>/info-requests", "OPTIONS"),
     ("/api/admin/dealers/<dealer_id>/overview", "GET"),
     ("/api/admin/dealers/<dealer_id>/overview", "HEAD"),
