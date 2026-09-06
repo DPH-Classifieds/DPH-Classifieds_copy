@@ -60,6 +60,10 @@ from application.part_read_routes import (
     PartReadDependencies,
     register_part_read_route,
 )
+from application.plate_create_routes import (
+    PlateCreateDependencies,
+    register_plate_create_route,
+)
 from application.plate_read_routes import PlateReadDependencies, register_plate_read_route
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
@@ -17525,211 +17529,61 @@ def admin_cleanup_unverified_accounts(current_user):
         return jsonify({"error": "Failed to run cleanup"}), 500
 
 
-def _create_plate_with_image_impl(current_user):
-    try:
-        logger.info("Creating plate listing with image upload")
-
-        verification_check = _require_verified_user_for_listing(current_user)
-        if verification_check:
-            return verification_check
-
-        dealer_check = _require_dealer_verified(current_user)
-        if dealer_check:
-            return dealer_check
-
-        payload = (
-            request.form if request.form else (request.get_json(silent=True) or {})
-        )
-
-        # Get form/json data
-        city = payload.get("city")
-        code = payload.get("code")
-        digits = payload.get("digits")
-        price = payload.get("price")
-        number = payload.get("number")
-        plate_format = payload.get("plate_format")
-        contact_name = payload.get("contact_name")
-        contact_phone = payload.get("contact_phone")
-        country_code = payload.get("country_code")
-        whatsapp_number = payload.get("whatsapp_number")
-        whatsapp_prefill_text = payload.get("whatsapp_prefill_text")
-        description = payload.get("description")
-        area = payload.get("area")
-        emirate = payload.get("emirate")
-        is_dealer = payload.get("is_dealer", False)
-        if isinstance(is_dealer, str):
-            is_dealer = is_dealer.lower() == "true"
-
-        # Validate required fields
-        if not city or not code or not digits or price in [None, ""]:
-            return jsonify({"error": "Missing required fields"}), 400
-
-        try:
-            digits = _to_int(digits, "digits", minimum=1, maximum=5, allow_empty=False)
-            price = _to_int(price, "price", minimum=0, allow_empty=False)
-            if number is not None and str(number).strip() != "":
-                if not str(number).isdigit():
-                    return jsonify(
-                        {"error": "Plate number must contain digits only"}
-                    ), 400
-            _validate_description_word_count(description, field_name="description")
-            _validate_no_profanity(description, field_name="description")
-            _validate_no_profanity(contact_name, field_name="contact_name")
-        except ValueError as validation_error:
-            return jsonify({"error": str(validation_error)}), 400
-
-        limit_response = _enforce_listing_limit(current_user)
-        if limit_response:
-            return limit_response
-
-        # Create plate entry
-        plate_number_str = str(number).strip() if number is not None else ""
-        proof_document_url = payload.get("proof_document_url") or None
-        if proof_document_url and not _validate_private_document_path(
-            proof_document_url, current_user, required_prefix="plate-proofs"
-        ):
-            return jsonify({"error": "proof_document_url must be a server-issued private document path"}), 400
-        registration_doc_url = payload.get("registration_doc_url") or None
-        plate_data = {
-            "city": city,
-            "code": code,
-            "digits": digits,
-            "price": price,
-            "number": plate_number_str,
-            "plate_format": plate_format,
-            "contact_name": contact_name,
-            "contact_phone": contact_phone,
-            "country_code": country_code,
-            "whatsapp_number": whatsapp_number,
-            "whatsapp_prefill_text": whatsapp_prefill_text,
-            "description": description,
-            "area": area,
-            "emirate": emirate,
-            "is_dealer": is_dealer,
-            "listing_title": f"{city} {code} {plate_number_str}".strip(),
-            "user_id": current_user,
-            "user_email": get_user_email(current_user),
-            "status": _initial_listing_status(),
-            **({"proof_document_url": proof_document_url} if proof_document_url else {}),
-            **({"registration_doc_url": registration_doc_url} if registration_doc_url else {}),
-        }
-        plate_data.update(_new_listing_lifecycle_fields())
-        # auto_review_reasons is NOT NULL in the license_plates table — default to empty array
-        plate_data.setdefault("auto_review_reasons", [])
-        try:
-            _require_whatsapp_prefill_and_phone_alignment(plate_data, "plates")
-        except ValueError as validation_error:
-            return jsonify({"error": str(validation_error)}), 400
-
-        # Plate listings render a generated plate image after insert, so the
-        # canonical listing gate counts that required gallery item here.
-        sync_error = _sync_gate_error("plate", plate_data, 1)
-        if sync_error:
-            return sync_error
-
-        logger.info(f"Creating plate entry with data: {plate_data}")
-
-        # Create plate in database
-        response, status_code = _create_listing_with_lifecycle_fallback(
-            "/rest/v1/license_plates", plate_data, user_id=current_user
-        )
-
-        if status_code >= 400:
-            friendly_data, friendly_status = _friendly_db_error(response, status_code, "plate")
-            return jsonify(friendly_data), friendly_status
-
-        plate_id = response[0]["id"]
-        logger.info(f"Created plate with ID: {plate_id}")
-
-        # Attempt to generate a legacy static plate image. This is optional —
-        # the frontend now renders plates via the UAELicensePlate React component
-        # so a failure here must never prevent the listing from being created.
-        try:
-            import os
-            from PIL import Image, ImageDraw, ImageFont
-
-            plate_dir = os.path.join("static", "uploads", "plates", str(plate_id))
-            os.makedirs(plate_dir, exist_ok=True)
-
-            plate_width, plate_height = 600, 200
-            plate_img = Image.new("RGB", (plate_width, plate_height), color=(255, 255, 255))
-            draw = ImageDraw.Draw(plate_img)
-            draw.rectangle(
-                [(0, 0), (plate_width - 1, plate_height - 1)], outline=(0, 0, 0), width=5
-            )
-
-            try:
-                font_path = os.path.join("static", "fonts", "arial.ttf")
-                if not os.path.exists(font_path):
-                    import matplotlib.font_manager as fm
-                    font_path = fm.findfont(fm.FontProperties(family="Arial"))
-                font = ImageFont.truetype(font_path, 50)
-            except Exception:
-                font = ImageFont.load_default()
-
-            text = f"{city} {code} {plate_number_str}"
-            text_width = draw.textlength(text, font=font)
-            draw.text(
-                ((plate_width - text_width) / 2, plate_height / 3),
-                text,
-                fill=(0, 0, 0),
-                font=font,
-            )
-
-            image_filename = f"plate_{city}_{code}_{plate_number_str}.png"
-            image_path = os.path.join(plate_dir, image_filename)
-            plate_img.save(image_path)
-
-            image_url = f"/static/uploads/plates/{plate_id}/{image_filename}"
-            response[0]["image_url"] = image_url
-
-            try:
-                image_data = {
-                    "plate_id": plate_id,
-                    "url": image_url,
-                    "image_url": image_url,
-                    "is_primary": True,
-                }
-                image_response, image_status = supabase_request(
-                    "post", "/rest/v1/plate_images", data=image_data, user_id=current_user
-                )
-                if image_status >= 400:
-                    logger.error(f"Failed to add plate image record: {image_response}")
-            except Exception as img_db_err:
-                logger.error(f"Error saving plate image record: {img_db_err}")
-
-        except Exception as pil_err:
-            logger.warning(f"Plate PIL image generation skipped (non-fatal): {pil_err}")
-
-        # Send email notifications
-        try:
-            user_details = _get_user_email_by_id(current_user)
-            user_email = user_details.get("email") if user_details else None
-            if _initial_listing_status() == "pending":
-                _send_new_listing_admin_notification("plate", response[0], user_email)
-            if user_email:
-                _send_new_listing_user_confirmation(user_email, "plate", response[0])
-        except Exception as email_err:
-            logger.warning(f"Failed to send listing notification emails: {email_err}")
-
-        _trigger_auto_review_async()
-        return jsonify(response[0]), 201
-
-    except Exception as e:
-        logger.error(f"Error creating plate with image: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+def _plate_create_dependencies():
+    return PlateCreateDependencies(
+        require_verified_user_for_listing=lambda user_id: (
+            _require_verified_user_for_listing(user_id)
+        ),
+        require_dealer_verified=lambda user_id: _require_dealer_verified(user_id),
+        enforce_listing_limit=lambda user_id: _enforce_listing_limit(user_id),
+        to_int=lambda *args, **kwargs: _to_int(*args, **kwargs),
+        validate_description_word_count=lambda *args, **kwargs: (
+            _validate_description_word_count(*args, **kwargs)
+        ),
+        validate_no_profanity=lambda *args, **kwargs: _validate_no_profanity(
+            *args, **kwargs
+        ),
+        validate_private_document_path=lambda *args, **kwargs: (
+            _validate_private_document_path(*args, **kwargs)
+        ),
+        get_user_email=lambda user_id: get_user_email(user_id),
+        initial_listing_status=lambda: _initial_listing_status(),
+        new_listing_lifecycle_fields=lambda: _new_listing_lifecycle_fields(),
+        require_whatsapp_prefill_and_phone_alignment=lambda payload, listing_type: (
+            _require_whatsapp_prefill_and_phone_alignment(payload, listing_type)
+        ),
+        sync_gate_error=lambda listing_type, payload, photo_count: (
+            _sync_gate_error(listing_type, payload, photo_count)
+        ),
+        create_listing_with_lifecycle_fallback=lambda *args, **kwargs: (
+            _create_listing_with_lifecycle_fallback(*args, **kwargs)
+        ),
+        friendly_db_error=lambda data, status_code, listing_type: (
+            _friendly_db_error(data, status_code, listing_type)
+        ),
+        supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),
+        get_user_email_by_id=lambda user_id: _get_user_email_by_id(user_id),
+        send_new_listing_admin_notification=lambda item_type, listing, user_email: (
+            _send_new_listing_admin_notification(item_type, listing, user_email)
+        ),
+        send_new_listing_user_confirmation=lambda user_email, item_type, listing: (
+            _send_new_listing_user_confirmation(user_email, item_type, listing)
+        ),
+        invalidate_public_inventory_cache=lambda item_type: (
+            _invalidate_public_inventory_cache(item_type)
+        ),
+        trigger_auto_review_async=lambda: _trigger_auto_review_async(),
+        logger=logger,
+    )
 
 
-@app.route("/api/plates", methods=["POST"])
-@token_required
-def create_plate(current_user):
-    return _create_plate_with_image_impl(current_user)
-
-
-@app.route("/api/plates/with-image", methods=["POST"])
-@token_required
-def create_plate_with_image(current_user):
-    return _create_plate_with_image_impl(current_user)
+_plate_create_views = register_plate_create_route(
+    app,
+    token_required=token_required,
+    dependencies=_plate_create_dependencies,
+)
+create_plate = _plate_create_views["create_plate"]
+create_plate_with_image = _plate_create_views["create_plate_with_image"]
 
 
 def get_user_email(user_id):
