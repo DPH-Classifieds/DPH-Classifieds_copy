@@ -159,7 +159,7 @@ def _approve_user(user_id):
             "dealer_application_status": "approved",
         },
     )
-    return status < 300 and isinstance(body, list)
+    return 200 <= status < 300
 
 
 def _approve_documents(documents):
@@ -176,7 +176,7 @@ def _approve_documents(documents):
             params={"status": "neq.approved"},
             data={"status": "approved", "reviewed_at": now},
         )
-        if status >= 300 or not isinstance(body, list):
+        if not 200 <= status < 300 or not isinstance(body, list) or not body:
             succeeded = False
     return succeeded
 

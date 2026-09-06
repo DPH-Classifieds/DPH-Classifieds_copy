@@ -299,3 +299,81 @@ exit 0, no output
 - Webhook behavior and files are unchanged.
 - Fix-round-3 code/test changes are limited to the dealer auto-approval worker
   and its focused test file; this report is the only other changed file.
+
+## Fix round 4: approval response contracts
+
+The round-3 review found an asymmetric response-contract gap. User approval is
+an idempotent state transition, so any successful HTTP 2xx response, including
+an empty 204 or an empty conditional no-op after a prior successful write, must
+count as success. By contrast, approval of a currently known unapproved
+document must return a non-empty update representation before the queue claim
+can finalize as `fired`.
+
+The fix makes `_approve_user` accept every 2xx response without requiring a
+response body. `_approve_documents` still requires a 2xx list response and now
+also requires that list to contain an updated row for each unapproved document.
+Provider failures and malformed responses therefore remain retryable, while an
+empty conditional document update cannot advance to queue finalization.
+
+Focused red command:
+
+```text
+pytest -q test_dealer_auto_approval_worker.py::test_approve_user_accepts_successful_empty_204_response test_dealer_auto_approval_worker.py::test_approve_documents_rejects_empty_conditional_update_response
+2 failed, 2 warnings in 0.20s
+```
+
+The failures proved `_approve_user` rejected `{}`, 204 and
+`_approve_documents` accepted `[]`, 200 before the implementation changed.
+
+Focused green command and result:
+
+```text
+pytest -q test_dealer_auto_approval_worker.py::test_approve_user_accepts_successful_empty_204_response test_dealer_auto_approval_worker.py::test_approve_documents_rejects_empty_conditional_update_response
+2 passed, 2 warnings in 0.08s
+
+pytest -q test_webhook_delivery_worker.py test_dealer_auto_approval_worker.py
+37 passed, 27 warnings in 0.11s
+```
+
+Full backend suite:
+
+```text
+/tmp/dph-task7-venv.BsVUgK/bin/python -m pytest -q
+884 passed, 11 skipped, 51 warnings in 12.80s
+```
+
+Docker API E2E:
+
+```text
+./e2e/run.sh
+liveness /healthz/live -> 200
+readiness /healthz -> 200
+unknown route -> 404
+auth-gated route -> 401
+E2E PASSED
+```
+
+Worker smoke:
+
+```text
+./e2e/worker.sh
+Worker smoke passed: health endpoint returned 200 and heartbeat was written.
+```
+
+Final contract and scope evidence:
+
+```text
+git diff --check
+exit 0, no output
+```
+
+- Claiming still requires `state=eq.pending` and
+  `(fired_at.is.null,fired_at.lt.<now>)`; finalization still requires
+  `state=eq.pending` and the exact `fired_at=eq.<claim_lease>` value.
+- Queue terminal states remain the migration-approved `fired` and `cancelled`,
+  and the one-pending-per-user index remains unchanged.
+- The conditional approval predicates remain `status=neq.approved` for
+  documents and `dealer_verified=not.is.true` for the user, preserving partial
+  retry idempotence.
+- Webhook code, migrations, retry behavior, and all files outside the dealer
+  worker, its focused test file, and this report are unchanged in fix round 4.

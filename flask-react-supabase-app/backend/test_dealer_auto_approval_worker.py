@@ -582,6 +582,17 @@ def test_approval_writes_are_conditioned_on_unapproved_records():
     assert user_call.kwargs["params"] == {"dealer_verified": "not.is.true"}
 
 
+def test_approve_user_accepts_successful_empty_204_response():
+    with patch.object(w, "supabase_request", return_value=({}, 204)):
+        assert w._approve_user("u1") is True
+
+
+def test_approve_documents_rejects_empty_conditional_update_response():
+    docs = [{"id": "doc-pending", "status": "pending"}]
+    with patch.object(w, "supabase_request", return_value=([], 200)):
+        assert w._approve_documents(docs) is False
+
+
 def test_claim_rejects_empty_204_conditional_response():
     with patch.object(w, "SUPABASE_URL", "https://supabase.test"), \
         patch.object(w, "SUPABASE_SERVICE_KEY", "test-service-key"), \
