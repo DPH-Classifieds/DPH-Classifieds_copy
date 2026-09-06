@@ -314,3 +314,69 @@ returned 401, and the script ended with `E2E PASSED`.
 
 The pre-report code/test diff passed `git diff --check` with no output. The
 final diff check after this evidence update also exited 0 with no output.
+
+## Task 4b fix round 3 evidence
+
+The round-three review found that `_validate_listing_image_reference` treated
+URL-like values with a scheme but no host, such as one-slash `https:/...`, as
+valid object paths. It also inherited PDF support from the shared generated
+object-path helper even though public listing images must be image formats.
+
+Only `_validate_listing_image_reference` changed in production code. Any value
+parsed with a scheme or host now requires the `https` scheme, a present host, a
+non-empty configured Supabase host, and an exact host match. Relative
+server-issued public object paths remain valid. After the shared safe-path
+check, listing references are limited to `jpg`, `jpeg`, `png`, `gif`, and
+`webp`; the shared generated-path and private-document validators retain PDF
+support.
+
+### RED
+
+Command from `flask-react-supabase-app/backend`:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py::test_unsafe_image_reference_is_rejected_before_listing_or_image_insert test_media_upload_security.py::test_listing_image_reference_rejects_malformed_urls_and_documents test_media_upload_security.py::test_listing_image_reference_preserves_supported_public_urls_and_paths test_media_upload_security.py::test_listing_image_url_requires_configured_supabase_host test_media_upload_security.py::test_private_document_path_retains_pdf_support
+```
+
+Result before the helper fix: exit 1; `6 failed, 15 passed in 0.29s`. The bike
+route returned 201 for both a one-slash HTTPS listing path and a public
+listing-images PDF. The media validator also accepted those references, a
+scheme-relative host reference, and a relative public PDF path. The supported
+image URL/path matrix, missing-host configuration check, and private PDF
+document check passed before the implementation change.
+
+The bike rejection test asserts a 400 response and verifies there are no
+listing creates, image inserts, notifications, or review triggers.
+
+### GREEN regression slice
+
+The same command after the helper fix exited 0 with `21 passed in 0.39s`.
+
+### Focused bike, media, and manifest tests
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py test_bike_read_route_parity.py test_media_upload_security.py test_route_manifest.py
+```
+
+Result: exit 0; `109 passed in 1.14s`.
+
+### Full backend pytest
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q
+```
+
+Result: exit 0; `993 passed, 11 skipped, 65 warnings, 10 subtests passed in
+12.80s`.
+
+### Docker API E2E
+
+`./e2e/run.sh` ran from `flask-react-supabase-app/backend` and exited 0. The
+production image built, the container became ready, liveness returned 200,
+readiness returned 200, the unknown route returned 404, the auth-gated route
+returned 401, and the script ended with `E2E PASSED`.
+
+### Diff integrity
+
+The pre-report and post-evidence `git diff --check` runs both exited 0 with no
+output.

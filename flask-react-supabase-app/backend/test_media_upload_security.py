@@ -105,6 +105,68 @@ def test_listing_image_reference_is_user_scoped_for_all_listing_types(listing_ty
     assert not backend._validate_listing_image_entry(good.replace("user-123", "other"), "user-123")
 
 
+@pytest.mark.parametrize(
+    "reference",
+    [
+        (
+            "https:/storage/v1/object/public/"
+            "listing-images/user-123/abc12345.jpg"
+        ),
+        (
+            "//project-ref.supabase.co/storage/v1/object/public/"
+            "listing-images/user-123/abc12345.jpg"
+        ),
+        (
+            "https://project-ref.supabase.co/storage/v1/object/public/"
+            "listing-images/user-123/abc12345.pdf"
+        ),
+        (
+            "/storage/v1/object/public/listing-images/"
+            "user-123/abc12345.pdf"
+        ),
+    ],
+    ids=[
+        "malformed-one-slash-https-url",
+        "host-without-https-scheme",
+        "public-listing-pdf-url",
+        "public-listing-pdf-path",
+    ],
+)
+def test_listing_image_reference_rejects_malformed_urls_and_documents(reference):
+    assert not backend._validate_listing_image_reference(reference, "user-123")
+
+
+@pytest.mark.parametrize("extension", ["jpg", "jpeg", "png", "gif", "webp"])
+def test_listing_image_reference_preserves_supported_public_urls_and_paths(extension):
+    path = (
+        "/storage/v1/object/public/listing-images/"
+        f"user-123/abc12345.{extension}"
+    )
+
+    assert backend._validate_listing_image_reference(path, "user-123")
+    assert backend._validate_listing_image_reference(
+        f"https://project-ref.supabase.co{path}", "user-123"
+    )
+
+
+def test_listing_image_url_requires_configured_supabase_host(monkeypatch):
+    url = (
+        "https://project-ref.supabase.co/storage/v1/object/public/"
+        "listing-images/user-123/abc12345.jpg"
+    )
+    monkeypatch.setattr(backend, "SUPABASE_URL", "")
+
+    assert not backend._validate_listing_image_reference(url, "user-123")
+
+
+def test_private_document_path_retains_pdf_support():
+    assert backend._validate_private_document_path(
+        "user-123/plate-proofs/abc12345.pdf",
+        "user-123",
+        required_prefix="plate-proofs",
+    )
+
+
 @pytest.mark.parametrize("malformed_field", ["url", "image_url", "display_url"])
 def test_listing_image_entry_rejects_supplied_falsey_non_string_reference(
     malformed_field,

@@ -8138,15 +8138,25 @@ def _validate_listing_image_reference(value, user_id):
     if not isinstance(value, str) or not value or any(ord(c) < 32 or ord(c) == 127 for c in value):
         return False
     parsed = urlparse(value)
-    path = parsed.path if parsed.scheme or parsed.netloc else value
-    if parsed.scheme and (parsed.scheme != "https" or not SUPABASE_URL):
-        return False
-    if parsed.netloc and parsed.netloc != (urlparse(SUPABASE_URL).netloc if SUPABASE_URL else ""):
-        return False
+    if parsed.scheme or parsed.netloc:
+        expected_host = urlparse(SUPABASE_URL).netloc if SUPABASE_URL else ""
+        if (
+            parsed.scheme != "https"
+            or not parsed.netloc
+            or not expected_host
+            or parsed.netloc != expected_host
+        ):
+            return False
+        path = parsed.path
+    else:
+        path = value
     prefix = f"/storage/v1/object/public/listing-images/{user_id}/"
     if not path.startswith(prefix):
         return False
-    return _safe_generated_object_path(path[len("/storage/v1/object/public/listing-images/"):], user_id)
+    object_path = path[len("/storage/v1/object/public/listing-images/"):]
+    return _safe_generated_object_path(object_path, user_id) and object_path.rsplit(
+        ".", 1
+    )[-1].lower() in {"jpg", "jpeg", "png", "gif", "webp"}
 
 
 def _validate_listing_image_entry(entry, user_id):

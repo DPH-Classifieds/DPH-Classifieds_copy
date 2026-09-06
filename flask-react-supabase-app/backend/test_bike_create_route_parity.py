@@ -538,6 +538,14 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
     "unsafe_image",
     [
         "https://evil.example/bike.jpg",
+        (
+            "https:/storage/v1/object/public/"
+            "listing-images/user-1/bike.jpg"
+        ),
+        (
+            "https://project-ref.supabase.co/storage/v1/object/public/"
+            "listing-images/user-1/bike.pdf"
+        ),
         17,
         {},
         {"image_url": 17},
@@ -557,6 +565,8 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
     ],
     ids=[
         "external-url",
+        "malformed-one-slash-https-url",
+        "public-listing-pdf",
         "non-string-scalar",
         "empty-image-object",
         "non-string-object-reference",
