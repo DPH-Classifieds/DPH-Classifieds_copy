@@ -26,12 +26,12 @@ EXPECTED_METHODS = {
 
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
     "false": {
-        "count": 225,
-        "sha256": "1e26f871863ea413864fccfc43434918e79fb435e8acce4133f6e107f3438fbb",
+        "count": 221,
+        "sha256": "103c96b31d0b100ca89c36bee2bb35bdeacdc33f21f55ff45a245b9b114d1c21",
     },
     "true": {
-        "count": 267,
-        "sha256": "0e1125bf06a9d3aa4b97260480ecb8b689736a7c66f7ad6bc85e760f7f9741e2",
+        "count": 263,
+        "sha256": "a2561d7f42e47074d3573a7bf4856957bbe2c991f0b01e5f829c9a22b497cebc",
     },
 }
 
@@ -39,12 +39,6 @@ EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
 EXPECTED_PATH_METHOD_COLLISIONS = {
     ("/api/admin/approve/<item_type>/<item_id>/reject", "OPTIONS"),
     ("/api/admin/approve/<item_type>/<item_id>/reject", "POST"),
-    ("/api/admin/bikes", "GET"),
-    ("/api/admin/bikes", "HEAD"),
-    ("/api/admin/bikes", "OPTIONS"),
-    ("/api/admin/cars", "GET"),
-    ("/api/admin/cars", "HEAD"),
-    ("/api/admin/cars", "OPTIONS"),
     ("/api/admin/dealers", "GET"),
     ("/api/admin/dealers", "HEAD"),
     ("/api/admin/dealers", "OPTIONS"),
@@ -63,12 +57,6 @@ EXPECTED_PATH_METHOD_COLLISIONS = {
     ("/api/admin/listings/<item_type>/<item_id>/overview", "GET"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "HEAD"),
     ("/api/admin/listings/<item_type>/<item_id>/overview", "OPTIONS"),
-    ("/api/admin/parts", "GET"),
-    ("/api/admin/parts", "HEAD"),
-    ("/api/admin/parts", "OPTIONS"),
-    ("/api/admin/plates", "GET"),
-    ("/api/admin/plates", "HEAD"),
-    ("/api/admin/plates", "OPTIONS"),
     ("/api/admin/reports", "GET"),
     ("/api/admin/reports", "HEAD"),
     ("/api/admin/reports", "OPTIONS"),
@@ -200,3 +188,16 @@ def test_build_route_manifest_records_legacy_path_method_collisions(
         )
 
     assert {tuple(path_method) for path_method in inventory["collisions"]} == expected_collisions
+
+
+@pytest.mark.parametrize("path", ["cars", "bikes", "parts", "plates"])
+def test_admin_inventory_path_has_only_the_canonical_blueprint_registration(path):
+    inventory = _route_inventory_for(False)
+
+    collisions = {
+        tuple(path_method)
+        for path_method in inventory["collisions"]
+        if path_method[0] == f"/api/admin/{path}"
+    }
+
+    assert collisions == set()
