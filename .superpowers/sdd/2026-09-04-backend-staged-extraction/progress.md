@@ -61,3 +61,13 @@ Ruling: Continue authenticated posting with car parts next. Preserve both JSON a
 Task 4d part-create extraction: complete (commit de4b5f5e; independent review PASS; 10 focused parity, 104 adjacent/read/media/manifest/admin, 1045 full backend, and current-head Docker API E2E passed; no live Supabase listing write or email-delivery gate was run).
 
 Ruling: The public listing read/write extraction stage is complete for cars, bikes, plates, and parts. The next load-bearing work is VIN visibility/unlock coverage and authenticated dealer/admin flows, followed by bounded query plans and worker duplicate-claim coordination for the 10k-user target. Do not remove the compatibility root wholesale until those consumers are migrated and cross-surface tests pass.
+
+Task 8a admin-cars scalability: complete (commits a2416cae and e23f3ebb; independent review PASS after fixing canonical dispatch awareness, exact sentinel pagination, malformed row/ID handling, and dispatch-order coverage; focused admin/manifest suite 14 passed; full backend 1056 passed, 11 skipped; Docker API auth/health smoke passed). The live URL is owned by `routes/admin.py`'s already-bounded/batched canonical handler; the app.py handler remains a compatibility fallback and is now hardened too.
+
+Ruling: Continue with the older `/api/admin/listings` route, which still has an unbounded joined read despite the newer `listings-search` route being bounded. Add pagination without changing its list response body, then reassess reports/dealer lists and worker-wide coordination separately.
+
+Task 8b admin-listings and canonical inventory hardening: complete (commits 98d2889f, 9f1f3453, and 9c7b5a9f; focused legacy/admin inventory suite 18 passed before duplicate cleanup and 25 passed with manifest/dispatch coverage; exact sentinel pagination, malformed upstream/user/image handling, 200/206 acceptance, cache-header restoration, and type/status allowlists are in place). Full backend and Docker API/worker smoke passed at the current head.
+
+Task 8c duplicate admin inventory cleanup: complete (commit 42e22aec; removed 226 lines of shadowed app.py handlers for cars, bikes, parts, and plates; canonical `routes/admin.py` ownership is now the only live registration for each path; route manifest is 221/263 with zero inventory-path collisions; focused suite 25 passed, full backend 1067 passed/11 skipped, Docker API smoke and worker heartbeat smoke passed). The compatibility root no longer carries these dead route implementations.
+
+Ruling: Continue app.py reduction through another independently bounded route/worker slice. Prioritize a module with clear ownership and tests, and do not move coupled lifecycle helpers without preserving import-time behavior and live route dispatch.
