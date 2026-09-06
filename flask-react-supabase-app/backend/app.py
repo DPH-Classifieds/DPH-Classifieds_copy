@@ -42,6 +42,10 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
+from application.bike_create_routes import (
+    BikeCreateDependencies,
+    register_bike_create_route,
+)
 from application.bike_read_routes import BikeReadDependencies, register_bike_read_routes
 from application.car_create_routes import (
     CarCreateDependencies,
@@ -15699,215 +15703,62 @@ def dismiss_user_listing(current_user, item_type, item_id):
     return jsonify({"message": "Listing removed from your list"}), 200
 
 
-@app.route("/api/bikes", methods=["POST"])
-@token_required
-def create_bike(current_user):
-    try:
-        # Validate input
-        if not request.json:
-            return jsonify({"error": "Invalid request data"}), 400
-
-        verification_check = _require_verified_user_for_listing(current_user)
-        if verification_check:
-            return verification_check
-
-        limit_response = _enforce_listing_limit(current_user)
-        if limit_response:
-            return limit_response
-
+def _bike_create_dependencies():
+    def require_dealer_verified(current_user):
         dealer_check = _require_dealer_verified(current_user)
-        if dealer_check:
-            return dealer_check
+        return dealer_check
 
-        bike_data = request.json
-        bike_data["user_id"] = current_user
-        bike_data["status"] = _initial_listing_status()
-        bike_data.update(_new_listing_lifecycle_fields())
-        _normalize_listing_vin(bike_data)
+    return BikeCreateDependencies(
+        require_verified_user_for_listing=lambda user_id: (
+            _require_verified_user_for_listing(user_id)
+        ),
+        enforce_listing_limit=lambda user_id: _enforce_listing_limit(user_id),
+        require_dealer_verified=require_dealer_verified,
+        initial_listing_status=lambda: _initial_listing_status(),
+        new_listing_lifecycle_fields=lambda: _new_listing_lifecycle_fields(),
+        normalize_listing_vin=lambda payload: _normalize_listing_vin(payload),
+        require_whatsapp_prefill_and_phone_alignment=lambda payload, listing_type: (
+            _require_whatsapp_prefill_and_phone_alignment(payload, listing_type)
+        ),
+        to_int=lambda *args, **kwargs: _to_int(*args, **kwargs),
+        current_year=lambda: datetime.datetime.now().year,
+        minimum_allowed_year=MIN_ALLOWED_YEAR,
+        validate_description_word_count=lambda *args, **kwargs: (
+            _validate_description_word_count(*args, **kwargs)
+        ),
+        validate_no_profanity=lambda *args, **kwargs: _validate_no_profanity(
+            *args, **kwargs
+        ),
+        sync_gate_error=lambda listing_type, payload, photo_count: (
+            _sync_gate_error(listing_type, payload, photo_count)
+        ),
+        get_user_email=lambda user_id: get_user_email(user_id),
+        create_listing_with_lifecycle_fallback=lambda *args, **kwargs: (
+            _create_listing_with_lifecycle_fallback(*args, **kwargs)
+        ),
+        friendly_db_error=lambda data, status_code, listing_type: (
+            _friendly_db_error(data, status_code, listing_type)
+        ),
+        isoformat_utc=lambda value: _isoformat_utc(value),
+        utc_now=lambda: _utc_now(),
+        supabase_request=lambda *args, **kwargs: supabase_request(*args, **kwargs),
+        get_user_email_by_id=lambda user_id: _get_user_email_by_id(user_id),
+        send_new_listing_admin_notification=lambda item_type, listing, user_email: (
+            _send_new_listing_admin_notification(item_type, listing, user_email)
+        ),
+        send_new_listing_user_confirmation=lambda user_email, item_type, listing: (
+            _send_new_listing_user_confirmation(user_email, item_type, listing)
+        ),
+        trigger_auto_review_async=lambda: _trigger_auto_review_async(),
+        logger=logger,
+    )
 
-        # Normalize legacy/alternate frontend keys.
-        if "make" in bike_data and "bike_brand" not in bike_data:
-            bike_data["bike_brand"] = bike_data.get("make")
-        if "model" in bike_data and "bike_model" not in bike_data:
-            bike_data["bike_model"] = bike_data.get("model")
-        if "contact_phone" in bike_data and "contact_number" not in bike_data:
-            bike_data["contact_number"] = bike_data.get("contact_phone")
-        if "engine_capacity" in bike_data and "engine_size" not in bike_data:
-            bike_data["engine_size"] = bike_data.get("engine_capacity")
-        if "area" not in bike_data and bike_data.get("location"):
-            bike_data["area"] = bike_data.get("location")
-        try:
-            _require_whatsapp_prefill_and_phone_alignment(bike_data, "bikes")
-        except ValueError as validation_error:
-            return jsonify({"error": str(validation_error)}), 400
 
-        try:
-            if "year" in bike_data:
-                bike_data["year"] = _to_int(
-                    bike_data.get("year"),
-                    "year",
-                    minimum=MIN_ALLOWED_YEAR,
-                    maximum=datetime.datetime.now().year + 1,
-                    allow_empty=False,
-                )
-            if "price" in bike_data:
-                bike_data["price"] = _to_int(
-                    bike_data.get("price"), "price", minimum=0, allow_empty=False
-                )
-            if "mileage" in bike_data:
-                bike_data["mileage"] = _to_int(
-                    bike_data.get("mileage"), "mileage", minimum=0
-                )
-            if (
-                "engine_capacity" in bike_data
-                and str(bike_data.get("engine_capacity", "")).strip()
-            ):
-                raw_engine = str(bike_data.get("engine_capacity"))
-                engine_numeric_match = re.search(r"\d+", raw_engine)
-                if engine_numeric_match:
-                    engine_capacity = int(engine_numeric_match.group())
-                    if engine_capacity < 0:
-                        raise ValueError("engine_capacity must be non-negative")
-            _validate_description_word_count(
-                bike_data.get("description"), field_name="description"
-            )
-            _validate_no_profanity(
-                bike_data.get("description"), field_name="description"
-            )
-            _validate_no_profanity(bike_data.get("bike_brand"), field_name="bike_brand")
-            _validate_no_profanity(bike_data.get("bike_model"), field_name="bike_model")
-        except ValueError as validation_error:
-            return jsonify({"error": str(validation_error)}), 400
-
-        # Extract images from the request
-        images = bike_data.pop("images", [])
-        sync_error = _sync_gate_error("bike", bike_data, len(images))
-        if sync_error:
-            return sync_error
-        if not images:
-            return jsonify(
-                {"error": "At least one image is required for a bike listing."}
-            ), 400
-
-        # Whitelist allowed fields for bikes
-        bike_allowed_fields = {
-            "bike_brand",
-            "bike_model",
-            "bike_type",
-            "make",
-            "model",
-            "year",
-            "mileage",
-            "engine_size",
-            "color",
-            "condition",
-            "price",
-            "location",
-            "area",
-            "emirate",
-            "contact_number",
-            "contact_phone",
-            "country_code",
-            "vin_number",
-            "whatsapp_number",
-            "whatsapp_prefill_text",
-            "description",
-            "transmission",
-            "fuel_type",
-            "features",
-            "cylinders",
-            "wheels",
-            "status",
-            "user_id",
-            "user_email",
-            "is_dealer",
-            "expires_at",
-            "expired_at",
-            "retention_expires_at",
-            "last_extended_at",
-            "extension_count",
-            "is_archived",
-            "registration_doc_url",
-        }
-        bike_data = {k: v for k, v in bike_data.items() if k in bike_allowed_fields}
-        bike_data["user_email"] = get_user_email(current_user)
-
-        # make/model are required NOT NULL in the bikes table; populate from bike_brand/bike_model
-        bike_data["make"] = bike_data.get("make") or bike_data.get("bike_brand") or ""
-        bike_data["model"] = bike_data.get("model") or bike_data.get("bike_model") or ""
-        # auto_review_reasons is NOT NULL in the bikes table — default to empty array
-        bike_data.setdefault("auto_review_reasons", [])
-
-        # Create the bike
-        data, status_code = _create_listing_with_lifecycle_fallback(
-            "/rest/v1/bikes", bike_data, user_id=current_user
-        )
-
-        if status_code >= 400:
-            friendly_data, friendly_status = _friendly_db_error(data, status_code, "bike")
-            return jsonify(friendly_data), friendly_status
-
-        bike_id = data[0]["id"]
-
-        # Add images if any
-        if images:
-            image_inserts = []
-            for image_url in images:
-                if isinstance(image_url, dict):
-                    url_value = (
-                        image_url.get("image_url")
-                        or image_url.get("url")
-                        or image_url.get("display_url")
-                    )
-                    if not url_value:
-                        continue
-                    image_inserts.append(
-                        {
-                            "bike_id": bike_id,
-                            "url": image_url.get("url") or url_value,
-                            "image_url": image_url.get("image_url") or url_value,
-                            "display_url": image_url.get("display_url"),
-                            "focal_x": image_url.get("focal_x"),
-                            "focal_y": image_url.get("focal_y"),
-                            "crop_meta": image_url.get("crop_meta"),
-                            "cropped_at": _isoformat_utc(_utc_now()),
-                        }
-                    )
-                    continue
-                image_inserts.append(
-                    {
-                        "bike_id": bike_id,
-                        "url": image_url,
-                        "image_url": image_url,  # Add image_url field for frontend compatibility
-                        "cropped_at": _isoformat_utc(_utc_now()),
-                    }
-                )
-
-            images_data, images_status = supabase_request(
-                "post", "/rest/v1/bike_images", data=image_inserts, user_id=current_user
-            )
-
-            if images_status < 400:
-                data[0]["images"] = images_data
-            else:
-                data[0]["images"] = []
-
-        # Send email notifications
-        try:
-            user_details = _get_user_email_by_id(current_user)
-            user_email = user_details.get("email") if user_details else None
-            if _initial_listing_status() == "pending":
-                _send_new_listing_admin_notification("bike", data[0], user_email)
-            if user_email:
-                _send_new_listing_user_confirmation(user_email, "bike", data[0])
-        except Exception as email_err:
-            logger.warning(f"Failed to send listing notification emails: {email_err}")
-
-        _trigger_auto_review_async()
-        return jsonify(data[0]), 201
-    except Exception as e:
-        logger.error(f"Error creating bike listing: {e}")
-        return jsonify({"error": str(e)}), 500
+create_bike = register_bike_create_route(
+    app,
+    token_required=token_required,
+    dependencies=_bike_create_dependencies,
+)
 
 
 @app.route("/api/bikes/<string:bike_id>", methods=["PUT", "PATCH", "POST"])
