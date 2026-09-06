@@ -124,3 +124,88 @@ pytest -q test_webhook_delivery_worker.py test_dealer_auto_approval_worker.py
 ```
 
 No additional test failures or in-scope code changes were required in this round.
+
+## Fix round 2: partial approval recovery
+
+The round-1 review found that a dealer approval could apply user/document side
+effects, lose its queue lease before finalization, and then be cancelled by the
+retry because the user was already verified. The retry also needed to avoid
+rewriting already-approved rows and their audit timestamps.
+
+The fix keeps the queue row in `pending` under the existing `fired_at` lease,
+revalidates the current OCR documents when an owned retry finds the user already
+verified, and treats a still-eligible row as approval recovery. Document and
+user approval PATCHes now target only records that are not already approved;
+the exact-lease terminal update remains the gate for the single approval email.
+
+Focused red command after correcting the test harness:
+
+```text
+pytest -q test_webhook_delivery_worker.py test_dealer_auto_approval_worker.py
+3 failed, 24 passed, 7 warnings in 0.15s
+```
+
+The failures proved that the retry returned `skip`, left one interrupted
+document approval incomplete, and emitted approval PATCHes without idempotent
+state predicates.
+
+Focused green result:
+
+```text
+pytest -q test_webhook_delivery_worker.py test_dealer_auto_approval_worker.py
+27 passed, 11 warnings in 0.13s
+```
+
+The new stateful regressions prove that a failed finalization followed by lease
+expiry finishes as `fired`, never writes `cancelled`, sends one approval email,
+completes the interrupted document approval, and records only one successful
+approval write per document and user.
+
+The direct host full-suite command stopped during collection because the host
+Python environment does not have the declared `defusedxml==0.7.1` dependency.
+The existing isolated Task 7 environment contains that exact dependency, so the
+complete suite was rerun there without changing repository files:
+
+```text
+/tmp/dph-task7-venv.BsVUgK/bin/python -m pytest -q
+874 passed, 11 skipped, 35 warnings in 12.67s
+```
+
+Docker API E2E:
+
+```text
+./e2e/run.sh
+liveness /healthz/live -> 200
+readiness /healthz -> 200
+unknown route -> 404
+auth-gated route -> 401
+E2E PASSED
+```
+
+Worker smoke:
+
+```text
+./e2e/worker.sh
+Worker smoke passed: health endpoint returned 200 and heartbeat was written.
+```
+
+Final scope and state checks:
+
+```text
+git diff --check
+exit 0, no output
+
+git diff --exit-code -- \
+  flask-react-supabase-app/backend/workers/webhook_delivery_worker.py \
+  flask-react-supabase-app/backend/test_webhook_delivery_worker.py
+exit 0, no output
+```
+
+- Dealer queue state reads/writes remain limited to migration-approved
+  `pending`, `fired`, and `cancelled` values.
+- The one-pending-per-user index, claim lease recovery, and exact-lease
+  finalization remain unchanged.
+- Webhook worker code and tests are unchanged in fix round 2, preserving its
+  exact pending-lease finalization behavior.
+- Fix-round code/test changes are limited to the dealer auto-approval worker
+  and its focused test file; this report is the only other changed file.

@@ -149,11 +149,16 @@ def _mark(row_id, claim_lease=None, **fields):
 
 def _approve_user(user_id):
     """Transition the user to verified + approved. Idempotent."""
-    supabase_request("patch", f"/rest/v1/users?id=eq.{user_id}", data={
-        "dealer_verified": True,
-        "dealer_verified_at": datetime.utcnow().isoformat(),
-        "dealer_application_status": "approved",
-    })
+    supabase_request(
+        "patch",
+        f"/rest/v1/users?id=eq.{user_id}",
+        params={"dealer_verified": "not.is.true"},
+        data={
+            "dealer_verified": True,
+            "dealer_verified_at": datetime.utcnow().isoformat(),
+            "dealer_application_status": "approved",
+        },
+    )
 
 
 def _approve_documents(documents):
@@ -161,11 +166,12 @@ def _approve_documents(documents):
     now = datetime.utcnow().isoformat()
     for doc in documents or []:
         doc_id = doc.get("id")
-        if not doc_id:
+        if not doc_id or doc.get("status") == "approved":
             continue
         supabase_request(
             "patch",
             f"/rest/v1/dealer_documents?id=eq.{doc_id}",
+            params={"status": "neq.approved"},
             data={"status": "approved", "reviewed_at": now},
         )
 
@@ -227,6 +233,15 @@ def _process_one(row):
         user_row=user_row,
         threshold=threshold,
     )
+    if decision == {"decision": "skip", "reason": "already_verified"}:
+        retry_decision = _fire_pending_approval(
+            row,
+            current_docs=current_docs,
+            user_row={},
+            threshold=threshold,
+        )
+        if retry_decision["decision"] == "approve":
+            decision = {"decision": "approve", "reason": "approval_recovery"}
     if decision["decision"] == "wait":
         return decision
     if decision["decision"] == "skip":

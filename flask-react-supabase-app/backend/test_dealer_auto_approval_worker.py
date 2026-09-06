@@ -80,6 +80,93 @@ class _PendingApprovalStore:
         return [dict(self.row)], 200
 
 
+class _ApprovalRecoveryStore(_PendingApprovalStore):
+    """Queue + approval state for a failed-finalize recovery attempt."""
+
+    def __init__(self):
+        super().__init__()
+        self.user = {"id": "u1", "dealer_verified": False}
+        self.documents = {
+            "doc-trade": {
+                "id": "doc-trade", "document_type": "trade_license",
+                "ocr_confidence": 0.95, "replaced_at": None, "status": "pending",
+            },
+            "doc-trn": {
+                "id": "doc-trn", "document_type": "tax_registration",
+                "ocr_confidence": 0.92, "replaced_at": None, "status": "pending",
+            },
+        }
+        self.failed_document_once = False
+        self.failed_finalize_once = False
+        self.successful_user_approvals = 0
+        self.successful_document_approvals = {doc_id: 0 for doc_id in self.documents}
+        self.terminal_states = []
+
+    def active_documents(self, user_id):
+        assert user_id == self.user["id"]
+        return [dict(doc) for doc in self.documents.values()]
+
+    def current_user(self, user_id):
+        assert user_id == self.user["id"]
+        return dict(self.user)
+
+    def request(self, method, path, data=None, params=None):
+        params = params or {}
+        data = data or {}
+
+        if "dealer_pending_approvals" in path:
+            if data.get("state") == "fired" and not self.failed_finalize_once:
+                self.failed_finalize_once = True
+                return [], 200
+            body, status = super().request(method, path, data=data, params=params)
+            if body and data.get("state") in {"fired", "cancelled"}:
+                self.terminal_states.append(data["state"])
+            return body, status
+
+        if "dealer_documents" in path:
+            doc_id = path.split("id=eq.", 1)[1]
+            doc = self.documents[doc_id]
+            if doc_id == "doc-trn" and not self.failed_document_once:
+                self.failed_document_once = True
+                return {"error": "temporary document update failure"}, 500
+            if params.get("status") == "neq.approved" and doc["status"] == "approved":
+                return [], 200
+            doc.update(data)
+            self.successful_document_approvals[doc_id] += 1
+            return [dict(doc)], 200
+
+        if "/rest/v1/users" in path:
+            if (
+                params.get("dealer_verified") == "not.is.true"
+                and self.user["dealer_verified"] is True
+            ):
+                return [], 200
+            self.user.update(data)
+            self.successful_user_approvals += 1
+            return [dict(self.user)], 200
+
+        raise AssertionError(f"unexpected request: {method} {path}")
+
+
+def _run_failed_finalize_recovery():
+    store = _ApprovalRecoveryStore()
+    emails = []
+    _FrozenDateTime.current = datetime(2026, 9, 6, 10, 0, tzinfo=timezone.utc)
+    with patch.object(w, "SUPABASE_URL", "https://supabase.test"), \
+         patch.object(w, "SUPABASE_SERVICE_KEY", "test-service-key"), \
+         patch.object(w, "datetime", _FrozenDateTime), \
+         patch.object(w, "supabase_request", side_effect=store.request), \
+         patch.object(w, "_fetch_active_docs", side_effect=store.active_documents), \
+         patch.object(w, "_fetch_user", side_effect=store.current_user), \
+         patch.object(w, "_send_approval_email", side_effect=emails.append), \
+         patch.object(w, "_utc_now_iso", return_value="2026-09-06T10:01:01+00:00"):
+        first_decision = w._process_one(_row())
+        _FrozenDateTime.current += timedelta(seconds=w.CLAIM_LEASE_SECONDS + 1)
+        retry_decision = w._process_one(_row())
+
+    return store, emails, first_decision, retry_decision
+
+
 def test_fire_approves_when_still_high_confidence():
     docs = [
         {"document_type": "trade_license", "ocr_confidence": 0.95, "replaced_at": None},
@@ -268,6 +355,41 @@ def test_crash_after_claim_recovers_after_lease_expiry_and_completes_once():
     approve_documents.assert_called_once_with(docs)
     approve_user.assert_called_once_with("u1")
     send_email.assert_called_once_with("u1")
+
+
+def test_partial_approval_retry_finalizes_claim_and_preserves_email():
+    store, emails, first_decision, retry_decision = _run_failed_finalize_recovery()
+
+    assert first_decision == {"decision": "approve"}
+    assert retry_decision["decision"] == "approve"
+    assert store.row["state"] == "fired"
+    assert store.terminal_states == ["fired"]
+    assert emails == ["u1"]
+
+
+def test_finalization_retry_does_not_duplicate_approval_writes():
+    store, _, _, _ = _run_failed_finalize_recovery()
+
+    assert store.successful_document_approvals == {
+        "doc-trade": 1,
+        "doc-trn": 1,
+    }
+    assert store.successful_user_approvals == 1
+
+
+def test_approval_writes_are_conditioned_on_unapproved_records():
+    docs = [{"id": "doc-pending", "status": "pending"}]
+    with patch.object(w, "supabase_request", return_value=([{"id": "updated"}], 200)) as request:
+        w._approve_documents(docs)
+        w._approve_user("u1")
+
+    document_call, user_call = request.call_args_list
+    assert document_call.args == (
+        "patch", "/rest/v1/dealer_documents?id=eq.doc-pending"
+    )
+    assert document_call.kwargs["params"] == {"status": "neq.approved"}
+    assert user_call.args == ("patch", "/rest/v1/users?id=eq.u1")
+    assert user_call.kwargs["params"] == {"dealer_verified": "not.is.true"}
 
 
 def test_claim_rejects_empty_204_conditional_response():
