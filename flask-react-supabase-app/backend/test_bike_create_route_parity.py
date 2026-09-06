@@ -573,6 +573,10 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
             "https://project-ref.supabase.co/storage/v1/object/public/"
             "listing-images/user-1/bike.pdf"
         ),
+        (
+            "https://[invalid/storage/v1/object/public/"
+            "listing-images/user-1/bike.jpg"
+        ),
         f"{VALID_IMAGE_URL}?download=1",
         f"{VALID_IMAGE_URL}#preview",
         17,
@@ -615,6 +619,7 @@ def test_server_issued_image_rows_preserve_string_dict_order_and_metadata(
         "external-url",
         "malformed-one-slash-https-url",
         "public-listing-pdf",
+        "malformed-bracketed-url",
         "absolute-url-with-query",
         "absolute-url-with-fragment",
         "non-string-scalar",

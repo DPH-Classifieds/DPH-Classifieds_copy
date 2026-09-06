@@ -8138,7 +8138,10 @@ def _validate_listing_image_reference(value, user_id):
     """Allow only this user's public listing-image objects, never arbitrary URLs."""
     if not isinstance(value, str) or not value or any(ord(c) < 32 or ord(c) == 127 for c in value):
         return False
-    parsed = urlparse(value)
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
     if parsed.scheme or parsed.netloc:
         expected_host = urlparse(SUPABASE_URL).netloc if SUPABASE_URL else ""
         if (

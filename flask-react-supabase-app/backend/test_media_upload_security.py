@@ -117,6 +117,10 @@ def test_listing_image_reference_is_user_scoped_for_all_listing_types(listing_ty
             "listing-images/user-123/abc12345.jpg"
         ),
         (
+            "https://[invalid/storage/v1/object/public/"
+            "listing-images/user-123/abc12345.jpg"
+        ),
+        (
             "https://project-ref.supabase.co/storage/v1/object/public/"
             "listing-images/user-123/abc12345.pdf"
         ),
@@ -128,6 +132,7 @@ def test_listing_image_reference_is_user_scoped_for_all_listing_types(listing_ty
     ids=[
         "malformed-one-slash-https-url",
         "host-without-https-scheme",
+        "malformed-bracketed-url",
         "public-listing-pdf-url",
         "public-listing-pdf-path",
     ],

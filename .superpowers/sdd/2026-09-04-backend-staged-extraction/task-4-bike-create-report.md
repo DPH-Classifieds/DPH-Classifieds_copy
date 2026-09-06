@@ -523,3 +523,64 @@ interpreter. The extracted-route diff against `a12aece2` was empty, and static
 scans exited 0 with `no forbidden app imports` and `no direct environment or app
 config access`. The final post-evidence `git diff --check` also exited 0 with no
 output.
+
+## Task 4b final advisory evidence
+
+The final review found that Python's `urlparse(value)` raises `ValueError` for
+malformed bracketed URL authorities. `_validate_listing_image_reference` now
+catches that parser exception and returns `False`, keeping the input on the
+existing image-validation rejection path. No valid URL/path branch, metadata
+validation, image mapping, persistence, or response behavior changed.
+
+### RED
+
+Command from `flask-react-supabase-app/backend`:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q 'test_media_upload_security.py::test_listing_image_reference_rejects_malformed_urls_and_documents[malformed-bracketed-url]' 'test_bike_create_route_parity.py::test_unsafe_image_reference_is_rejected_before_listing_or_image_insert[malformed-bracketed-url]'
+```
+
+Result before implementation: exit 1; `2 failed in 0.58s`. The helper case
+raised `ValueError: Invalid IPv6 URL`, and the bike route returned 500 instead
+of the required 400. The route regression also asserts that rejection performs
+no listing create, image insert, notification, or review trigger.
+
+### GREEN regression slice
+
+The same command after the minimal parser guard exited 0 with `2 passed in
+0.38s`.
+
+### Focused bike, media, and manifest tests
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py test_bike_read_route_parity.py test_media_upload_security.py test_route_manifest.py
+```
+
+Result: exit 0; `137 passed in 1.14s`. This includes the existing valid public
+image URL/path, metadata, explicit-null, ordering, response-shape, bike-read,
+and immutable route-manifest coverage.
+
+### Full backend pytest
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q
+```
+
+Result: exit 0; `1021 passed, 11 skipped, 65 warnings, 10 subtests passed in
+12.83s`.
+
+### Docker API E2E
+
+`./e2e/run.sh` ran from `flask-react-supabase-app/backend` and exited 0. The
+production image built, the container became ready, liveness returned 200,
+readiness returned 200, the unknown route returned 404, the auth-gated route
+returned 401, and the script ended with `E2E PASSED`.
+
+### Diff and import boundaries
+
+The pre-report `git diff --check` exited 0. Both `app.py` and
+`application/bike_create_routes.py` compiled with the verified virtualenv
+interpreter. The extracted bike-create module is unchanged from `b8e914b2`;
+its static scans found no forbidden `app` import and no direct environment or
+`app.config` access. The final post-evidence `git diff --check` also exited 0
+with no output.
