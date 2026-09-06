@@ -475,14 +475,15 @@ class PostListingSmokeTests(unittest.TestCase):
             "wheels": 2,
             "is_dealer": False,
             "images": [
-                "https://example.com/bike-1.jpg",
-                "https://example.com/bike-2.jpg",
-                "https://example.com/bike-3.jpg",
+                "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/bike-1.jpg",
+                "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/bike-2.jpg",
+                "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/bike-3.jpg",
             ],
         }
 
-        with backend.app.test_request_context("/api/bikes", method="POST", json=payload):
-            response, status = backend.create_bike.__wrapped__("user-123")
+        with patch.object(backend, "SUPABASE_URL", "https://project-ref.supabase.co"):
+            with backend.app.test_request_context("/api/bikes", method="POST", json=payload):
+                response, status = backend.create_bike.__wrapped__("user-123")
 
         self.assertEqual(status, 201)
         self.assertEqual(response.get_json()["id"], "bike-1")

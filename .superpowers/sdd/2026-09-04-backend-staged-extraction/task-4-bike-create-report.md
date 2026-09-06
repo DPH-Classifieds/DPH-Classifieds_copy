@@ -201,3 +201,55 @@ returned 401, and the script ended with `E2E PASSED`.
 `git diff --check` exited 0 with no output. The verified virtualenv interpreter
 compiled `application/bike_create_routes.py`. Static scans exited 0 with `no
 forbidden app imports` and `no direct environment or app config access`.
+
+## Task 4b fix round 1 evidence
+
+The only code change in this round is the stale compatibility fixture in
+`backend/test_admin_stats_and_posts.py`. Its three external `example.com` URLs
+were replaced with public `listing-images/user-123/...` references from the
+configured Supabase origin, and that origin is patched only within the test.
+Production validation was not changed.
+
+### Previously failing compatibility test
+
+Command:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_admin_stats_and_posts.py::PostListingSmokeTests::test_post_bike_payload_succeeds
+```
+
+Result: exit 0; `1 passed in 0.21s`. Before this fixture correction, the same
+test was the sole full-suite failure with `AssertionError: 400 != 201` because
+it submitted arbitrary external image URLs.
+
+### Focused bike, media, and manifest tests
+
+Command:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q test_bike_create_route_parity.py test_bike_read_route_parity.py test_media_upload_security.py test_route_manifest.py
+```
+
+Result: exit 0; `91 passed in 1.10s`.
+
+### Full backend pytest
+
+Command:
+
+```text
+/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/.venv/bin/pytest -q
+```
+
+Result: exit 0; `975 passed, 11 skipped, 65 warnings, 10 subtests passed in
+12.59s`.
+
+### Docker API E2E
+
+`./e2e/run.sh` ran from `flask-react-supabase-app/backend` and exited 0. The
+production image built, the container became ready, liveness returned 200,
+readiness returned 200, the unknown route returned 404, the auth-gated route
+returned 401, and the script ended with `E2E PASSED`.
+
+### Diff integrity
+
+`git diff --check` exited 0 with no output after the fixture and report edits.
