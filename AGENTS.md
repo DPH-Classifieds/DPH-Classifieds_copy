@@ -73,7 +73,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 17,070 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 16,943 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
 reports, and manifest suites pass; the full backend suite is `1189 passed, 11 skipped, 56 warnings`; Docker API
 liveness/readiness/404/auth-gate
@@ -109,7 +109,8 @@ live in `routes/admin_metrics.py`; live-user metrics live in `routes/live_users.
 admin dealer info-request controls live in `routes/dealer_info_requests.py`; public
 dealer info-request lookup lives in `routes/public_info_request.py`; public dealer
 info-request multipart upload/lifecycle handling lives in
-`routes/public_info_upload.py`; and report create/list handling lives in
+`routes/public_info_upload.py`; public car detail and VIN privacy handling lives
+in `routes/car_detail.py`; and report create/list handling lives in
 `routes/reports.py`.
 Each module
 has focused route-contract coverage and independent review evidence.
@@ -136,7 +137,7 @@ check before persistence; all three modules retain compatibility exports and
 route-manifest coverage.
 
 Remaining root cleanup is limited to coupled helpers and legacy families that
-still require separate contract work: listing detail/read helpers, overview and
+still require separate contract work: plate/part detail helpers, overview and
 stats aggregation, and lifecycle/reminder worker composition. These must not be
 deleted mechanically. Protected browser/provider verification remains
 credential-gated; the ordinary public browser lane is not evidence for those

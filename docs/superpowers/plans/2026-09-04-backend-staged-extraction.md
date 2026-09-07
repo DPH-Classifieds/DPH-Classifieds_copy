@@ -509,3 +509,12 @@ Status: complete in commit `56445c34`.
   readiness helpers in their existing ownership unless runtime compatibility
   requires exports; use no static `app.py` import.
 - Do not move unrelated public lookup, admin controls, or worker code.
+
+### Task 8ah: Extract public car detail route
+
+Status: complete in commit `58028479`.
+
+The public `/api/cars/<string:car_id>` route now lives in
+`routes/car_detail.py`, with runtime dependency resolution and the existing VIN
+privacy, visibility, caching, image, seller, and lifecycle contracts covered by
+the existing VIN suite plus a dedicated route-boundary test.
