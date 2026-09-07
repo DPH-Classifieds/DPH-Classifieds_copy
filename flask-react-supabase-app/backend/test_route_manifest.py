@@ -22,6 +22,7 @@ EXPECTED_METHODS = {
     "/api/health": ("GET", "HEAD", "OPTIONS"),
     "/api/cars": ("GET", "HEAD", "OPTIONS", "POST"),
     "/api/admin/stats": ("GET", "HEAD", "OPTIONS"),
+    "/api/analytics/events": ("OPTIONS", "POST"),
 }
 
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
@@ -116,6 +117,13 @@ def test_build_route_manifest_freezes_representative_route_methods():
     assert {
         rule: tuple(sorted(methods_by_rule[rule])) for rule in EXPECTED_METHODS
     } == EXPECTED_METHODS
+    analytics_contracts = [
+        contract
+        for contract in manifest
+        if contract.rule == "/api/analytics/events"
+    ]
+    assert len(analytics_contracts) == 1
+    assert analytics_contracts[0].endpoint == "track_platform_event"
     assert all(contract.endpoint != "static" for contract in manifest)
     assert len(manifest) == len(set(manifest))
 
