@@ -6281,141 +6281,6 @@ def _requester_can_view_vin(requesting_user, is_owner):
     return False
 
 
-@app.route("/api/cars/<string:car_id>", methods=["GET"])
-def get_car_by_id(car_id):
-    try:
-        logger.info(f"Fetching car details for ID: {car_id}")
-
-        resolved_car_id = _resolve_car_listing_id(car_id)
-        if not resolved_car_id:
-            return jsonify({"error": "Car not found"}), 404
-        car_id = resolved_car_id
-
-        requesting_user = _optional_user_id()
-        cache_key = None
-
-        if not requesting_user:
-            cache_key = f"api-cache:{request.path}"
-            cached_payload = _api_cache_get(cache_key)
-            if cached_payload is not None:
-                logger.debug(f"Redis cache hit for car detail {car_id}")
-                return _cached_json_response(cached_payload)
-
-        query = f"/rest/v1/cars?id=eq.{car_id}&select=*"
-        car_response, car_status = supabase_request("get", query, use_service_role=True)
-
-        if not car_response or len(car_response) == 0:
-            logger.warning(f"Car not found with ID: {car_id}")
-            return jsonify({"error": "Car not found"}), 404
-
-        car = _sync_listing_lifecycle(
-            "cars", car_response[0], hard_delete_archived=False, persist=False
-        )
-        if not car:
-            return jsonify({"error": "Car not found"}), 404
-
-        visible, is_public = _listing_visible_to_requester(car, requesting_user)
-
-        # Dev preview (LOCAL_SHOW_HIDDEN_REDDIT=1, never set in prod): allow viewing
-        # a hidden (is_approved=false) Reddit import's detail page for review.
-        if (
-            not is_public
-            and str(car.get("source_platform") or "").lower() == "reddit"
-            and car.get("listing_state") == "active"
-            and os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1"
-        ):
-            is_public = True
-
-        is_owner = bool(requesting_user and car.get("user_id") == requesting_user)
-        if not visible and not is_public:
-            return jsonify({"error": "Car not found"}), 404
-
-        if is_public and not is_owner:
-            try:
-                headers = {
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "Content-Type": "application/json",
-                }
-                current_view_count = 0
-                view_response = requests.get(
-                    f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}&select=view_count",
-                    headers=headers,
-                    timeout=2,
-                )
-                if view_response.status_code == 200 and view_response.json():
-                    current_view_count = (
-                        view_response.json()[0].get("view_count", 0) or 0
-                    )
-                requests.patch(
-                    f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}",
-                    headers=headers,
-                    json={
-                        "view_count": current_view_count + 1,
-                        "last_viewed_at": "now()",
-                    },
-                    timeout=2,
-                )
-                car["view_count"] = current_view_count + 1
-            except Exception as view_error:
-                logger.warning(f"Failed to increment view count: {view_error}")
-
-        logger.info(
-            f"Found car: {car.get('listing_title', 'Untitled')} (ID: {car['id']})"
-        )
-
-        images_query = (
-            f"/rest/v1/car_images?car_id=eq.{car_id}&select=*&order=uploaded_at.asc"
-        )
-        images_response, images_status = supabase_request(
-            "get", images_query, use_service_role=True
-        )
-
-        if images_status < 400:
-            logger.info(f"Found {len(images_response)} images for car {car_id}")
-            for image in images_response:
-                if "url" in image and not image.get("image_url"):
-                    image["image_url"] = image["url"]
-                elif "image_url" in image and not image.get("url"):
-                    image["url"] = image["image_url"]
-            car["images"] = _sort_listing_images(images_response)
-        else:
-            logger.warning(
-                f"Failed to fetch images for car {car_id}: status {images_status}"
-            )
-            car["images"] = []
-
-        user_id = car.get("user_id")
-        if user_id:
-            try:
-                user_response, user_status = supabase_request(
-                    "get",
-                    f"/rest/v1/users?id=eq.{user_id}&select=profile_photo_url",
-                    use_service_role=True,
-                )
-                if user_status < 400 and user_response and len(user_response) > 0:
-                    car["seller_profile_photo"] = user_response[0].get(
-                        "profile_photo_url"
-                    )
-            except Exception as user_err:
-                logger.warning(f"Failed to fetch seller info: {user_err}")
-
-        logger.info(
-            f"Returning car with {len(car['images'])} images (Views: {car.get('view_count', 0)})"
-        )
-        if not is_owner:
-            for _f in _PUBLIC_STRIP_FIELDS:
-                car.pop(_f, None)
-        if not _requester_can_view_vin(requesting_user, is_owner):
-            car.pop("vin_number", None)
-        if cache_key:
-            _api_cache_set(cache_key, car)
-            return _cached_json_response(car)
-        return jsonify(car), 200
-    except Exception as e:
-        logger.error(f"Error fetching car details: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-
 
 def _legacy_listing_view_response(listing_type, listing_id):
     """Accept deprecated view pings without creating a second metric source.
@@ -16673,6 +16538,14 @@ except Exception as e:
 # registry on the Flask app avoids circular imports from the compatibility
 # root while allowing tests to patch the original functions in place.
 app.extensions["dph_user_backend"] = globals()
+
+try:
+    from routes.car_detail import get_car_by_id, register_car_detail_routes
+
+    register_car_detail_routes(app)
+    logger.info("Public car detail route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register public car detail route: {e}")
 
 # Admin dealer information-request controls are registered after the runtime
 # dependency table exists; public token/upload routes remain root-owned.

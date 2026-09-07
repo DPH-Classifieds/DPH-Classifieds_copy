@@ -61,8 +61,13 @@ def upload_public_info_request(token):
                     use_service_role=True,
                 )
                 return jsonify({"error": "This request has expired"}), 410
-        except Exception:
-            pass
+        except Exception as expiry_error:
+            backend.logger.warning(
+                "Unable to verify info-request expiry for %s: %s",
+                req.get("id"),
+                expiry_error,
+            )
+            return jsonify({"error": "Unable to verify request expiry"}), 503
 
         document_label = (request.form.get("document_label") or "").strip()
         if not document_label:
@@ -90,7 +95,14 @@ def upload_public_info_request(token):
             params={"select": "id,storage_path", "request_id": f"eq.{req['id']}"},
             use_service_role=True,
         )
-        existing_uploads = existing_resp if existing_status < 400 and isinstance(existing_resp, list) else []
+        if existing_status >= 400 or not isinstance(existing_resp, list):
+            backend.logger.error(
+                "Unable to verify upload quota for info request %s: %s",
+                req["id"],
+                existing_status,
+            )
+            return jsonify({"error": "Unable to verify upload quota"}), 503
+        existing_uploads = existing_resp
         if len(existing_uploads) >= backend.DEALER_INFO_REQUEST_MAX_UPLOADS:
             return jsonify({"error": "This request has reached its upload limit"}), 413
         # Existing rows predate size tracking, so count each as the maximum
@@ -140,7 +152,8 @@ def upload_public_info_request(token):
         if document_type:
             # A recovery upload is a real replacement that returns to the normal
             # admin document-review queue, not an orphaned attachment.
-            backend.supabase_request(
+            replacement_timestamp = backend._isoformat_utc(backend._utc_now())
+            replace_resp, replace_status = backend.supabase_request(
                 "patch",
                 "/rest/v1/dealer_documents",
                 params={
@@ -148,9 +161,25 @@ def upload_public_info_request(token):
                     "document_type": f"eq.{document_type}",
                     "replaced_at": "is.null",
                 },
-                data={"replaced_at": backend._isoformat_utc(backend._utc_now())},
+                data={"replaced_at": replacement_timestamp},
                 use_service_role=True,
             )
+            if replace_status >= 400:
+                backend.logger.error(
+                    "Failed to retire prior recovery document: %s", replace_resp
+                )
+                try:
+                    backend.requests.delete(
+                        upload_url,
+                        headers={
+                            "apikey": backend.SUPABASE_SERVICE_ROLE_KEY,
+                            "Authorization": f"Bearer {backend.SUPABASE_SERVICE_ROLE_KEY}",
+                        },
+                        timeout=10,
+                    )
+                except Exception as cleanup_error:
+                    backend.logger.warning("Failed to clean up uploaded object: %s", cleanup_error)
+                return jsonify({"error": "Uploaded file could not be queued for review"}), 500
             canonical_payload = {
                 "user_id": req["dealer_user_id"],
                 "document_type": document_type,
@@ -170,6 +199,28 @@ def upload_public_info_request(token):
             )
             if canonical_status >= 400:
                 backend.logger.error(f"Failed to record recovery document: {canonical_resp}")
+                backend.supabase_request(
+                    "patch",
+                    "/rest/v1/dealer_documents",
+                    params={
+                        "user_id": f"eq.{req['dealer_user_id']}",
+                        "document_type": f"eq.{document_type}",
+                        "replaced_at": f"eq.{replacement_timestamp}",
+                    },
+                    data={"replaced_at": None},
+                    use_service_role=True,
+                )
+                try:
+                    backend.requests.delete(
+                        upload_url,
+                        headers={
+                            "apikey": backend.SUPABASE_SERVICE_ROLE_KEY,
+                            "Authorization": f"Bearer {backend.SUPABASE_SERVICE_ROLE_KEY}",
+                        },
+                        timeout=10,
+                    )
+                except Exception as cleanup_error:
+                    backend.logger.warning("Failed to clean up uploaded object: %s", cleanup_error)
                 return jsonify({"error": "Uploaded file could not be queued for review"}), 500
 
         record_resp, record_status = backend.supabase_request(
@@ -188,6 +239,24 @@ def upload_public_info_request(token):
         )
         if record_status >= 400:
             backend.logger.error(f"Failed to record info-request upload: {record_resp}")
+            if document_type:
+                backend.supabase_request(
+                    "delete",
+                    "/rest/v1/dealer_documents",
+                    params={"storage_path": f"eq.{object_path}"},
+                    use_service_role=True,
+                )
+            try:
+                backend.requests.delete(
+                    upload_url,
+                    headers={
+                        "apikey": backend.SUPABASE_SERVICE_ROLE_KEY,
+                        "Authorization": f"Bearer {backend.SUPABASE_SERVICE_ROLE_KEY}",
+                    },
+                    timeout=10,
+                )
+            except Exception as cleanup_error:
+                backend.logger.warning("Failed to clean up uploaded object: %s", cleanup_error)
             return jsonify({"error": "Upload recorded partially. Please retry."}), 500
 
         # If every requested document has at least one upload, mark submitted.
@@ -197,26 +266,41 @@ def upload_public_info_request(token):
             params={"select": "document_label", "request_id": f"eq.{req['id']}"},
             use_service_role=True,
         )
-        if uploads_status < 400 and isinstance(uploads_resp, list):
-            uploaded_labels = {row.get("document_label") for row in uploads_resp}
-            required_labels = set(req.get("requested_documents") or [])
-            if required_labels and required_labels.issubset(uploaded_labels):
-                backend.supabase_request(
-                    "patch",
-                    "/rest/v1/dealer_info_requests",
-                    params={"id": f"eq.{req['id']}"},
-                    data={
-                        "status": "submitted",
-                        "submitted_at": backend._isoformat_utc(backend._utc_now()),
-                    },
-                    use_service_role=True,
+        if uploads_status >= 400 or not isinstance(uploads_resp, list):
+            backend.logger.error(
+                "Unable to verify submitted state for info request %s: %s",
+                req["id"],
+                uploads_status,
+            )
+            return jsonify({"error": "Upload saved but submission status could not be verified"}), 503
+
+        uploaded_labels = {row.get("document_label") for row in uploads_resp}
+        required_labels = set(req.get("requested_documents") or [])
+        if required_labels and required_labels.issubset(uploaded_labels):
+            request_update, request_update_status = backend.supabase_request(
+                "patch",
+                "/rest/v1/dealer_info_requests",
+                params={"id": f"eq.{req['id']}"},
+                data={
+                    "status": "submitted",
+                    "submitted_at": backend._isoformat_utc(backend._utc_now()),
+                },
+                use_service_role=True,
+            )
+            user_update, user_update_status = backend.supabase_request(
+                "patch",
+                f"/rest/v1/users?id=eq.{req['dealer_user_id']}",
+                data={"dealer_application_status": "submitted", "dealer_verified": False},
+                use_service_role=True,
+            )
+            if request_update_status >= 400 or user_update_status >= 400:
+                backend.logger.error(
+                    "Failed to finalize submitted state for %s: request=%s user=%s",
+                    req["id"],
+                    request_update,
+                    user_update,
                 )
-                backend.supabase_request(
-                    "patch",
-                    f"/rest/v1/users?id=eq.{req['dealer_user_id']}",
-                    data={"dealer_application_status": "submitted", "dealer_verified": False},
-                    use_service_role=True,
-                )
+                return jsonify({"error": "Upload saved but submission could not be finalized"}), 503
 
         return jsonify({
             "success": True,

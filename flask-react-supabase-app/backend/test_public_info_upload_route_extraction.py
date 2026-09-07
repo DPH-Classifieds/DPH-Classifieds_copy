@@ -188,6 +188,73 @@ def test_upload_writes_private_storage_canonical_document_and_submits_request():
     assert any(call[0] == "patch" and "/rest/v1/users" in call[1] for call in calls)
 
 
+def test_upload_fails_closed_when_quota_lookup_is_unavailable():
+    request_row = {
+        "id": "request-1",
+        "dealer_user_id": "dealer-1",
+        "requested_documents": ["Company registration certificate"],
+        "status": "pending",
+        "expires_at": "2099-01-01T00:00:00+00:00",
+    }
+    with patch.object(
+        backend,
+        "supabase_request",
+        side_effect=[([request_row], 200), ({"error": "upstream"}, 503)],
+    ), patch.object(backend, "_validate_info_request_document", return_value=b"%PDF-valid"), patch.object(
+        backend.requests, "post"
+    ) as storage_post:
+        response = backend.app.test_client().post(
+            f"/api/info-requests/{TOKEN}/upload",
+            data={
+                "document_label": "Company registration certificate",
+                "file": (io.BytesIO(b"%PDF-valid"), "registration.pdf", "application/pdf"),
+            },
+            content_type="multipart/form-data",
+        )
+    assert response.status_code == 503
+    assert response.get_json() == {"error": "Unable to verify upload quota"}
+    storage_post.assert_not_called()
+
+
+def test_upload_does_not_report_success_when_submission_state_write_fails():
+    request_row = {
+        "id": "request-1",
+        "dealer_user_id": "dealer-1",
+        "requested_documents": ["Company registration certificate"],
+        "status": "pending",
+        "expires_at": "2099-01-01T00:00:00+00:00",
+    }
+
+    def supabase(method, path, **kwargs):
+        if method == "get" and path.endswith("dealer_info_requests"):
+            return [request_row], 200
+        if method == "get" and path.endswith("dealer_info_request_uploads"):
+            if kwargs["params"]["select"] == "id,storage_path":
+                return [], 200
+            return [{"document_label": "Company registration certificate"}], 200
+        if method == "post" and path.endswith("dealer_info_request_uploads"):
+            return [], 201
+        if method == "patch" and path.endswith("dealer_info_requests"):
+            return {"error": "write failed"}, 503
+        return [], 204
+
+    with patch.object(backend, "supabase_request", side_effect=supabase), patch.object(
+        backend, "_validate_info_request_document", return_value=b"%PDF-valid"
+    ), patch.object(backend, "_dealer_document_type_from_label", return_value=None), patch.object(
+        backend, "ensure_storage_bucket", return_value=True
+    ), patch.object(backend.requests, "post", return_value=Mock(status_code=201, text="")):
+        response = backend.app.test_client().post(
+            f"/api/info-requests/{TOKEN}/upload",
+            data={
+                "document_label": "Company registration certificate",
+                "file": (io.BytesIO(b"%PDF-valid"), "registration.pdf", "application/pdf"),
+            },
+            content_type="multipart/form-data",
+        )
+    assert response.status_code == 503
+    assert response.get_json() == {"error": "Upload saved but submission could not be finalized"}
+
+
 def test_upload_returns_safe_failure_when_storage_or_recording_fails():
     request_row = {
         "id": "request-1",
@@ -212,4 +279,3 @@ def test_upload_returns_safe_failure_when_storage_or_recording_fails():
         )
     assert response.status_code == 500
     assert response.get_json() == {"error": "Failed to upload file"}
-
