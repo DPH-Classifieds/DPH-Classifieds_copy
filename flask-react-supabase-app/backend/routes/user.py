@@ -6,7 +6,7 @@ import re
 
 from functools import wraps
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, make_response, request
 
 
 user_bp = Blueprint("user", __name__, url_prefix="/api/user")
@@ -410,3 +410,136 @@ def delete_user_saved_search(current_user, search_id_or_key):
             return _saved_search_missing_table_response()
         return jsonify({"error": "Failed to delete saved search"}), status_code
     return jsonify({"deleted": True}), 200
+
+
+def _soft_delete_user_listing_table(table_name, user_id):
+    backend = _backend()
+    now_iso = backend._isoformat_utc(backend._utc_now())
+    full_payload = {
+        "status": "deleted",
+        "listing_state": "deleted",
+        "deleted_at": now_iso,
+        "is_approved": False,
+        "is_archived": True,
+        "auto_removed_at": now_iso,
+    }
+    path = f"/rest/v1/{table_name}?user_id=eq.{user_id}"
+    response, status_code = backend.supabase_request(
+        "patch", path, data=full_payload, use_service_role=True
+    )
+    if status_code < 400:
+        return True, None
+    if backend._looks_like_missing_column(
+        response,
+        "listing_state",
+        "deleted_at",
+        "is_approved",
+        "is_archived",
+        "auto_removed_at",
+    ):
+        fallback_response, fallback_status = backend.supabase_request(
+            "patch", path, data={"status": "deleted"}, use_service_role=True
+        )
+        if fallback_status < 400:
+            return True, None
+        return False, fallback_response
+    return False, response
+
+
+def _delete_user_scoped_table_rows(table_name, user_id, column_name="user_id"):
+    backend = _backend()
+    response, status_code = backend.supabase_request(
+        "delete",
+        f"/rest/v1/{table_name}",
+        params={column_name: f"eq.{user_id}"},
+        use_service_role=True,
+    )
+    if status_code < 400 or backend._looks_like_missing_table(response):
+        return True, None
+    return False, response
+
+
+def _delete_supabase_auth_user(user_id):
+    backend = _backend()
+    service_key = backend.SUPABASE_SERVICE_ROLE_KEY or backend.os.getenv(
+        "SUPABASE_SERVICE_ROLE_KEY"
+    )
+    if not backend.SUPABASE_URL or not service_key:
+        return False, "Supabase service role is not configured"
+    response = backend.requests.delete(
+        f"{backend.SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+        headers={
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+        },
+        timeout=15,
+    )
+    if response.status_code in (200, 202, 204):
+        return True, None
+    return False, response.text[:500]
+
+
+@user_bp.route("/delete-account", methods=["DELETE"])
+@_token_required
+def delete_user_account(current_user):
+    backend = _backend()
+    cleanup_errors = []
+    for table_name in ("cars", "bikes", "car_parts", "license_plates"):
+        ok, error = _soft_delete_user_listing_table(table_name, current_user)
+        if not ok:
+            cleanup_errors.append({"table": table_name, "error": error})
+
+    for table_name in (
+        "saved_listings",
+        "listing_drafts",
+        "saved_searches",
+        "notifications",
+        "user_verification",
+    ):
+        ok, error = _delete_user_scoped_table_rows(table_name, current_user)
+        if not ok:
+            cleanup_errors.append({"table": table_name, "error": error})
+
+    for column_name in ("follower_id", "following_id"):
+        ok, error = _delete_user_scoped_table_rows(
+            "user_followers", current_user, column_name=column_name
+        )
+        if not ok:
+            cleanup_errors.append({"table": "user_followers", "error": error})
+
+    if cleanup_errors:
+        backend.logger.error(
+            "Account deletion cleanup failed for %s: %s", current_user, cleanup_errors
+        )
+        return jsonify({"deleted": False, "error": "Failed to clean up account data"}), 500
+
+    public_user_response, public_user_status = backend.supabase_request(
+        "delete",
+        "/rest/v1/users",
+        params={"id": f"eq.{current_user}"},
+        use_service_role=True,
+    )
+    if public_user_status >= 400 and not backend._looks_like_missing_table(public_user_response):
+        backend.logger.error(
+            "Failed to delete public user row for %s: %s",
+            current_user,
+            public_user_response,
+        )
+        return jsonify({"deleted": False, "error": "Failed to delete profile"}), 500
+
+    auth_deleted, auth_error = _delete_supabase_auth_user(current_user)
+    if not auth_deleted:
+        backend.logger.error("Failed to delete auth user %s: %s", current_user, auth_error)
+        return jsonify(
+            {
+                "deleted": False,
+                "error": "Profile cleanup completed but auth deletion failed",
+                "details": auth_error,
+            }
+        ), 502
+
+    response = make_response(jsonify({"deleted": True}), 200)
+    response.set_cookie("access_token", "", expires=0)
+    response.set_cookie("refresh_token", "", expires=0)
+    return response, 200

@@ -105,3 +105,7 @@ Ruling: Continue with login/signup only after freezing their current response, r
 Task 8k public authentication extraction: implementation verified (moved login, signup, and username availability into `routes/auth_public.py`; retained the original response contracts and compatibility names; registered the blueprint only after app.py shared helpers are defined; updated route-manifest hashes). Focused auth/username/manifest suite 34 passed, full backend 1075 passed/11 skipped, Docker API smoke passed, worker health/Redis heartbeat smoke passed, and `app.py` is now 22,560 lines.
 
 Ruling: Continue with account deletion/profile and dealer verification as separate security-sensitive slices. Draft reads/writes must remain separate from reminder workers; protected posting, dealer, admin, and VIN browser flows still require disposable credentials and a target environment.
+
+Task 8l account-deletion extraction: implementation verified (moved the authenticated account cleanup helpers and `/api/user/delete-account` route into `routes/user.py`; preserved soft-delete fallback behavior, public-profile cleanup, auth-user deletion, cookie clearing, and compatibility imports). Focused account/lifecycle tests 4 passed, full backend 1075 passed/11 skipped, Docker API smoke passed, worker health/Redis heartbeat smoke passed, and `app.py` is now 22,426 lines.
+
+Ruling: Continue with profile and dealer-document routes as separate slices. Keep destructive admin deletion and background lifecycle workers isolated from the user account-deletion boundary.

@@ -71,7 +71,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged authentication slice is:
-`app.py` 22,560 lines; backend
+`app.py` 22,426 lines; backend
 `1075 passed, 11 skipped`; Docker API liveness/readiness/404/auth-gate smoke
 passed; worker health plus Redis heartbeat smoke passed. Protected browser
 flows remain credential-gated and must not be reported as passed when their

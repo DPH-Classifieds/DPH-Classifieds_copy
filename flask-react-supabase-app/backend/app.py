@@ -3838,141 +3838,6 @@ def token_required_optional(f):
     return decorated
 
 
-def _soft_delete_user_listing_table(table_name, user_id):
-    now_iso = _isoformat_utc(_utc_now())
-    full_payload = {
-        "status": "deleted",
-        "listing_state": "deleted",
-        "deleted_at": now_iso,
-        "is_approved": False,
-        "is_archived": True,
-        "auto_removed_at": now_iso,
-    }
-    path = f"/rest/v1/{table_name}?user_id=eq.{user_id}"
-    response, status_code = supabase_request(
-        "patch",
-        path,
-        data=full_payload,
-        use_service_role=True,
-    )
-    if status_code < 400:
-        return True, None
-
-    if _looks_like_missing_column(
-        response,
-        "listing_state",
-        "deleted_at",
-        "is_approved",
-        "is_archived",
-        "auto_removed_at",
-    ):
-        fallback_response, fallback_status = supabase_request(
-            "patch",
-            path,
-            data={"status": "deleted"},
-            use_service_role=True,
-        )
-        if fallback_status < 400:
-            return True, None
-        return False, fallback_response
-    return False, response
-
-
-def _delete_user_scoped_table_rows(table_name, user_id, column_name="user_id"):
-    response, status_code = supabase_request(
-        "delete",
-        f"/rest/v1/{table_name}",
-        params={column_name: f"eq.{user_id}"},
-        use_service_role=True,
-    )
-    if status_code < 400 or _looks_like_missing_table(response):
-        return True, None
-    return False, response
-
-
-def _delete_supabase_auth_user(user_id):
-    service_key = SUPABASE_SERVICE_ROLE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    if not SUPABASE_URL or not service_key:
-        return False, "Supabase service role is not configured"
-    response = requests.delete(
-        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
-        headers={
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
-            "Content-Type": "application/json",
-        },
-        timeout=15,
-    )
-    if response.status_code in (200, 202, 204):
-        return True, None
-    return False, response.text[:500]
-
-
-@app.route("/api/user/delete-account", methods=["DELETE"])
-@token_required
-def delete_user_account(current_user):
-    cleanup_errors = []
-    for table_name in ("cars", "bikes", "car_parts", "license_plates"):
-        ok, error = _soft_delete_user_listing_table(table_name, current_user)
-        if not ok:
-            cleanup_errors.append({"table": table_name, "error": error})
-
-    for table_name in (
-        "saved_listings",
-        "listing_drafts",
-        "saved_searches",
-        "notifications",
-        "user_verification",
-    ):
-        ok, error = _delete_user_scoped_table_rows(table_name, current_user)
-        if not ok:
-            cleanup_errors.append({"table": table_name, "error": error})
-
-    for column_name in ("follower_id", "following_id"):
-        ok, error = _delete_user_scoped_table_rows(
-            "user_followers", current_user, column_name=column_name
-        )
-        if not ok:
-            cleanup_errors.append({"table": "user_followers", "error": error})
-
-    if cleanup_errors:
-        logger.error("Account deletion cleanup failed for %s: %s", current_user, cleanup_errors)
-        return jsonify({"deleted": False, "error": "Failed to clean up account data"}), 500
-
-    public_user_response, public_user_status = supabase_request(
-        "delete",
-        "/rest/v1/users",
-        params={"id": f"eq.{current_user}"},
-        use_service_role=True,
-    )
-    if public_user_status >= 400 and not _looks_like_missing_table(public_user_response):
-        logger.error(
-            "Failed to delete public user row for %s: %s",
-            current_user,
-            public_user_response,
-        )
-        return jsonify({"deleted": False, "error": "Failed to delete profile"}), 500
-
-    auth_deleted, auth_error = _delete_supabase_auth_user(current_user)
-    if not auth_deleted:
-        logger.error("Failed to delete auth user %s: %s", current_user, auth_error)
-        return (
-            jsonify(
-                {
-                    "deleted": False,
-                    "error": "Profile cleanup completed but auth deletion failed",
-                    "details": auth_error,
-                }
-            ),
-            502,
-        )
-
-    response = make_response(jsonify({"deleted": True}), 200)
-    response.set_cookie("access_token", "", expires=0)
-    response.set_cookie("refresh_token", "", expires=0)
-    return response, 200
-
-
 @app.route("/api/admin/saved-searches", methods=["GET"])
 @token_required
 def get_admin_saved_searches(current_user):
@@ -5645,7 +5510,11 @@ try:
         _clean_saved_search_filters,
         _normalize_saved_search_category,
         _saved_search_missing_table_response,
+        _delete_supabase_auth_user,
+        _delete_user_scoped_table_rows,
+        _soft_delete_user_listing_table,
         delete_push_token,
+        delete_user_account,
         delete_user_saved_listing,
         delete_user_saved_search,
         get_user_saved_listings,
