@@ -465,3 +465,22 @@ Playwright, Supabase HTTP APIs.
   error handling.
 - Keep public multipart upload, storage writes, MIME/signature validation, and
   lifecycle transitions in a separate task; use no static `app.py` import.
+
+### Task 8af: Extract report create/list routes
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/reports.py`
+- Create or modify: `flask-react-supabase-app/backend/test_reports_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for `POST` and `GET
+  /api/reports`.
+
+**Constraints:**
+- Preserve the intentional GET/POST path collision, token auth, validation,
+  reporter/admin scoping, notification best-effort behavior, write payloads,
+  response/status/error envelopes, and compatibility exports.
+- Keep admin status patching and analytics/contact helpers separate; use no
+  static `app.py` import.

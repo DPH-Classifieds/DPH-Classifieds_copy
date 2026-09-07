@@ -62,7 +62,7 @@ browser artifacts.
 ## Current staged-extraction baseline
 
 The current staged branch has completed the bounded admin route cleanup and the
-authenticated identity/listing extraction through commit `2018dd3b`. The canonical
+authenticated identity/listing extraction through commit `2f556837`. The canonical
 saved-listings, saved-searches, push-token, auth, profile, dealer-verification,
 moderation, analytics, diagnostics, sitemap, and recommendations boundaries live
 in dedicated route modules and resolve services through
@@ -73,9 +73,9 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 17,380 lines; focused moderation, analytics, diagnostics, sitemap,
-recommendation, phone, metrics, live-user, dealer-info, public-info, and manifest
-suites pass; the full backend suite is `1176 passed, 11 skipped, 54 warnings`; Docker API
+`app.py` 17,270 lines; focused moderation, analytics, diagnostics, sitemap,
+recommendation, phone, metrics, live-user, dealer-info, public-info, reports, and
+manifest suites pass; the full backend suite is `1182 passed, 11 skipped, 54 warnings`; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
 `153 passed`, CRA production build passed, the main bundle is `102.0 KiB`, the
@@ -106,8 +106,9 @@ lives in `routes/platform_analytics.py`; diagnostics config lives in
 recommendation HTTP handling lives in `routes/recommendations.py`; phone
 verification lives in `routes/phone_verification.py`; admin email/error metrics
 live in `routes/admin_metrics.py`; live-user metrics live in `routes/live_users.py`;
-admin dealer info-request controls live in `routes/dealer_info_requests.py`; and
-public dealer info-request lookup lives in `routes/public_info_request.py`.
+admin dealer info-request controls live in `routes/dealer_info_requests.py`; public
+dealer info-request lookup lives in `routes/public_info_request.py`; and report
+create/list handling lives in `routes/reports.py`.
 Each module
 has focused route-contract coverage and independent review evidence.
 
