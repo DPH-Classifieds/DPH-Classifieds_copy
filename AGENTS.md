@@ -72,10 +72,14 @@ of static `app.py` imports and resolve runtime services through
 
 The verified local baseline for the current staged listing-mutation slice is:
 `app.py` 21,112 lines; the focused dealer/profile/drafts/statistics/media/VIN/
-outcome/manifest suite is `128 passed`; Docker API liveness/readiness/404/auth-gate smoke
-passed; worker health plus Redis heartbeat smoke passed. Protected browser
-flows remain credential-gated and must not be reported as passed when their
-disposable credentials and target environment are absent.
+outcome/manifest suite is `183 passed, 5 warnings`; the full backend suite is
+`1082 passed, 11 skipped, 53 warnings`; Docker API liveness/readiness/404/auth-gate
+smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
+`153 passed`, CRA build/bundle/media checks passed, mobile TypeScript and Jest
+are `261 passed`, and public Playwright is `48 passed, 27 credential-gated
+skips` across desktop/tablet/mobile. Protected browser flows remain
+credential-gated and must not be reported as passed when their disposable
+credentials and target environment are absent.
 
 Dealer document listing, upload, deletion, profile-photo, and KYC application
 submission routes now live in `routes/dealer_verification.py`. It follows the
