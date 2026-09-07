@@ -106,6 +106,10 @@ Task 8k public authentication extraction: implementation verified (moved login, 
 
 Ruling: Continue with account deletion/profile and dealer verification as separate security-sensitive slices. Draft reads/writes must remain separate from reminder workers; protected posting, dealer, admin, and VIN browser flows still require disposable credentials and a target environment.
 
+Task 8m profile-route extraction: implementation verified (moved `/api/user/profile` and `/api/user/update-profile` into `routes/profile.py`; preserved username, field-mapping, phone-change, and sensitive-field filtering contracts; migrated the source-level city/area regression checks to the extracted module; added direct profile parity coverage). Full backend `1077 passed, 11 skipped`, Docker API smoke passed, worker health/Redis heartbeat smoke passed, and `app.py` is now 22,060 lines.
+
+Ruling: Continue with dealer document/verification routes as a separate boundary, then isolate drafts from lifecycle workers. Do not mix provider-backed storage mutation with the remaining profile extraction.
+
 Task 8l account-deletion extraction: implementation verified (moved the authenticated account cleanup helpers and `/api/user/delete-account` route into `routes/user.py`; preserved soft-delete fallback behavior, public-profile cleanup, auth-user deletion, cookie clearing, and compatibility imports). Focused account/lifecycle tests 4 passed, full backend 1075 passed/11 skipped, Docker API smoke passed, worker health/Redis heartbeat smoke passed, and `app.py` is now 22,429 lines.
 
 Ruling: Continue with profile and dealer-document routes as separate slices. Keep destructive admin deletion and background lifecycle workers isolated from the user account-deletion boundary.

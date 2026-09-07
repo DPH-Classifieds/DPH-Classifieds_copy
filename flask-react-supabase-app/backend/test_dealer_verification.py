@@ -446,14 +446,14 @@ class TestAccountSettingsDocumentUpload(unittest.TestCase):
 class TestProfileUpdateCityMapping(unittest.TestCase):
     """Test that the city field mapping fix resolves the 400 error."""
 
-    def _read_app_source(self):
-        app_path = os.path.join(os.path.dirname(__file__), "app.py")
-        with open(app_path, "r") as f:
+    def _read_profile_route_source(self):
+        profile_path = os.path.join(os.path.dirname(__file__), "routes", "profile.py")
+        with open(profile_path, "r") as f:
             return f.read()
 
     def test_city_maps_to_city_not_area(self):
         """The 'city' frontend field must map to 'city' DB column, not 'area'."""
-        source = self._read_app_source()
+        source = self._read_profile_route_source()
         # Find the field_mapping dict in update_user_profile
         idx = source.index("def update_user_profile")
         mapping_section = source[idx : idx + 2000]
@@ -464,7 +464,7 @@ class TestProfileUpdateCityMapping(unittest.TestCase):
 
     def test_area_mapping_removed(self):
         """The dead 'area' mapping should be removed from field_mapping."""
-        source = self._read_app_source()
+        source = self._read_profile_route_source()
         idx = source.index("def update_user_profile")
         mapping_section = source[idx : idx + 2000]
         # Should not have "area": "area" as a standalone mapping

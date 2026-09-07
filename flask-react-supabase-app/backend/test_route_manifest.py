@@ -27,11 +27,11 @@ EXPECTED_METHODS = {
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {
     "false": {
         "count": 214,
-        "sha256": "7a9b7dd146afdb54689408ee492549ce8cb486ce778b8f4a431fce156e7e45f9",
+        "sha256": "ec4625e2a1658a6ff84401a59948d86c57eb5f0f74e60e1b5e74928db2f289e2",
     },
     "true": {
         "count": 256,
-        "sha256": "fb2c6595246461befa4b43700a6dbc6f54ea986bb96fedc2fea8fee350af1623",
+        "sha256": "ebf85dfdf609495e7eda0639e82eec732d7bb8163bb8581dcef179be769b9217",
     },
 }
 
