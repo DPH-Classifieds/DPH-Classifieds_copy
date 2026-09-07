@@ -484,3 +484,26 @@ Playwright, Supabase HTTP APIs.
   response/status/error envelopes, and compatibility exports.
 - Keep admin status patching and analytics/contact helpers separate; use no
   static `app.py` import.
+
+### Task 8ag: Extract public dealer information-request upload
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/public_info_upload.py`
+- Create or modify: `flask-react-supabase-app/backend/test_public_info_upload_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: source-coupled dealer lifecycle/media tests only when they must follow
+  the extracted upload owner
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for `POST
+  /api/info-requests/<token>/upload`.
+
+**Constraints:**
+- Preserve token authorization, request expiry/status/quota checks, multipart
+  validation, MIME/signature and size limits, private storage writes, canonical
+  dealer-document replacement, upload row creation, submitted-state transitions,
+  and exact safe error envelopes.
+- Keep shared validators, storage helpers, label mapping, and dealer lifecycle
+  readiness helpers in their existing ownership unless runtime compatibility
+  requires exports; use no static `app.py` import.
+- Do not move unrelated public lookup, admin controls, or worker code.
