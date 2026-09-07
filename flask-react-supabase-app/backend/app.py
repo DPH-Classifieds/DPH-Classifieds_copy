@@ -12496,82 +12496,6 @@ def get_all_user_listings(current_user):
     ), 200
 
 
-@app.route("/api/user/listings/<item_type>/<item_id>/extend", methods=["POST"])
-@token_required
-def extend_user_listing(current_user, item_type, item_id):
-    config = LISTING_TABLE_CONFIG.get(item_type)
-    if not config:
-        return jsonify({"error": "Invalid listing type"}), 400
-
-    listing_data, listing_status = supabase_request(
-        "get",
-        f"/rest/v1/{config['table']}",
-        params={"select": "*", "id": f"eq.{item_id}", "limit": 1},
-        user_id=current_user,
-    )
-
-    if listing_status >= 400:
-        return jsonify(listing_data), listing_status
-
-    if not listing_data:
-        return jsonify({"error": "Listing not found"}), 404
-
-    listing = listing_data[0]
-    if listing.get("user_id") != current_user:
-        return jsonify(
-            {"error": "You do not have permission to extend this listing"}
-        ), 403
-
-    if _is_listing_deleted(listing):
-        return jsonify({"error": "Listing is no longer available"}), 410
-    _apply_listing_lifecycle_metadata(listing)
-
-    if listing.get("is_archived"):
-        _delete_listing_with_assets(config["table"], item_id)
-        return jsonify(
-            {"error": "Listing has already passed its retention period"}
-        ), 410
-
-    if listing.get("status") in {"deleted", "rejected"}:
-        return jsonify({"error": "This listing cannot be extended"}), 400
-
-    refreshed_listing, refreshed_status, refresh_error = _renew_listing_and_verify(
-        config["table"],
-        item_id,
-        listing,
-        current_user=current_user,
-    )
-    if refreshed_status >= 400:
-        return jsonify(refresh_error or {"error": "Failed to renew listing"}), refreshed_status
-
-    _invalidate_public_inventory_cache(config["table"])
-
-    try:
-        renewal_record = refreshed_listing
-        owner_email = renewal_record.get("user_email") or renewal_record.get(
-            "contact_email"
-        )
-        if not owner_email:
-            owner_email = get_user_email(current_user)
-        if owner_email and EMAIL_REGEX.match(owner_email):
-            _send_listing_status_email(
-                owner_email,
-                item_type,
-                renewal_record,
-                "renewed",
-                request.headers.get("Origin"),
-            )
-    except Exception as email_err:
-        logger.error(f"Error sending renewal email: {email_err}")
-
-    return jsonify(
-        {
-            "message": "Listing extended successfully",
-            "listing": refreshed_listing,
-        }
-    ), 200
-
-
 def _log_admin_action_direct(admin_user_id, action, **kwargs):
     """Best-effort admin audit log insert from app.py. Kept here (rather than imported
     from routes/admin.py) to avoid a circular import. Mirrors the helper in admin.py."""
@@ -21084,6 +21008,16 @@ except Exception as e:
     logger.error(f"Failed to register listing outcome routes: {e}")
 
 from routes.listing_outcomes import set_listing_outcome
+
+try:
+    from routes.listing_lifecycle import register_listing_lifecycle_routes
+
+    register_listing_lifecycle_routes(app, globals())
+    logger.info("Listing lifecycle routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register listing lifecycle routes: {e}")
+
+from routes.listing_lifecycle import extend_user_listing
 
 
 if __name__ == "__main__":

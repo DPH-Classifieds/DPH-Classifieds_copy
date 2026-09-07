@@ -118,6 +118,8 @@ Task 8p listing mutation extraction: implementation verified (moved authenticate
 
 Ruling: Freeze this extraction batch and run the full local regression matrix before touching the remaining large car/bike/plate/part update handlers or admin lifecycle block. Live authenticated tests remain blocked until disposable credentials and a target environment are supplied.
 
+Task 8q listing extension extraction: implementation verified (moved the authenticated `/api/user/listings/<item_type>/<item_id>/extend` route into `routes/listing_lifecycle.py`; preserved ownership, terminal/retention gates, renewal behavior, cache invalidation, notification best-effort behavior, compatibility export, and manifest ownership). Focused lifecycle suite `24 passed`; `app.py` is now `21,046` lines. Final full backend/container/browser verification is being rerun at this head. Admin bulk lifecycle and large per-type update handlers remain explicitly scoped for a later contract-tested stage.
+
 Task 8l account-deletion extraction: implementation verified (moved the authenticated account cleanup helpers and `/api/user/delete-account` route into `routes/user.py`; preserved soft-delete fallback behavior, public-profile cleanup, auth-user deletion, cookie clearing, and compatibility imports). Focused account/lifecycle tests 4 passed, full backend 1075 passed/11 skipped, Docker API smoke passed, worker health/Redis heartbeat smoke passed, and `app.py` is now 22,429 lines.
 
 Ruling: Continue with profile and dealer-document routes as separate slices. Keep destructive admin deletion and background lifecycle workers isolated from the user account-deletion boundary.
