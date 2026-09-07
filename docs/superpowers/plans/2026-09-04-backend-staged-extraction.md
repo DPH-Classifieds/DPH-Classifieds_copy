@@ -518,3 +518,11 @@ The public `/api/cars/<string:car_id>` route now lives in
 `routes/car_detail.py`, with runtime dependency resolution and the existing VIN
 privacy, visibility, caching, image, seller, and lifecycle contracts covered by
 the existing VIN suite plus a dedicated route-boundary test.
+
+### Task 8ai: Extract plate and car-part detail helpers
+
+Status: complete in commit `21fe38e1`.
+
+The optional-auth GET dispatch targets for plates and car parts now live in
+`routes/listing_details.py`, preserving compatibility exports and existing
+plate/part read-parity behavior.
