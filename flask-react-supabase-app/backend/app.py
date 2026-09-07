@@ -18933,8 +18933,6 @@ def _perform_approval(
 @token_required
 def api_reject_item(current_user, item_type, item_id):
     """Compatibility callable for direct legacy callers; not a live route."""
-    rejection_fix = request.json.get("rejection_fix", "") if request.is_json and request.json else ""
-    del rejection_fix
     return _moderation_api_reject_item.__wrapped__(current_user, item_type, item_id)
 
 

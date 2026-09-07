@@ -159,6 +159,25 @@ def test_rejection_requires_note_and_preserves_envelope_email_and_cache_behavior
     )
 
 
+@pytest.mark.parametrize("callable_name", ["api_reject_item", "api_admin_reject_item"])
+def test_legacy_reject_shims_return_json_error_for_malformed_json(callable_name):
+    with patch.object(
+        backend, "_get_user_details_with_admin_status", return_value={"is_admin": True}
+    ), backend.app.test_request_context(
+        "/api/cars/listing-1/reject",
+        method="POST",
+        data="{",
+        content_type="application/json",
+    ):
+        response, status = getattr(backend, callable_name).__wrapped__(
+            "admin-1", "cars", "listing-1"
+        )
+
+    assert status == 500
+    assert response.is_json
+    assert response.get_json()["error"]
+
+
 def test_pending_list_keeps_raw_listing_envelope_and_lead_metrics():
     listing = {"id": "listing-1", "status": "pending"}
 
