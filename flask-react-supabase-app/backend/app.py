@@ -11738,63 +11738,6 @@ def _plate_read_dependencies():
 get_plates = register_plate_read_route(app, dependencies=_plate_read_dependencies)
 
 
-def get_plate_details(plate_id, requesting_user=None):
-    """Get details for a specific license plate by ID"""
-    try:
-        logger.info(f"Fetching plate details for ID: {plate_id}")
-
-        cache_key = f"api-cache:{request.path}"
-        cached_payload = _api_cache_get(cache_key) if not requesting_user else None
-        if cached_payload is not None:
-            logger.debug(f"Redis cache hit for plate detail {plate_id}")
-            return _cached_json_response(cached_payload)
-
-        # Use service role for consistent data fetching
-        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-        headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-        }
-
-        # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?id=eq.{plate_id}&select=*"
-        response = requests.get(url, headers=headers)
-
-        if response.status_code == 200:
-            plates = response.json()
-            if not plates:
-                return jsonify({"error": "Plate not found"}), 404
-
-            plate = _sync_listing_lifecycle(
-                "license_plates", plates[0], hard_delete_archived=False, persist=False
-            )
-            visible, is_public = _listing_visible_to_requester(plate, requesting_user)
-            if not visible:
-                return jsonify({"error": "Plate not found"}), 404
-
-            plate_images_by_id = _fetch_plate_image_map([plate.get("id")], headers)
-            plate["images"] = plate_images_by_id.get(str(plate.get("id")), [])
-
-            _enrich_listing_seller(plate, headers=headers)
-            plate = _with_private_listing_document_urls(
-                plate, requesting_user=requesting_user
-            )
-            for _f in _PUBLIC_STRIP_FIELDS:
-                plate.pop(_f, None)
-            if not is_public:
-                for _f in _PUBLIC_STRIP_FIELDS:
-                    plate.pop(_f, None)
-            if not requesting_user and is_public:
-                _api_cache_set(cache_key, plate)
-            return _cached_json_response(plate)
-        else:
-            return jsonify({"error": "Failed to fetch plate"}), response.status_code
-
-    except Exception as e:
-        logger.error(f"Error getting plate {plate_id}: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
 # Car Parts Endpoints
 def _part_read_dependencies():
     return PartReadDependencies(
@@ -11895,80 +11838,6 @@ create_part = register_part_create_route(
 )
 
 
-def get_part_details(part_id, requesting_user=None):
-    """Get details for a specific car part by ID"""
-    try:
-        logger.info(f"Fetching part details for ID: {part_id}")
-
-        cache_key = f"api-cache:{request.path}"
-        cached_payload = _api_cache_get(cache_key) if not requesting_user else None
-        if cached_payload is not None:
-            logger.debug(f"Redis cache hit for part detail {part_id}")
-            return _cached_json_response(cached_payload)
-
-        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-        headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-        }
-
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?id=eq.{part_id}&select=*,part_images(*)"
-        response = requests.get(url, headers=headers, timeout=10)
-
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to fetch part"}), response.status_code
-
-        parts = response.json()
-        if not parts:
-            return jsonify({"error": "Part not found"}), 404
-
-        part = _sync_listing_lifecycle(
-            "car_parts", parts[0], hard_delete_archived=False, persist=False
-        )
-        visible, is_public = _listing_visible_to_requester(part, requesting_user)
-        if not visible:
-            return jsonify({"error": "Part not found"}), 404
-
-        part_images = part.pop("part_images", [])
-        part["images"] = [
-            {
-                "id": img.get("id"),
-                "url": img.get("url") or img.get("image_url"),
-                "image_url": img.get("image_url") or img.get("url"),
-                "display_url": img.get("display_url"),
-                "focal_x": img.get("focal_x"),
-                "focal_y": img.get("focal_y"),
-                "crop_meta": img.get("crop_meta"),
-            }
-            for img in part_images
-            if img.get("url") or img.get("image_url")
-        ]
-
-        if not part["images"] and (part.get("image_url") or part.get("url")):
-            main_url = part.get("image_url") or part.get("url")
-            part["images"] = [
-                {
-                    "id": "main",
-                    "url": main_url,
-                    "image_url": main_url,
-                    "display_url": part.get("display_url"),
-                    "focal_x": part.get("focal_x"),
-                    "focal_y": part.get("focal_y"),
-                    "crop_meta": part.get("crop_meta"),
-                }
-            ]
-
-        _enrich_listing_seller(part, headers=headers)
-        if not is_public:
-            for _f in _PUBLIC_STRIP_FIELDS:
-                part.pop(_f, None)
-        if not requesting_user and is_public:
-            _api_cache_set(cache_key, part)
-        return _cached_json_response(part)
-
-    except Exception as e:
-        logger.error(f"Error getting part {part_id}: {e}")
-        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/users", methods=["GET"])
 @token_required
@@ -16538,6 +16407,13 @@ except Exception as e:
 # registry on the Flask app avoids circular imports from the compatibility
 # root while allowing tests to patch the original functions in place.
 app.extensions["dph_user_backend"] = globals()
+
+try:
+    from routes.listing_details import get_part_details, get_plate_details
+
+    logger.info("Plate and car-part detail helpers registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register plate/part detail helpers: {e}")
 
 try:
     from routes.car_detail import get_car_by_id, register_car_detail_routes
