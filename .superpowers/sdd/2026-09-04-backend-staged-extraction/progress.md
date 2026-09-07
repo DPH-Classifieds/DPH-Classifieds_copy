@@ -110,6 +110,10 @@ Task 8m profile-route extraction: implementation verified (moved `/api/user/prof
 
 Ruling: Continue with dealer document/verification routes as a separate boundary, then isolate drafts from lifecycle workers. Do not mix provider-backed storage mutation with the remaining profile extraction.
 
+Task 8o statistics and draft route extraction: implementation verified (moved `/api/user/statistics` into `routes/statistics.py` with terminal-row filtering, saved-count parity, and dashboard-shape coverage; moved `/api/user/drafts` and `/api/user/drafts/<draft_key>` into `routes/drafts.py` while keeping reminder workers separate; preserved compatibility exports and updated route-manifest hashes). Focused dealer/profile/draft/statistics/manifest suite `122 passed`; `app.py` is now `21,515` lines. Full backend, Docker, frontend/mobile, and protected authenticated browser lanes remain to be rerun at this head.
+
+Ruling: Continue with listing update/image/VIN routes as separate contract-tested mutation slices. Do not move the broad admin lifecycle block until its route ownership and direct-call compatibility are mapped.
+
 Task 8l account-deletion extraction: implementation verified (moved the authenticated account cleanup helpers and `/api/user/delete-account` route into `routes/user.py`; preserved soft-delete fallback behavior, public-profile cleanup, auth-user deletion, cookie clearing, and compatibility imports). Focused account/lifecycle tests 4 passed, full backend 1075 passed/11 skipped, Docker API smoke passed, worker health/Redis heartbeat smoke passed, and `app.py` is now 22,429 lines.
 
 Ruling: Continue with profile and dealer-document routes as separate slices. Keep destructive admin deletion and background lifecycle workers isolated from the user account-deletion boundary.

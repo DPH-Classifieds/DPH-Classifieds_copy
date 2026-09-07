@@ -70,9 +70,9 @@ saved-listings, saved-searches, and push-token routes live in
 of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
-The verified local baseline for the current staged dealer-verification slice is:
-`app.py` 21,627 lines; the focused dealer/profile/manifest suite is
-`102 passed`; Docker API liveness/readiness/404/auth-gate smoke
+The verified local baseline for the current staged drafts/statistics slice is:
+`app.py` 21,515 lines; the focused dealer/profile/drafts/statistics/manifest
+suite is `122 passed`; Docker API liveness/readiness/404/auth-gate smoke
 passed; worker health plus Redis heartbeat smoke passed. Protected browser
 flows remain credential-gated and must not be reported as passed when their
 disposable credentials and target environment are absent.
@@ -81,6 +81,10 @@ Dealer document listing, upload, deletion, profile-photo, and KYC application
 submission routes now live in `routes/dealer_verification.py`. It follows the
 same `current_app.extensions["dph_user_backend"]` dependency boundary and
 preserves compatibility exports from `app.py`.
+
+User statistics live in `routes/statistics.py`, while authenticated draft
+listing/read/write/delete routes live in `routes/drafts.py`; reminder workers
+remain in their existing worker boundary.
 
 Any further app.py reduction must be a separately scoped, contract-first
 extraction. Account deletion, authentication/signup, drafts, and lifecycle

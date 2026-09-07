@@ -10041,129 +10041,6 @@ def public_featured_placement_pattern():
     return jsonify({"pattern": DEFAULT_FEATURED_PLACEMENT_PATTERN}), 200
 
 
-@app.route("/api/user/statistics", methods=["GET"])
-@token_required
-def get_user_statistics(current_user):
-    """Get user listing statistics"""
-    try:
-        logger.debug(f"Getting statistics for user ID: {current_user}")
-
-        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-        headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-            "Content-Type": "application/json",
-        }
-
-        base_url = app.config["SUPABASE_URL"]
-
-        # Only count the user's OWN live listings. Exclude soft-deleted rows
-        # (deleted_at) so the profile matches "My Listings" (_get_user_listing_count).
-        deleted_filter = "&deleted_at=is.null"
-
-        # Count cars
-        cars_response = requests.get(
-            f"{base_url}/rest/v1/cars?user_id=eq.{current_user}&select=id,status,view_count{deleted_filter}",
-            headers=headers,
-        )
-
-        # Count bikes
-        bikes_response = requests.get(
-            f"{base_url}/rest/v1/bikes?user_id=eq.{current_user}&select=id,status,view_count{deleted_filter}",
-            headers=headers,
-        )
-
-        # Count plates
-        plates_response = requests.get(
-            f"{base_url}/rest/v1/license_plates?user_id=eq.{current_user}&select=id,status,view_count{deleted_filter}",
-            headers=headers,
-        )
-
-        # Count parts
-        parts_response = requests.get(
-            f"{base_url}/rest/v1/car_parts?user_id=eq.{current_user}&select=id,status{deleted_filter}",
-            headers=headers,
-        )
-
-        # Process results. If deleted_at column isn't present yet the query 400s,
-        # so fall back to an unfiltered fetch (mirrors _get_user_listing_count).
-        def _fetch_or_fallback(response, table, select):
-            if response.status_code == 200:
-                return response.json()
-            fb = requests.get(
-                f"{base_url}/rest/v1/{table}?user_id=eq.{current_user}&select={select}",
-                headers=headers,
-            )
-            return fb.json() if fb.status_code == 200 else []
-
-        cars = _fetch_or_fallback(cars_response, "cars", "id,status,view_count")
-        bikes = _fetch_or_fallback(bikes_response, "bikes", "id,status,view_count")
-        plates = _fetch_or_fallback(plates_response, "license_plates", "id,status,view_count")
-        parts = _fetch_or_fallback(parts_response, "car_parts", "id,status")
-
-        # Terminal statuses aren't the user's live listings; drop them so the
-        # count matches what "My Listings" shows (active + drafts they own).
-        def _is_live(item):
-            return str(item.get("status") or "").strip().lower() not in LISTING_TERMINAL_STATUSES
-
-        cars = [c for c in cars if _is_live(c)]
-        bikes = [b for b in bikes if _is_live(b)]
-        plates = [p for p in plates if _is_live(p)]
-        parts = [p for p in parts if _is_live(p)]
-
-        all_listings = cars + bikes + plates + parts
-
-        # Calculate statistics
-        total_listings = len(all_listings)
-        active_listings = sum(
-            1 for item in all_listings if item.get("status") == "approved"
-        )
-        pending_listings = sum(
-            1 for item in all_listings if item.get("status") == "pending"
-        )
-
-        # Calculate total views (only cars, bikes, and plates have view counts)
-        total_views = sum(item.get("view_count", 0) for item in (cars + bikes + plates))
-
-        # Get user creation date
-        user_response = requests.get(
-            f"{base_url}/rest/v1/users?id=eq.{current_user}&select=created_at",
-            headers=headers,
-        )
-
-        member_since = None
-        if user_response.status_code == 200:
-            users = user_response.json()
-            if users:
-                member_since = users[0].get("created_at")
-
-        # Saved-listings count. Use the same source as the Saved list so the count
-        # matches exactly (only currently-available listings, orphans purged) — a
-        # raw saved_listings row count would include removed/expired items.
-        try:
-            saved_payload, saved_status = _fetch_saved_listing_cards(current_user)
-            saved_count = saved_payload.get("total", 0) if saved_status < 400 else 0
-        except Exception:
-            saved_count = 0
-
-        statistics = {
-            "total_listings": total_listings,
-            "active_listings": active_listings,
-            "sold_listings": 0,  # Placeholder for future feature
-            "pending_listings": pending_listings,
-            "total_views": total_views,
-            "saved_count": saved_count,
-            "member_since": member_since,
-        }
-
-        logger.debug(f"Statistics calculated for user: {statistics}")
-        return jsonify(statistics), 200
-
-    except Exception as e:
-        logger.error(f"Error in get_user_statistics: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
 def user_exists_by_email(email):
     """Check whether a user exists for the provided email."""
     try:
@@ -10833,38 +10710,6 @@ def _annotate_draft_row(draft):
         draft["plate_code"] = str(source.get("code") or "").strip()
         draft["plate_number"] = str(source.get("number") or "").strip()
     return draft
-
-
-@app.route("/api/user/drafts", methods=["GET"])
-@token_required
-def list_user_drafts(current_user):
-    """Return all in-progress wizard drafts for the user (for the Drafts tab)."""
-    try:
-        response, status = supabase_request(
-            "get",
-            "/rest/v1/listing_drafts",
-            params={
-                "user_id": f"eq.{current_user}",
-                "select": "*",
-                "order": "updated_at.desc",
-            },
-            use_service_role=True,
-        )
-        if status >= 400:
-            if _looks_like_missing_table(response):
-                return jsonify({"drafts": []}), 200
-            return jsonify({"error": "Failed to load drafts"}), status
-
-        drafts = response or []
-        # Annotate each row with a friendly preview the UI can render directly,
-        # so the Drafts tab doesn't need draft-type-specific code to show summaries.
-        for draft in drafts:
-            _annotate_draft_row(draft)
-
-        return jsonify({"drafts": drafts}), 200
-    except Exception as exc:
-        logger.error(f"Failed to list user drafts: {exc}")
-        return jsonify({"error": "Failed to load drafts"}), 500
 
 
 def _build_draft_listing_summary(draft_row, owner_row=None):
@@ -12262,105 +12107,6 @@ def _run_saved_search_alerts_once(first_age_hours=24, repeat_age_hours=48, age_h
                     user_id, row_id, result_count, subject)
 
     return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
-
-
-@app.route("/api/user/drafts/<draft_key>", methods=["GET", "POST", "DELETE"])
-@token_required
-def manage_user_draft(current_user, draft_key):
-    """Persist a user's in-progress listing draft."""
-    normalized_key = str(draft_key or "").strip().lower()
-    if not normalized_key or not re.match(r"^[a-z0-9_-]+$", normalized_key):
-        return jsonify({"error": "Invalid draft key"}), 400
-
-    draft_table = "listing_drafts"
-    service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-    headers = {
-        "apikey": service_role_key,
-        "Authorization": f"Bearer {service_role_key}",
-        "Content-Type": "application/json",
-    }
-
-    try:
-        if request.method == "GET":
-            response = requests.get(
-                f"{SUPABASE_URL}/rest/v1/{draft_table}",
-                headers=headers,
-                params={
-                    "user_id": f"eq.{current_user}",
-                    "draft_key": f"eq.{normalized_key}",
-                    "select": "*",
-                    "order": "updated_at.desc",
-                    "limit": "1",
-                },
-                timeout=10,
-            )
-            if response.status_code >= 400:
-                try:
-                    error_payload = response.json()
-                except Exception:
-                    error_payload = None
-                if _looks_like_missing_table(error_payload):
-                    return (
-                        jsonify(
-                            {
-                                "error": "Supabase table listing_drafts is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_listing_drafts.sql"
-                            }
-                        ),
-                        501,
-                    )
-                return jsonify({"error": "Failed to load draft"}), response.status_code
-            drafts = response.json() or []
-            return jsonify({"draft": _annotate_draft_row(drafts[0]) if drafts else None}), 200
-
-        if request.method == "DELETE":
-            response, status_code = supabase_request(
-                "delete",
-                f"/rest/v1/{draft_table}?user_id=eq.{current_user}&draft_key=eq.{normalized_key}",
-                use_service_role=True,
-            )
-            if status_code >= 400:
-                logger.warning(
-                    "Failed to delete draft %s for user %s: %s",
-                    normalized_key,
-                    current_user,
-                    response,
-                )
-            return jsonify({"success": True}), 200
-
-        payload = request.get_json(silent=True) or {}
-        draft_payload = payload.get("payload", payload)
-        insert_response, insert_status = _save_listing_draft_record(
-            current_user, normalized_key, draft_payload
-        )
-        if insert_status >= 400:
-            logger.error(
-                "Failed to save draft %s for user %s: %s",
-                normalized_key,
-                current_user,
-                insert_response,
-            )
-            if _looks_like_missing_table(insert_response):
-                return (
-                    jsonify(
-                        {
-                            "error": "Supabase table listing_drafts is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_listing_drafts.sql"
-                        }
-                    ),
-                    501,
-                )
-            return jsonify({"error": "Failed to save draft"}), 500
-
-        saved_record = (
-            insert_response[0]
-            if isinstance(insert_response, list) and insert_response
-            else insert_response
-        )
-        return jsonify({"success": True, "draft": saved_record}), 200
-    except Exception as exc:
-        logger.error(
-            "Draft storage failed for %s/%s: %s", current_user, normalized_key, exc
-        )
-        return jsonify({"error": "Failed to save draft"}), 500
 
 
 def get_user_admin_status(user_id):
@@ -21589,6 +21335,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to register dealer verification routes: {e}")
 
+# User listing statistics are isolated from storage/KYC mutations so the
+# profile dashboard can evolve without expanding the compatibility root.
+try:
+    from routes.statistics import register_statistics_routes
+
+    register_statistics_routes(app, globals())
+    logger.info("User statistics routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register user statistics routes: {e}")
+
 # Compatibility exports for tests and internal callers that historically
 # imported these handlers from app.py.
 from routes.dealer_verification import (
@@ -21599,6 +21355,18 @@ from routes.dealer_verification import (
     upload_profile_photo,
     upload_dealer_document,
 )
+from routes.statistics import get_user_statistics
+
+# Draft reads/writes are isolated from the reminder worker implementation.
+try:
+    from routes.drafts import register_draft_routes
+
+    register_draft_routes(app, globals())
+    logger.info("Draft routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register draft routes: {e}")
+
+from routes.drafts import list_user_drafts, manage_user_draft
 
 
 if __name__ == "__main__":
