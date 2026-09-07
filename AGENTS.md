@@ -62,13 +62,15 @@ browser artifacts.
 ## Current staged-extraction baseline
 
 The current staged branch has completed the bounded admin route cleanup and the
-authenticated user-route extraction through commit `75e0bc1d`. The canonical
+authenticated user-route extraction through commit `75e0bc1d`. The session and
+recovery authentication extraction is staged after that commit. The canonical
 saved-listings, saved-searches, and push-token routes live in
 `flask-react-supabase-app/backend/routes/user.py`; the module must remain free
 of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
-The verified local baseline for this stage is: `app.py` 23,272 lines; backend
+The verified local baseline for the current staged authentication slice is:
+`app.py` 22,932 lines; backend
 `1075 passed, 11 skipped`; Docker API liveness/readiness/404/auth-gate smoke
 passed; worker health plus Redis heartbeat smoke passed. Protected browser
 flows remain credential-gated and must not be reported as passed when their
