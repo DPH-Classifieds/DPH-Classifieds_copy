@@ -13376,106 +13376,6 @@ def resend_webhook():
     return jsonify({"ok": True}), 200
 
 
-# ---------------------------------------------------------------------------
-# Admin: email metrics endpoint
-# ---------------------------------------------------------------------------
-
-@app.route("/api/admin/metrics/email", methods=["GET"])
-@token_required
-def get_email_metrics(current_user):
-    user_details = _get_user_details_with_admin_status(current_user)
-    if not user_details or not user_details.get("is_admin"):
-        return jsonify({"error": "Unauthorized"}), 403
-
-    days   = max(min(int(request.args.get("days", 30)), 365), 1)
-    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
-
-    _EMAIL_METRICS_TTL = 60
-    _email_cache_key = f"api-cache:/api/admin/metrics/email?days={days}"
-    _email_cached = _api_cache_get(_email_cache_key)
-    if _email_cached is not None:
-        return jsonify(_email_cached), 200
-    if not _cache_lock_acquire(_email_cache_key):
-        time.sleep(0.15)
-        _email_cached = _api_cache_get(_email_cache_key)
-        if _email_cached is not None:
-            return jsonify(_email_cached), 200
-
-    rows, status_code = supabase_request(
-        "get",
-        "/rest/v1/outbound_emails",
-        params={
-            "select": "email_type,sent_at,delivered_at,opened_at,clicked_at,bounced_at,unsubscribed_at,open_count,click_count,error_message",
-            "sent_at": f"gte.{cutoff}",
-            "order": "sent_at.desc",
-            "limit": "5000",
-        },
-        use_service_role=True,
-    )
-    if status_code >= 400:
-        if _looks_like_missing_table(rows):
-            return jsonify({"error": "outbound_emails table not migrated yet", "summary": {}, "by_type": [], "daily": []}), 200
-        return jsonify({"error": "Failed to fetch email events"}), status_code
-
-    rows = rows or []
-    total         = len(rows)
-    delivered     = sum(1 for r in rows if r.get("delivered_at"))
-    opened        = sum(1 for r in rows if r.get("opened_at"))
-    clicked       = sum(1 for r in rows if r.get("clicked_at"))
-    bounced       = sum(1 for r in rows if r.get("bounced_at"))
-    unsubscribed  = sum(1 for r in rows if r.get("unsubscribed_at"))
-    errored       = sum(1 for r in rows if r.get("error_message"))
-
-    # Per-type breakdown
-    from collections import defaultdict
-    by_type_map = defaultdict(lambda: {"sent": 0, "opened": 0, "clicked": 0, "bounced": 0})
-    for r in rows:
-        t = r.get("email_type") or "unknown"
-        by_type_map[t]["sent"]    += 1
-        by_type_map[t]["opened"]  += 1 if r.get("opened_at") else 0
-        by_type_map[t]["clicked"] += 1 if r.get("clicked_at") else 0
-        by_type_map[t]["bounced"] += 1 if r.get("bounced_at") else 0
-    by_type = [
-        {
-            "type":       k,
-            "sent":       v["sent"],
-            "opened":     v["opened"],
-            "clicked":    v["clicked"],
-            "bounced":    v["bounced"],
-            "open_rate":  round(v["opened"] / v["sent"] * 100, 1) if v["sent"] else 0,
-            "click_rate": round(v["clicked"] / v["sent"] * 100, 1) if v["sent"] else 0,
-        }
-        for k, v in sorted(by_type_map.items(), key=lambda x: -x[1]["sent"])
-    ]
-
-    # Daily trend (sent count per day)
-    daily_map = defaultdict(int)
-    for r in rows:
-        day = str(r.get("sent_at") or "")[:10]
-        if day:
-            daily_map[day] += 1
-    daily = [{"date": d, "count": c} for d, c in sorted(daily_map.items())]
-
-    _email_result = {
-        "summary": {
-            "total_sent":       total,
-            "delivered":        delivered,
-            "opened":           opened,
-            "clicked":          clicked,
-            "bounced":          bounced,
-            "unsubscribed":     unsubscribed,
-            "errored":          errored,
-            "open_rate":        round(opened  / total * 100, 1) if total else 0,
-            "click_rate":       round(clicked / total * 100, 1) if total else 0,
-            "bounce_rate":      round(bounced / total * 100, 1) if total else 0,
-        },
-        "by_type": by_type,
-        "daily":   daily,
-    }
-    _api_cache_set(_email_cache_key, _email_result, _EMAIL_METRICS_TTL)
-    return jsonify(_email_result), 200
-
-
 @app.route("/api/errors", methods=["POST"])
 @token_required
 def report_app_error(current_user):
@@ -13494,54 +13394,6 @@ def report_app_error(current_user):
         user_agent=request.headers.get("User-Agent"),
     )
     return jsonify({"ok": True}), 200
-
-
-@app.route("/api/admin/metrics/errors", methods=["GET"])
-@token_required
-def get_error_metrics(current_user):
-    """Recent silent errors/failures for the admin Errors tab."""
-    user_details = _get_user_details_with_admin_status(current_user)
-    if not user_details or not user_details.get("is_admin"):
-        return jsonify({"error": "Unauthorized"}), 403
-
-    days   = max(min(int(request.args.get("days", 30)), 365), 1)
-    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
-
-    rows, status_code = supabase_request(
-        "get",
-        "/rest/v1/app_errors",
-        params={
-            "select": "created_at,user_id,context,error_code,message,source,url",
-            "created_at": f"gte.{cutoff}",
-            "order": "created_at.desc",
-            "limit": "1000",
-        },
-        use_service_role=True,
-    )
-    if status_code >= 400:
-        if _looks_like_missing_table(rows):
-            return jsonify({"error": "app_errors table not migrated yet", "summary": {}, "by_context": [], "recent": []}), 200
-        return jsonify({"error": "Failed to fetch errors"}), status_code
-
-    rows = rows or []
-    from collections import defaultdict
-    by_context_map = defaultdict(int)
-    for r in rows:
-        by_context_map[r.get("context") or "unknown"] += 1
-    by_context = [
-        {"context": k, "count": c}
-        for k, c in sorted(by_context_map.items(), key=lambda x: -x[1])
-    ]
-
-    return jsonify({
-        "summary": {
-            "total":    len(rows),
-            "frontend": sum(1 for r in rows if r.get("source") == "frontend"),
-            "backend":  sum(1 for r in rows if r.get("source") != "frontend"),
-        },
-        "by_context": by_context,
-        "recent":     rows[:200],
-    }), 200
 
 
 @app.route("/api/admin/metrics/overview", methods=["GET"])
@@ -17549,6 +17401,20 @@ except Exception as e:
 # registry on the Flask app avoids circular imports from the compatibility
 # root while allowing tests to patch the original functions in place.
 app.extensions["dph_user_backend"] = globals()
+
+# Admin email/error metrics are registered after the runtime dependency table
+# exists; overview, live-user, and Cloudflare metrics remain root-owned.
+try:
+    from routes.admin_metrics import (
+        get_email_metrics,
+        get_error_metrics,
+        register_admin_metrics_routes,
+    )
+
+    register_admin_metrics_routes(app)
+    logger.info("Admin email/error metrics routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin email/error metrics routes: {e}")
 
 # Phone verification handlers are registered after the runtime dependency table
 # is available; shared phone, provider, persistence, and rate-limit helpers stay
