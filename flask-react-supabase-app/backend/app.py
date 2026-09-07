@@ -12545,253 +12545,11 @@ def _require_admin_api_user(current_user):
 # in routes/admin.py now. Restore from git if a feature was missed.
 
 
-@app.route("/api/admin/users/<user_id>/profile", methods=["PATCH"])
-@token_required
-def update_admin_user_profile(current_user, user_id):
-    try:
-        if not _require_admin_api_user(current_user):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        if user_id == current_user:
-            return jsonify(
-                {"error": "You cannot modify your own admin profile from this panel"}
-            ), 400
-
-        protected = _protect_super_admin_target(
-            user_id, "modify the main admin account"
-        )
-        if protected:
-            return protected
-
-        data = request.get_json(silent=True) or {}
-        allowed_fields = {
-            "account_status": {"active", "suspended", "banned"},
-            "is_admin": bool,
-            "is_dealer": bool,
-            "dealer_verified": bool,
-            "email_verified": bool,
-            "phone_verified": bool,
-            "first_name": str,
-            "last_name": str,
-            "display_name": str,
-            "username": str,
-            "phone": str,
-            "city": str,
-            "emirate": str,
-            "company_name": str,
-            "company_registration_number": str,
-            "trade_license_number": str,
-            "tax_registration_number": str,
-            "profile_photo_url": str,
-            "rejection_note": str,
-        }
-
-        update_data = {}
-        for field, validator in allowed_fields.items():
-            if field not in data:
-                continue
-
-            value = data.get(field)
-            if validator is bool:
-                update_data[field] = bool(value)
-            elif validator is str:
-                if value is None:
-                    update_data[field] = None
-                else:
-                    next_value = str(value).strip()
-                    update_data[field] = next_value if next_value else None
-            elif isinstance(validator, set):
-                next_value = str(value or "").strip().lower()
-                if next_value not in validator:
-                    return jsonify(
-                        {
-                            "error": f"{field} must be one of: {', '.join(sorted(validator))}"
-                        }
-                    ), 400
-                update_data[field] = next_value
-
-        if not update_data:
-            return jsonify({"error": "No supported profile fields were provided"}), 400
-
-        if "is_dealer" in update_data and not update_data["is_dealer"]:
-            update_data["dealer_verified"] = False
-            update_data["dealer_verified_at"] = None
-        elif update_data.get("dealer_verified") is True:
-            from datetime import datetime
-
-            update_data["dealer_verified_at"] = datetime.utcnow().isoformat()
-
-        if update_data.get("phone_verified") is True:
-            current_profile = _get_user_profile_for_verification(user_id) or {}
-            next_phone = update_data.get("phone")
-            if next_phone is None:
-                next_phone = current_profile.get("phone")
-            next_country_code = update_data.get("country_code")
-            if next_country_code is None:
-                next_country_code = current_profile.get("country_code")
-            normalized_phone = _normalize_phone_number(next_phone, next_country_code)
-            if not normalized_phone:
-                return jsonify(
-                    {
-                        "error": "Cannot mark a user as phone verified without a valid phone number."
-                    }
-                ), 400
-            update_data["phone"] = normalized_phone
-            update_data["country_code"] = (
-                next_country_code
-                or _infer_country_code_from_phone(normalized_phone)
-                or "+971"
-            )
-            update_data["phone_verified_at"] = _isoformat_utc(_utc_now())
-        elif update_data.get("phone_verified") is False:
-            update_data["phone_verified_at"] = None
-
-        response, status_code = supabase_request(
-            "patch",
-            f"/rest/v1/users?id=eq.{user_id}",
-            data=update_data,
-            use_service_role=True,
-        )
-
-        if status_code not in [200, 204]:
-            logger.error(f"Failed updating admin profile for {user_id}: {response}")
-            return jsonify({"error": "Failed to update user profile"}), status_code
-
-        # Send notification emails for dealer-related changes
-        try:
-            dealer_fields_changed = any(
-                f in update_data
-                for f in (
-                    "is_dealer",
-                    "dealer_verified",
-                    "company_name",
-                    "company_registration_number",
-                    "trade_license_number",
-                )
-            )
-            if dealer_fields_changed:
-                # Look up dealer email
-                dealer_resp, dealer_status = supabase_request(
-                    "get",
-                    f"/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,company_name",
-                    use_service_role=True,
-                )
-                if dealer_status < 400 and dealer_resp:
-                    dealer_info = dealer_resp[0]
-                    dealer_email = dealer_info.get("email")
-                    dealer_name = (
-                        dealer_info.get("first_name")
-                        or dealer_info.get("display_name")
-                        or "Dealer"
-                    )
-
-                    # Notify dealer
-                    if dealer_email:
-                        if (
-                            update_data.get("dealer_verified") is False
-                            and "dealer_verified" in update_data
-                        ):
-                            _send_dealer_status_email(
-                                dealer_email,
-                                "rejected",
-                                request.headers.get("Origin"),
-                                rejection_note="Your dealer profile was updated by an admin. Please re-submit your verification documents.",
-                            )
-                        elif update_data.get("dealer_verified") is True:
-                            _send_dealer_status_email(
-                                dealer_email,
-                                "approved",
-                                request.headers.get("Origin"),
-                            )
-                            # Admin notification on the same event so the
-                            # team can track approval cadence.
-                            try:
-                                _send_dealer_approved_admin_notification(
-                                    dealer_info or {"email": dealer_email},
-                                )
-                            except Exception as _admin_email_exc:
-                                logger.warning("Dealer approved admin notification failed: %s", _admin_email_exc)
-
-                    # Notify DPH team
-                    admin_email = os.getenv("RESEND_TO_EMAIL") or os.getenv(
-                        "ADMIN_EMAIL"
-                    )
-                    if admin_email:
-                        _send_resend_email(
-                            {
-                                "from": os.getenv(
-                                    "RESEND_FROM_EMAIL", "noreply@dphclassifieds.com"
-                                ),
-                                "to": admin_email,
-                                "subject": f"DPH Admin: Dealer profile updated - {dealer_info.get('company_name') or dealer_name}",
-                                "html": f"""
-                            <div style="font-family: sans-serif; padding: 20px;">
-                                <h2>Dealer Profile Updated</h2>
-                                <p>An admin has updated the dealer profile for <strong>{dealer_info.get("company_name") or dealer_name}</strong>.</p>
-                                <p><strong>Email:</strong> {dealer_email}</p>
-                                <p><strong>Changes:</strong> {", ".join(update_data.keys())}</p>
-                                {'<p style="color: red;"><strong>Dealer verification has been revoked. The dealer will need to re-submit verification documents.</strong></p>' if update_data.get("dealer_verified") is False and "dealer_verified" in update_data else ""}
-                            </div>
-                            """,
-                            }
-                        )
-        except Exception as notify_err:
-            logger.error(f"Error sending admin update notification: {notify_err}")
-
-        refreshed_response, refreshed_status = supabase_request(
-            "get",
-            f"/rest/v1/users?id=eq.{user_id}&select=id,email,first_name,last_name,display_name,username,phone,city,emirate,profile_photo_url,profile_completion_percentage,email_verified,phone_verified,is_dealer,dealer_verified,dealer_verified_at,is_admin,account_status,created_at,company_name,company_registration_number,trade_license_number",
-            use_service_role=True,
-        )
-
-        updated_user = (
-            refreshed_response[0]
-            if refreshed_status < 400 and refreshed_response
-            else update_data
-        )
-        return jsonify(
-            {
-                "message": "User profile updated successfully",
-                "user": updated_user,
-            }
-        ), 200
-    except Exception as e:
-        logger.error(f"Error updating admin user profile: {str(e)}")
-        return jsonify({"error": "An error occurred while updating user profile"}), 500
-
-
 # NOTE: DELETE /api/admin/users/<id> now lives in routes/admin.py — the
 # duplicate here clashed with the blueprint route and racing dispatch made
 # the wrong handler answer in some sessions. The auth-user delete logic
 # (calling /auth/v1/admin/users/<id>) was ported into the blueprint so the
 # Supabase Auth row is cleaned up alongside public.users.
-
-
-@app.route("/api/admin/cleanup-unverified-accounts", methods=["POST"])
-@token_required
-def admin_cleanup_unverified_accounts(current_user):
-    try:
-        if not _require_admin_api_user(current_user):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        data = request.get_json(silent=True) or {}
-        dry_run = bool(data.get("dryRun", False))
-        limit = int(data.get("limit", 500))
-        max_age_hours = float(data.get("maxAgeHours", 48))
-
-        from auth_cleanup import cleanup_unverified_accounts
-
-        result = cleanup_unverified_accounts(
-            max_age_hours=max_age_hours,
-            limit=limit,
-            dry_run=dry_run,
-        )
-        return jsonify(result), 200
-    except Exception as e:
-        logger.error(f"Error running unverified cleanup: {str(e)}", exc_info=True)
-        return jsonify({"error": "Failed to run cleanup"}), 500
-
-
 def _plate_create_dependencies():
     return PlateCreateDependencies(
         require_verified_user_for_listing=lambda user_id: (
@@ -18135,6 +17893,21 @@ except Exception as e:
 # registry on the Flask app avoids circular imports from the compatibility
 # root while allowing tests to patch the original functions in place.
 app.extensions["dph_user_backend"] = globals()
+
+# Admin user profile maintenance and destructive unverified-account cleanup
+# are registered after the runtime table exists. Compatibility exports remain
+# available from app.py for direct callers and service helpers.
+try:
+    from routes.admin_users import (
+        admin_cleanup_unverified_accounts,
+        register_admin_user_routes,
+        update_admin_user_profile,
+    )
+
+    register_admin_user_routes(app, globals())
+    logger.info("Admin user maintenance routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin user maintenance routes: {e}")
 
 # Diagnostics configuration is registered after the runtime table exists so
 # the extracted handler can resolve token and admin helpers without importing

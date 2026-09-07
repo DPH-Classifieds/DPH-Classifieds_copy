@@ -479,9 +479,11 @@ class TestProfileUpdateCityMapping(unittest.TestCase):
 class TestAdminEmailVerification(unittest.TestCase):
     """Test that admins can verify email and phone from the admin panel."""
 
-    def _read_app_source(self):
-        app_path = os.path.join(os.path.dirname(__file__), "app.py")
-        with open(app_path, "r") as f:
+    def _read_admin_user_route_source(self):
+        route_path = os.path.join(
+            os.path.dirname(__file__), "routes", "admin_users.py"
+        )
+        with open(route_path, "r") as f:
             return f.read()
 
     def _read_admin_detail_source(self):
@@ -498,14 +500,14 @@ class TestAdminEmailVerification(unittest.TestCase):
 
     def test_email_verified_in_allowed_fields(self):
         """email_verified must be in the admin allowed_fields."""
-        source = self._read_app_source()
+        source = self._read_admin_user_route_source()
         idx = source.index("def update_admin_user_profile")
         allowed_section = source[idx : idx + 1500]
         self.assertIn('"email_verified": bool', allowed_section)
 
     def test_phone_verified_in_allowed_fields(self):
         """phone_verified must be in the admin allowed_fields."""
-        source = self._read_app_source()
+        source = self._read_admin_user_route_source()
         idx = source.index("def update_admin_user_profile")
         allowed_section = source[idx : idx + 1500]
         self.assertIn('"phone_verified": bool', allowed_section)
@@ -601,14 +603,16 @@ class TestPostCarSameAsPhone(unittest.TestCase):
 class TestAdminDealerNotification(unittest.TestCase):
     """Test that admin dealer updates send notification emails."""
 
-    def _read_app_source(self):
-        app_path = os.path.join(os.path.dirname(__file__), "app.py")
-        with open(app_path, "r") as f:
+    def _read_admin_user_route_source(self):
+        route_path = os.path.join(
+            os.path.dirname(__file__), "routes", "admin_users.py"
+        )
+        with open(route_path, "r") as f:
             return f.read()
 
     def test_admin_update_sends_dealer_notification(self):
         """update_admin_user_profile must send emails when dealer fields change."""
-        source = self._read_app_source()
+        source = self._read_admin_user_route_source()
         idx = source.index("def update_admin_user_profile")
         func_section = source[idx : idx + 10000]
         self.assertIn("dealer_fields_changed", func_section)
@@ -616,7 +620,7 @@ class TestAdminDealerNotification(unittest.TestCase):
 
     def test_admin_update_notifies_dph_team(self):
         """update_admin_user_profile must notify the DPH team."""
-        source = self._read_app_source()
+        source = self._read_admin_user_route_source()
         idx = source.index("def update_admin_user_profile")
         func_section = source[idx : idx + 10000]
         self.assertIn("DPH Admin: Dealer profile updated", func_section)
@@ -624,7 +628,7 @@ class TestAdminDealerNotification(unittest.TestCase):
 
     def test_verification_revoked_sends_rejected_email(self):
         """When dealer_verified is set to False, dealer gets 'rejected' email."""
-        source = self._read_app_source()
+        source = self._read_admin_user_route_source()
         idx = source.index("def update_admin_user_profile")
         func_section = source[idx : idx + 10000]
         self.assertIn('"rejected"', func_section)
