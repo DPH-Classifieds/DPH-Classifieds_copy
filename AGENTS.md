@@ -68,7 +68,7 @@ saved-listings, saved-searches, and push-token routes live in
 of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
-The verified local baseline for this stage is: `app.py` 23,266 lines; backend
+The verified local baseline for this stage is: `app.py` 23,272 lines; backend
 `1075 passed, 11 skipped`; Docker API liveness/readiness/404/auth-gate smoke
 passed; worker health plus Redis heartbeat smoke passed. Protected browser
 flows remain credential-gated and must not be reported as passed when their
