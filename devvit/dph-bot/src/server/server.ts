@@ -103,7 +103,10 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   for (const [index, item] of posts.entries()) {
     const postedKey = `${postedKeyPrefix}:${index}`
     if (!force && await redis.get(postedKey)) continue
-    const post = await reddit.submitPost({subredditName: targetSubreddit, title: item.title!, text: item.body!, flairId: flair.id, flairText: flair.text})
+    const post = await reddit.submitPost({subredditName: targetSubreddit, title: item.title!, text: item.body!})
+    // Flair passed inline to submitPost doesn't reliably render; the dedicated
+    // flair endpoint does.
+    await reddit.setPostFlair({postId: post.id, subredditName: targetSubreddit, flairTemplateId: flair.id, text: flair.text})
     await redis.set(postedKey, post.id)
     firstUrl ??= post.url
   }
