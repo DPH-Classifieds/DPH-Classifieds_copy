@@ -124,6 +124,8 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
             APP_PATH.parent / "routes" / "dealer_info_requests.py"
         ).read_text() + Path(
             APP_PATH.parent / "routes" / "public_info_request.py"
+        ).read_text() + Path(
+            APP_PATH.parent / "routes" / "public_info_upload.py"
         ).read_text()
         public_section = public_source[public_source.index("def get_public_info_request"):]
         admin_list_section = source[source.index("def list_dealer_info_requests"):source.index("def cancel_dealer_info_request")]
@@ -136,7 +138,7 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         self.assertIn('"email_sent": email_sent', create_section)
         self.assertLess(
             upload_section.index('if document_type == "trade_license"'),
-            upload_section.index('upload_response = requests.post'),
+            upload_section.index('upload_response = backend.requests.post'),
         )
         self.assertIn("extension_to_mime", upload_section)
 
