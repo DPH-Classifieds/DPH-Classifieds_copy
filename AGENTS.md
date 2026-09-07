@@ -71,7 +71,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged listing-mutation slice is:
-`app.py` 21,046 lines; the focused dealer/profile/drafts/statistics/media/VIN/
+`app.py` 20,494 lines; the focused dealer/profile/drafts/statistics/media/VIN/
 outcome/manifest suite is `183 passed, 5 warnings`; the full backend suite is
 `1082 passed, 11 skipped, 53 warnings`; Docker API liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
@@ -98,6 +98,10 @@ resolve patchable services through the runtime dependency registry.
 The authenticated listing extension route is isolated in
 `routes/listing_lifecycle.py`; admin bulk lifecycle handlers remain in the
 compatibility root until their larger shared block is separately contract-tested.
+
+The authenticated car update route, including JSON/multipart image replacement,
+lives in `routes/car_update.py`; its compatibility aliases and existing direct
+upload contract are retained.
 
 Any further app.py reduction must be a separately scoped, contract-first
 extraction. Account deletion, authentication/signup, drafts, and lifecycle
