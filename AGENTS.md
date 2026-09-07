@@ -71,8 +71,8 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged listing-mutation slice is:
-`app.py` 20,198 lines; the focused bike-update/manifest suite is `13 passed`; the
-full backend suite is `1085 passed, 11 skipped, 53 warnings`; Docker API
+`app.py` 19,310 lines; the focused bike/part/media/manifest suite is `70 passed`;
+the full backend suite is `1087 passed, 11 skipped, 53 warnings`; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
 `153 passed`, CRA build/bundle/media checks passed, mobile TypeScript and Jest
@@ -96,8 +96,9 @@ Listing image uploads live in `routes/media.py`, admin VIN unlock in
 resolve patchable services through the runtime dependency registry.
 
 The authenticated listing extension route is isolated in
-`routes/listing_lifecycle.py`; admin bulk lifecycle handlers remain in the
-compatibility root until their larger shared block is separately contract-tested.
+`routes/listing_lifecycle.py`. Admin listing renewal, bulk moderation, status,
+and expiry routes are isolated in `routes/admin_listing_lifecycle.py` and retain
+their compatibility exports and route precedence.
 
 The authenticated car update route, including JSON/multipart image replacement,
 lives in `routes/car_update.py`; its compatibility aliases and existing direct
@@ -107,6 +108,18 @@ The authenticated bike update and delete routes live in `routes/bike_update.py`.
 They retain JSON aliases, ownership/validation gates, image replacement fallback,
 notifications, cache invalidation, and direct-call compatibility. Client-supplied
 `status` and `user_id` are explicitly excluded from bike mutation writes.
+
+Plate mutation dispatch and delete routes live in `routes/plate_update.py`, and
+part mutation dispatch and delete routes live in `routes/part_update.py`. Part
+mutations perform an explicit owner check before persistence; both modules retain
+optional-auth dispatch, compatibility exports, and route-manifest coverage.
+
+Plate mutation dispatch and delete routes live in `routes/plate_update.py`, part
+mutation dispatch and delete routes live in `routes/part_update.py`, and the
+admin listing renewal/bulk/status/expiry routes live in
+`routes/admin_listing_lifecycle.py`. Part mutations perform an explicit owner
+check before persistence; all three modules retain compatibility exports and
+route-manifest coverage.
 
 Any further app.py reduction must be a separately scoped, contract-first
 extraction. Account deletion, authentication/signup, drafts, and lifecycle
