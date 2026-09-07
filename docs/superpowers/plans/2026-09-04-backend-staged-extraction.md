@@ -526,3 +526,10 @@ Status: complete in commit `21fe38e1`.
 The optional-auth GET dispatch targets for plates and car parts now live in
 `routes/listing_details.py`, preserving compatibility exports and existing
 plate/part read-parity behavior.
+
+### Task 8aj: Extract public price-history route
+
+Status: complete in commit `a9e1a922`.
+
+The public listing price-history endpoint now lives in `routes/price_history.py`
+with its approved-listing and migration-fallback contracts preserved.

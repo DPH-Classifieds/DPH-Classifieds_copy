@@ -191,3 +191,7 @@ Ruling: The next bounded reduction is plate/part detail helper ownership, follow
 Task 8ai: complete (commit `21fe38e1`; extracted plate and car-part detail helpers into `routes/listing_details.py`, preserved optional-auth GET dispatch, compatibility exports, and read behavior, and restored/protected the intervening part-read/create wiring with route-manifest coverage). Focused plate/part/bike/extraction/manifest suite `81 passed`; full backend `1193 passed, 11 skipped, 56 warnings`; Docker API and worker smoke passed. `app.py` is now `16,819` lines.
 
 Ruling: The next remaining app.py cleanup targets are overview/stats aggregation and lifecycle/reminder worker composition. They are coupled and should be split into separately contract-tested stages; no further route deletion should be mechanical.
+
+Task 8aj: complete (commit `a9e1a922`; extracted public price-history handling into `routes/price_history.py`, preserving approved-listing gating, analysis, current-price fallback, compatibility export, runtime registration, and route contract). Focused suite `19 passed`; full backend `1197 passed, 11 skipped, 56 warnings`. `app.py` is now `16,765` lines.
+
+Ruling: Continue with admin overview/stats aggregation only after mapping its direct consumers and missing-table/error contracts; lifecycle/reminder workers remain a separate later stage.
