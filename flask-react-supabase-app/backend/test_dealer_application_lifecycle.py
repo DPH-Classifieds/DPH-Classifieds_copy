@@ -117,7 +117,9 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         self.assertIn('("approve", "deny", "pending")', review_section)
 
     def test_info_request_contracts_keep_documents_private_and_reviewable(self):
-        source = APP_PATH.read_text()
+        source = APP_PATH.read_text() + Path(
+            APP_PATH.parent / "routes" / "dealer_info_requests.py"
+        ).read_text()
         public_section = source[source.index("def get_public_info_request"):source.index("def upload_public_info_request")]
         admin_list_section = source[source.index("def list_dealer_info_requests"):source.index("def cancel_dealer_info_request")]
         upload_section = source[source.index("def upload_public_info_request"):]
