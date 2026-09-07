@@ -23,6 +23,7 @@ EXPECTED_METHODS = {
     "/api/cars": ("GET", "HEAD", "OPTIONS", "POST"),
     "/api/admin/stats": ("GET", "HEAD", "OPTIONS"),
     "/api/analytics/events": ("OPTIONS", "POST"),
+    "/api/diagnostics/config": ("GET", "HEAD", "OPTIONS"),
 }
 
 EXPECTED_MANIFESTS_BY_DEALER_PANEL = {

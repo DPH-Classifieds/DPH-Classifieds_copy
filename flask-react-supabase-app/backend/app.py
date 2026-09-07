@@ -12597,154 +12597,6 @@ def get_part_details(part_id, requesting_user=None):
         logger.error(f"Error getting part {part_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-# Diagnostic endpoint to check if service role key is available
-@app.route("/api/diagnostics/config", methods=["GET"])
-@token_required
-def check_config(current_user):
-    try:
-        if os.getenv("ENABLE_DIAGNOSTICS", "false").lower() != "true":
-            return jsonify({"error": "Not found"}), 404
-
-        if not get_user_admin_status(current_user):
-            return jsonify({"error": "Unauthorized"}), 403
-
-        # Get the keys for diagnostic purposes
-        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "not-set")
-        regular_key = SUPABASE_KEY
-
-        # Only show partial keys for security
-        def mask_key(key):
-            if not key or len(key) < 20:
-                return "invalid-key-format"
-            return key[:5] + "..." + key[-5:]
-
-        service_key_masked = mask_key(service_key)
-        regular_key_masked = mask_key(regular_key)
-
-        # Check if they're the same key
-        keys_are_same = service_key == regular_key
-
-        return jsonify(
-            {
-                "service_key_available": service_key != "not-set",
-                "service_key_preview": service_key_masked,
-                "regular_key_preview": regular_key_masked,
-                "using_same_key": keys_are_same,
-                "postgres_role_header_present": True,
-            }
-        ), 200
-    except Exception as e:
-        logger.error(f"Error in diagnostics endpoint: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-        bootstrap_token = os.getenv("ADMIN_BOOTSTRAP_TOKEN")
-        request_token = request.headers.get("X-Admin-Bootstrap-Token")
-        if not bootstrap_token or request_token != bootstrap_token:
-            return jsonify({"error": "Invalid admin bootstrap token"}), 403
-
-        logger.info(f"Attempting to make user {current_user} an admin")
-
-        # Get the service role key for admin operations
-        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        if not service_key:
-            logger.warning(
-                "SUPABASE_SERVICE_ROLE_KEY not set, falling back to SUPABASE_KEY"
-            )
-            service_key = SUPABASE_KEY
-
-        if not service_key:
-            logger.error("No Supabase API key available")
-            return jsonify(
-                {"error": "Server configuration error - no API key available"}
-            ), 500
-
-        logger.info("Using service key for admin bootstrap")
-
-        # Create a simple users table if it doesn't exist
-        try:
-            # First, just try to directly set the user as admin by inserting/updating in the users table
-            logger.info(f"Creating/updating admin record for user: {current_user}")
-
-            # Create headers with service role
-            headers = {
-                "apikey": service_key,
-                "Authorization": f"Bearer {service_key}",
-                "Content-Type": "application/json",
-                "Prefer": "return=representation",
-                "X-Postgres-Role": "service_role",  # This bypasses RLS
-            }
-
-            # Get user email from token information (already validated in @token_required)
-            user_email = (
-                request.user_data.get("email", "unknown@example.com")
-                if hasattr(request, "user_data")
-                else "unknown@example.com"
-            )
-            logger.info(f"Using email from token: {user_email}")
-
-            # Try to upsert the user record with PATCH
-            update_response = requests.patch(
-                f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}",
-                json={"id": current_user, "email": user_email, "is_admin": True},
-                headers=headers,
-                timeout=10,
-            )
-
-            # If PATCH fails with 404 (not found), try to create with POST
-            if (
-                update_response.status_code == 404
-                or len(update_response.text.strip()) == 0
-            ):
-                logger.info("User not found in users table, creating new record")
-                create_response = requests.post(
-                    f"{SUPABASE_URL}/rest/v1/users",
-                    json={"id": current_user, "email": user_email, "is_admin": True},
-                    headers=headers,
-                    timeout=10,
-                )
-
-                if create_response.status_code >= 400:
-                    error_text = (
-                        create_response.text
-                        or f"Status code: {create_response.status_code}"
-                    )
-                    logger.error(f"Failed to create user record: {error_text}")
-                    return jsonify(
-                        {"error": "Failed to create user record", "details": error_text}
-                    ), 500
-
-                logger.info(f"Created new admin user record")
-                return jsonify(
-                    {"message": "You are now an admin", "success": True}
-                ), 201
-            elif update_response.status_code >= 400:
-                error_text = (
-                    update_response.text
-                    or f"Status code: {update_response.status_code}"
-                )
-                logger.error(f"Failed to update user record: {error_text}")
-                return jsonify(
-                    {"error": "Failed to update user record", "details": error_text}
-                ), 500
-
-            logger.info(f"Updated user {current_user} to admin status")
-            return jsonify({"message": "You are now an admin", "success": True}), 200
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error in admin operation: {str(e)}")
-            return jsonify(
-                {
-                    "error": "Service unavailable - could not connect to database service",
-                    "details": str(e),
-                }
-            ), 503
-
-    except Exception as e:
-        logger.error(f"Unexpected error making user admin: {str(e)}")
-        return jsonify({"error": f"Internal server error", "details": str(e)}), 500
-
-
 @app.route("/api/users", methods=["GET"])
 @token_required
 def get_users(current_user):
@@ -18603,6 +18455,17 @@ except Exception as e:
 # registry on the Flask app avoids circular imports from the compatibility
 # root while allowing tests to patch the original functions in place.
 app.extensions["dph_user_backend"] = globals()
+
+# Diagnostics configuration is registered after the runtime table exists so
+# the extracted handler can resolve token and admin helpers without importing
+# this compatibility root.
+try:
+    from routes.diagnostics import check_config, register_diagnostics_routes
+
+    register_diagnostics_routes(app)
+    logger.info("Diagnostics route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register diagnostics route: {e}")
 
 # Platform analytics event ingestion is registered after the runtime table is
 # available; the shared normalizer and table check remain compatibility-root
