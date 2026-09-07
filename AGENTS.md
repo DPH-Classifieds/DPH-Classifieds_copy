@@ -109,11 +109,6 @@ They retain JSON aliases, ownership/validation gates, image replacement fallback
 notifications, cache invalidation, and direct-call compatibility. Client-supplied
 `status` and `user_id` are explicitly excluded from bike mutation writes.
 
-Plate mutation dispatch and delete routes live in `routes/plate_update.py`, and
-part mutation dispatch and delete routes live in `routes/part_update.py`. Part
-mutations perform an explicit owner check before persistence; both modules retain
-optional-auth dispatch, compatibility exports, and route-manifest coverage.
-
 Plate mutation dispatch and delete routes live in `routes/plate_update.py`, part
 mutation dispatch and delete routes live in `routes/part_update.py`, and the
 admin listing renewal/bulk/status/expiry routes live in
