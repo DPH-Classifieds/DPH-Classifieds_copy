@@ -220,3 +220,114 @@ Playwright, Supabase HTTP APIs.
   production build/bundle/media audit, mobile typecheck/tests, and Playwright.
 - [ ] Record credential-gated and live-only verification outcomes separately.
 - [ ] Commit with message `refactor(backend): reduce legacy composition root`.
+
+### Task 8u: Extract legacy moderation API ownership
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/moderation.py`
+- Create or modify: `flask-react-supabase-app/backend/test_moderation_route_parity.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/workers/auto_review_worker.py` only if
+  required for the compatibility callable
+
+**Interfaces:**
+- Produces a moderation route registration boundary for the generic approve,
+  reject, and pending-list API routes currently implemented in `app.py`.
+- Preserves the existing `_perform_approval` callable for the auto-review
+  worker and direct tests through a compatibility export.
+
+**Constraints:**
+- Preserve route precedence against the existing `routes/admin.py` blueprint,
+  including the canonical reject route; do not introduce a second live handler
+  for the same rule.
+- Preserve auth status codes, response envelopes, item-type validation,
+  rejection-note requirements, notification best-effort behavior, and service
+  role usage.
+- Do not mix admin metrics, dealer verification, workers, or unrelated listing
+  mutations into this task.
+- Add contract tests before deleting the root implementations, then run the
+  focused moderation/manifest suite and the full backend suite.
+
+### Task 8v: Extract platform analytics event ingestion
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/platform_analytics.py`
+- Create or modify: `flask-react-supabase-app/backend/test_platform_analytics_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+
+**Interfaces:**
+- Produces a route registration boundary for `POST /api/analytics/events`.
+- Resolves Supabase access and optional user identity through the runtime
+  boundary while preserving the `track_platform_event` endpoint contract.
+
+**Constraints:**
+- Preserve the current `201`, `200 duplicate`, `400`, and `503` response
+  envelopes, event normalization, path classification, session/listing fields,
+  and optional bearer-derived `user_id` behavior.
+- Keep `normalize_analytics_event` and `ensure_platform_events_table` in the
+  root if other routes/startup consumers still require them; do not move lead
+  events, admin metrics, webhooks, or worker code in this task.
+- Leave exactly one live rule with the original endpoint and methods.
+- Add contract tests before deleting the root implementation, then run focused
+  analytics/manifest tests and the full backend suite.
+
+### Task 8w: Extract diagnostics config route
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/diagnostics.py`
+- Create or modify: `flask-react-supabase-app/backend/test_diagnostics_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for `GET /api/diagnostics/config`.
+
+**Constraints:**
+- Preserve the feature flag gate, admin authorization, masked-key response
+  fields, status codes, and exception envelope; never expose full secrets.
+- Keep exactly one live route and preserve the existing endpoint name.
+- Do not move unrelated admin settings, metrics, auth, or provider routes.
+
+### Task 8x: Extract public sitemap generation
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/sitemap.py`
+- Create or modify: `flask-react-supabase-app/backend/test_sitemap_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for `/api/sitemap.xml` and
+  `/sitemap.xml`.
+
+**Constraints:**
+- Preserve the public XML content type, static URLs, active-listing filtering,
+  XML escaping, pagination, cache key/TTL, cache headers, and malformed-upstream
+  behavior.
+- Preserve the existing `sitemap_xml` endpoint name for both aliases and keep
+  exactly one live owner per path.
+- Do not move unrelated recommendation, listing, admin, or SEO helper code.
+
+### Task 8y: Extract recommendations HTTP family
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/recommendations.py`
+- Create or modify: `flask-react-supabase-app/backend/test_recommendations_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for `POST /api/recommendations`.
+- Preserves compatibility exports for `get_recommendations` and any direct
+  similar/newest recommendation callers.
+
+**Constraints:**
+- Preserve similar-listing, cold-start, viewed-history, preferred-type, price
+  band, card/image hydration, response envelope, malformed-input, and upstream
+  failure behavior.
+- Keep shared saved-listing configuration/card/image helpers in the root when
+  they have consumers outside this route; do not move unrelated user listing,
+  analytics, admin, or worker code.
+- Keep exactly one live route with endpoint `get_recommendations` and no app.py
+  import in the extracted module.

@@ -62,21 +62,26 @@ browser artifacts.
 ## Current staged-extraction baseline
 
 The current staged branch has completed the bounded admin route cleanup and the
-authenticated user-route extraction through commit `34fde531`. The session and
-recovery authentication extraction is staged after that commit, and the public
-login/signup/username extraction is now verified at the current head. The canonical
+authenticated identity/listing extraction through commit `d3e38590`. The canonical
+saved-listings, saved-searches, push-token, auth, profile, dealer-verification,
+moderation, analytics, diagnostics, sitemap, and recommendations boundaries live
+in dedicated route modules and resolve services through
+`current_app.extensions["dph_user_backend"]`. The canonical
 saved-listings, saved-searches, and push-token routes live in
 `flask-react-supabase-app/backend/routes/user.py`; the module must remain free
 of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
-The verified local baseline for the current staged listing-mutation slice is:
-`app.py` 19,310 lines; the focused bike/part/media/manifest suite is `70 passed`;
-the full backend suite is `1087 passed, 11 skipped, 53 warnings`; Docker API
+The verified local baseline for the current staged extraction is:
+`app.py` 18,430 lines; focused moderation, analytics, diagnostics, sitemap,
+recommendation, and manifest suites pass; the full backend suite is `1132 passed,
+11 skipped, 53 warnings`; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
-`153 passed`, CRA build/bundle/media checks passed, mobile TypeScript and Jest
-are `261 passed`, and public Playwright is `48 passed, 27 credential-gated
+`153 passed`, CRA production build passed, the main bundle is `102.0 KiB`, the
+largest JavaScript asset is `1320.3 KiB` under the `1500 KiB` policy, and the
+media audit found 29 images with no oversized or exact duplicate assets. Mobile
+TypeScript passed and Jest is `261 passed`; public Playwright is `48 passed, 27 credential-gated
 skips` across desktop/tablet/mobile. Protected browser flows remain
 credential-gated and must not be reported as passed when their disposable
 credentials and target environment are absent.
@@ -94,6 +99,12 @@ Listing image uploads live in `routes/media.py`, admin VIN unlock in
 `routes/vin_admin.py`, and the authenticated listing outcome transition in
 `routes/listing_outcomes.py`. These modules keep compatibility exports and
 resolve patchable services through the runtime dependency registry.
+
+Generic moderation APIs live in `routes/moderation.py`; platform event ingestion
+lives in `routes/platform_analytics.py`; diagnostics config lives in
+`routes/diagnostics.py`; public sitemap aliases live in `routes/sitemap.py`; and
+recommendation HTTP handling lives in `routes/recommendations.py`. Each module
+has focused route-contract coverage and independent review evidence.
 
 The authenticated listing extension route is isolated in
 `routes/listing_lifecycle.py`. Admin listing renewal, bulk moderation, status,
