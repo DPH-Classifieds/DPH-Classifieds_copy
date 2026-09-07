@@ -639,6 +639,13 @@ class TestRejectionDropdownAndFix(unittest.TestCase):
         with open(app_path, "r") as f:
             return f.read()
 
+    def _read_moderation_source(self):
+        moderation_path = os.path.join(
+            os.path.dirname(__file__), "routes", "moderation.py"
+        )
+        with open(moderation_path, "r") as f:
+            return f.read()
+
     def _read_source(self, rel_path):
         full_path = os.path.join(
             os.path.dirname(__file__), "..", "frontend", "src", "components", rel_path
@@ -742,12 +749,19 @@ class TestRejectionDropdownAndFix(unittest.TestCase):
         self.assertIn("rejection_fix=None", func_sig)
 
     def test_reject_endpoints_extract_rejection_fix(self):
-        """Reject endpoints must extract rejection_fix from request JSON."""
-        app_source = self._read_app_source()
-        # api_reject_item
-        idx = app_source.index("def api_reject_item")
-        func_section = app_source[idx : idx + 1500]
-        self.assertIn('rejection_fix = request.json.get("rejection_fix"', func_section)
+        """Listing and dealer reject endpoints extract rejection_fix from JSON."""
+        endpoint_sources = (
+            ("api_reject_item", self._read_moderation_source()),
+            ("api_reject_dealer", self._read_app_source()),
+        )
+        for endpoint_name, source in endpoint_sources:
+            with self.subTest(endpoint=endpoint_name):
+                idx = source.index(f"def {endpoint_name}")
+                func_section = source[idx : idx + 1500]
+                self.assertIn(
+                    'rejection_fix = request.json.get("rejection_fix"',
+                    func_section,
+                )
 
 
 if __name__ == "__main__":
