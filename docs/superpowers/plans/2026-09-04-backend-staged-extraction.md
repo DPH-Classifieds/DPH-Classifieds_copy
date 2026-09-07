@@ -445,3 +445,23 @@ Playwright, Supabase HTTP APIs.
 - Keep shared document-label and provider helpers in their current ownership
   unless direct-call compatibility requires runtime exports.
 - Use no static `app.py` import and preserve exactly one live route owner.
+
+### Task 8ae: Extract public dealer information-request lookup
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/public_info_request.py`
+- Create or modify: `flask-react-supabase-app/backend/test_public_info_request_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: source-coupled dealer lifecycle tests only when they must follow the
+  extracted public lookup owner
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for `GET
+  /api/info-requests/<token>`.
+
+**Constraints:**
+- Preserve token-length validation, public token authorization, expiry mutation,
+  dealer-name-only lookup, upload metadata redaction, status/envelopes, and
+  error handling.
+- Keep public multipart upload, storage writes, MIME/signature validation, and
+  lifecycle transitions in a separate task; use no static `app.py` import.
