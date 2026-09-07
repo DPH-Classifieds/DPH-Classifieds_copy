@@ -331,3 +331,117 @@ Playwright, Supabase HTTP APIs.
   analytics, admin, or worker code.
 - Keep exactly one live route with endpoint `get_recommendations` and no app.py
   import in the extracted module.
+
+### Task 8z: Extract admin user maintenance routes
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/admin_users.py`
+- Create or modify: `flask-react-supabase-app/backend/test_admin_user_routes_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: existing source-coupled tests only when they must follow the extracted
+  production owner
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for admin user profile patch
+  and unverified-account cleanup routes.
+- Preserves compatibility exports for direct callers and worker/service helpers.
+
+**Constraints:**
+- Preserve admin/super-admin authorization, protected-field filtering, phone
+  verification and dealer notification behavior, soft-delete/account cleanup,
+  auth-user deletion, status codes, response envelopes, and error handling.
+- Keep destructive cleanup logic isolated from background lifecycle workers and
+  do not move unrelated dealer verification, metrics, or auth routes.
+- Preserve exactly one live owner for each route and use no static app.py import.
+
+### Task 8aa: Extract phone-verification HTTP routes
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/phone_verification.py`
+- Create or modify: `flask-react-supabase-app/backend/test_phone_verification_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+- Modify existing source-coupled phone tests only when required to follow the
+  extracted production owner
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for the three phone
+  verification HTTP routes: start, verify, and MSG91 verify-token.
+
+**Constraints:**
+- Preserve optional/authenticated token behavior, IP rate limits, purpose and
+  listing binding, resend semantics, MSG91 routing, Infobip issuance/finalize
+  behavior, exact response messages/statuses, and sensitive error handling.
+- Leave shared normalization, persistence, provider, and listing-sync helpers
+  in their existing ownership unless their direct call contracts require a
+  compatibility export.
+- Keep exactly one live owner per route and no static app.py import; do not move
+  VIN/admin routes, profile routes, or workers in this task.
+
+### Task 8ab: Extract email and error admin metrics routes
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/admin_metrics.py`
+- Create or modify: `flask-react-supabase-app/backend/test_admin_metrics_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for `GET
+  /api/admin/metrics/email` and `GET /api/admin/metrics/errors`.
+
+**Constraints:**
+- Preserve endpoint names, automatic `HEAD`/`OPTIONS`, admin authorization,
+  days clamping, cache keys/TTLs, missing-table envelopes, upstream errors,
+  and response shapes.
+- Preserve the distinction between the existing admin-auth helpers; do not
+  replace the route-specific authorization contract with a generic guard.
+- Keep overview/stats/live-user/Cloudflare analytics and unrelated helpers in
+  `app.py`; use `current_app` runtime dependencies and no static app import.
+- Keep exactly one live owner for each route and retain compatibility exports
+  for direct callers or source-coupled tests.
+
+### Task 8ac: Extract live-user metrics routes
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/live_users.py`
+- Create or modify: `flask-react-supabase-app/backend/test_live_users_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: `flask-react-supabase-app/backend/test_route_manifest.py`
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for
+  `GET /api/admin/live-users` and `GET /api/admin/live-users/history`.
+
+**Constraints:**
+- Preserve admin authorization, lookback/bucket clamping, cache keys/TTLs,
+  service-role reads, timestamp normalization, empty-bucket behavior, and
+  response/error envelopes.
+- Keep Cloudflare, overview/stats aggregation, dealer flows, and workers out of
+  this slice; use no static `app.py` import.
+- Preserve endpoint names and exactly one live owner per path, including
+  automatic `HEAD`/`OPTIONS` behavior and compatibility exports.
+
+### Task 8ad: Extract admin dealer information-request controls
+
+**Files:**
+- Create: `flask-react-supabase-app/backend/routes/dealer_info_requests.py`
+- Create or modify: `flask-react-supabase-app/backend/test_dealer_info_request_route_extraction.py`
+- Modify: `flask-react-supabase-app/backend/app.py`
+- Modify: source-coupled dealer lifecycle tests only when they must follow the
+  extracted production owner
+
+**Interfaces:**
+- Produces a runtime-boundary registration helper for admin create/list/cancel
+  information-request controls.
+
+**Constraints:**
+- Extract only the three admin routes; keep public token retrieval/upload,
+  signed URLs, MIME/signature validation, and lifecycle submission separate.
+- Preserve admin authorization, dealer verification state checks, document
+  normalization/deduplication, pending-request cancellation, Resend
+  email_sent/email_error behavior, redaction/signing of private attachments,
+  response envelopes, and known path/method collision behavior.
+- Keep shared document-label and provider helpers in their current ownership
+  unless direct-call compatibility requires runtime exports.
+- Use no static `app.py` import and preserve exactly one live route owner.

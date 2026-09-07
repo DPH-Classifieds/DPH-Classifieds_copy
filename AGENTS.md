@@ -62,7 +62,7 @@ browser artifacts.
 ## Current staged-extraction baseline
 
 The current staged branch has completed the bounded admin route cleanup and the
-authenticated identity/listing extraction through commit `d3e38590`. The canonical
+authenticated identity/listing extraction through commit `2aaad248`. The canonical
 saved-listings, saved-searches, push-token, auth, profile, dealer-verification,
 moderation, analytics, diagnostics, sitemap, and recommendations boundaries live
 in dedicated route modules and resolve services through
@@ -73,9 +73,9 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 18,430 lines; focused moderation, analytics, diagnostics, sitemap,
-recommendation, and manifest suites pass; the full backend suite is `1132 passed,
-11 skipped, 53 warnings`; Docker API
+`app.py` 17,438 lines; focused moderation, analytics, diagnostics, sitemap,
+recommendation, phone, metrics, live-user, dealer-info, and manifest suites pass;
+the full backend suite is `1171 passed, 11 skipped, 54 warnings`; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
 `153 passed`, CRA production build passed, the main bundle is `102.0 KiB`, the
@@ -102,8 +102,12 @@ resolve patchable services through the runtime dependency registry.
 
 Generic moderation APIs live in `routes/moderation.py`; platform event ingestion
 lives in `routes/platform_analytics.py`; diagnostics config lives in
-`routes/diagnostics.py`; public sitemap aliases live in `routes/sitemap.py`; and
-recommendation HTTP handling lives in `routes/recommendations.py`. Each module
+`routes/diagnostics.py`; public sitemap aliases live in `routes/sitemap.py`;
+recommendation HTTP handling lives in `routes/recommendations.py`; phone
+verification lives in `routes/phone_verification.py`; admin email/error metrics
+live in `routes/admin_metrics.py`; live-user metrics live in `routes/live_users.py`;
+and admin dealer info-request controls live in `routes/dealer_info_requests.py`.
+Each module
 has focused route-contract coverage and independent review evidence.
 
 The authenticated listing extension route is isolated in
@@ -128,6 +132,7 @@ check before persistence; all three modules retain compatibility exports and
 route-manifest coverage.
 
 Any further app.py reduction must be a separately scoped, contract-first
-extraction. Account deletion, authentication/signup, drafts, and lifecycle
+extraction. Authentication/signup/refresh/verification, public info-request
+upload lifecycle, listing helpers, overview/stats aggregation, and lifecycle
 workers require dedicated parity, failure-mode, and authorization tests before
 their shared helpers or routes are moved.
