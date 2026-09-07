@@ -13318,16 +13318,6 @@ def _trigger_auto_review_async():
     _threading.Thread(target=_run, daemon=True).start()
 
 
-_APPROVAL_TABLE_BY_ITEM_TYPE = {
-    "cars": "cars",
-    "bikes": "bikes",
-    "parts": "car_parts",
-    "plates": "license_plates",
-    "buying_requests": "buying_requests",
-    "buying_request": "buying_requests",
-}
-
-
 def _expire_reddit_dupes_for_vin(vin):
     """A native DPH car takes priority over a Reddit import of the same vehicle.
     Unpublish any Reddit-sourced car sharing this VIN so only the DPH listing
@@ -13468,391 +13458,6 @@ def _sweep_reddit_vs_reddit_dupes():
     if deduped:
         _invalidate_public_inventory_cache("cars")
     return deduped
-
-
-def _perform_approval(
-    item_type,
-    item_id,
-    *,
-    actor,
-    actor_id,
-    origin_header=None,
-    signals=None,
-    dry_run=False,
-):
-    """Shared implementation used by admin approval route and the auto-review
-    worker. Returns (ok: bool, payload: dict, http_status: int).
-
-    actor: 'admin' | 'auto'.
-    actor_id: user id (admin) or worker name (auto). Used only for logging.
-    """
-    table_name = _APPROVAL_TABLE_BY_ITEM_TYPE.get(item_type)
-    if not table_name:
-        return False, {"error": f"Invalid item type: {item_type}"}, 400
-
-    patch_data = {"status": "approved", "is_approved": True}
-    # Reset lifecycle state for all inventory listing types (not buying_requests,
-    # which don't have expiry columns).
-    _LIFECYCLE_TYPES = {"cars", "bikes", "parts", "plates"}
-    if item_type in _LIFECYCLE_TYPES:
-        import datetime as _dt
-        _now = _dt.datetime.now(_dt.timezone.utc)
-        _new_expires = _now + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
-        _new_retention = _new_expires + _dt.timedelta(days=LISTING_RETENTION_DAYS)
-        patch_data.update({
-            "expires_at": _new_expires.isoformat(),
-            "retention_expires_at": _new_retention.isoformat(),
-            "deleted_at": None,
-            "expired_at": None,
-            "is_archived": False,
-            "sold_status": None,
-            "sold_status_set_at": None,
-            "auto_removed_at": None,
-            "sold_response_deadline": None,
-            "expiry_reminder_sent_at": None,
-            "expired_email_sent_at": None,
-        })
-    if actor == "auto":
-        patch_data["auto_review_state"] = "auto_approved"
-        patch_data["auto_review_decided_at"] = _utc_now().isoformat()
-
-    if dry_run:
-        logger.info(
-            "dry-run approval: actor=%s actor_id=%s type=%s id=%s",
-            actor, actor_id, item_type, item_id,
-        )
-        return True, {"success": True, "dry_run": True}, 200
-
-    response, status_code = supabase_request(
-        "patch",
-        f"/rest/v1/{table_name}?id=eq.{item_id}",
-        data=patch_data,
-        use_service_role=True,
-    )
-
-    if not (200 <= status_code < 300):
-        logger.error(
-            f"Error approving {item_type} {item_id}: {status_code} - {response}"
-        )
-        return False, {"error": f"Failed to approve {item_type}"}, status_code
-
-    listing = None
-    if isinstance(response, list) and response:
-        listing = response[0]
-    elif isinstance(response, dict) and response.get("id"):
-        listing = response
-    if not listing:
-        listing_response, listing_status = supabase_request(
-            "get",
-            f"/rest/v1/{table_name}?id=eq.{item_id}&select=*",
-            use_service_role=True,
-        )
-        if listing_status < 400 and listing_response:
-            listing = listing_response[0]
-
-    # Once a native DPH car is live, unpublish any Reddit import of the same VIN
-    # (priority: DPH over Reddit). No-op for Reddit-sourced approvals.
-    if table_name == "cars" and listing and (listing.get("source_platform") or "") != "reddit":
-        _expire_reddit_dupes_for_vin(listing.get("vin_number"))
-
-    email_sent = False
-    email_error = None
-    if listing:
-        user_email = listing.get("user_email") or listing.get("contact_email")
-        if not user_email:
-            user_id = listing.get("user_id")
-            if user_id:
-                user_email = get_user_email(user_id)
-        if user_email and EMAIL_REGEX.match(user_email):
-            _, email_error = _send_listing_status_email(
-                user_email,
-                item_type,
-                listing,
-                "approved",
-                origin_header,
-            )
-            if email_error:
-                logger.error(
-                    f"Approval email failed for {item_type} {item_id}: {email_error}"
-                )
-            else:
-                email_sent = True
-        else:
-            email_error = "Missing or invalid recipient email"
-            logger.warning(
-                f"Approval email skipped for {item_type} {item_id}: {email_error}"
-            )
-    else:
-        email_error = "Listing not found for email notification"
-        logger.warning(
-            f"Approval email skipped for {item_type} {item_id}: {email_error}"
-        )
-
-    # When the auto-review worker approves a listing, notify admins (informational)
-    if actor == "auto" and listing:
-        try:
-            admin_user_email = listing.get("user_email") or listing.get("contact_email")
-            if not admin_user_email:
-                uid = listing.get("user_id")
-                if uid:
-                    admin_user_email = get_user_email(uid)
-            _send_auto_approved_admin_notification(item_type, listing, admin_user_email)
-        except Exception as _ae:
-            logger.warning("Auto-approved admin notification failed: %s", _ae)
-
-    logger.info(
-        "%s %s approved %s %s",
-        actor.capitalize(), actor_id, item_type, item_id,
-    )
-    _invalidate_public_inventory_cache(item_type)
-    payload = {
-        "success": True,
-        "message": f"{item_type} approved successfully",
-        "email_sent": email_sent,
-    }
-    if email_error:
-        payload["email_error"] = "Approval email was not sent"
-    return True, payload, 200
-
-
-# Generic API approval/rejection endpoints for admin dashboard
-@app.route("/api/<item_type>/<item_id>/approve", methods=["POST"])
-@token_required
-def api_approve_item(current_user, item_type, item_id):
-    try:
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Admin access required"}), 403
-
-        _ok, payload, status_code = _perform_approval(
-            item_type,
-            item_id,
-            actor="admin",
-            actor_id=current_user,
-            origin_header=request.headers.get("Origin"),
-        )
-        return jsonify(payload), status_code
-
-    except Exception as e:
-        logger.error(f"Exception in api_approve_item: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/<item_type>/<item_id>/reject", methods=["POST"])
-@token_required
-def api_reject_item(current_user, item_type, item_id):
-    try:
-        # Check if user is admin
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Admin access required"}), 403
-
-        # Map item types to table names
-        valid_item_types = {
-            "cars": "cars",
-            "bikes": "bikes",
-            "parts": "car_parts",
-            "plates": "license_plates",
-            "buying_requests": "buying_requests",
-            "buying_request": "buying_requests",
-        }
-
-        if item_type not in valid_item_types:
-            return jsonify({"error": f"Invalid item type: {item_type}"}), 400
-
-        table_name = valid_item_types[item_type]
-
-        # Get rejection note from request if provided
-        rejection_note = ""
-        rejection_fix = ""
-        if request.is_json and request.json:
-            rejection_note = request.json.get("rejection_note", "")
-            rejection_fix = request.json.get("rejection_fix", "")
-        rejection_note = str(rejection_note or "").strip()
-        if not rejection_note:
-            return jsonify({"error": "Rejection reason is required"}), 400
-
-        # Update the item status to rejected and add rejection note
-        patch_data = {"status": "rejected", "rejection_note": rejection_note}
-
-        response, status_code = supabase_request(
-            "patch",
-            f"/rest/v1/{table_name}?id=eq.{item_id}",
-            data=patch_data,
-            use_service_role=True,
-        )
-
-        if status_code >= 200 and status_code < 300:
-            listing = None
-            if isinstance(response, list) and response:
-                listing = response[0]
-            elif isinstance(response, dict) and response.get("id"):
-                listing = response
-            if not listing:
-                listing_response, listing_status = supabase_request(
-                    "get",
-                    f"/rest/v1/{table_name}?id=eq.{item_id}&select=*",
-                    use_service_role=True,
-                )
-                if listing_status < 400 and listing_response:
-                    listing = listing_response[0]
-
-            email_sent = False
-            email_error = None
-            if listing:
-                user_email = listing.get("user_email") or listing.get("contact_email")
-                if not user_email:
-                    user_id = listing.get("user_id")
-                    if user_id:
-                        user_email = get_user_email(user_id)
-                if user_email and EMAIL_REGEX.match(user_email):
-                    _, email_error = _send_listing_status_email(
-                        user_email,
-                        item_type,
-                        listing,
-                        "rejected",
-                        request.headers.get("Origin"),
-                        rejection_fix=rejection_fix,
-                    )
-                    if email_error:
-                        logger.error(
-                            f"Rejection email failed for {item_type} {item_id}: {email_error}"
-                        )
-                    else:
-                        email_sent = True
-                else:
-                    email_error = "Missing or invalid recipient email"
-                    logger.warning(
-                        f"Rejection email skipped for {item_type} {item_id}: {email_error}"
-                    )
-            else:
-                email_error = "Listing not found for email notification"
-                logger.warning(
-                    f"Rejection email skipped for {item_type} {item_id}: {email_error}"
-                )
-
-            logger.info(
-                f"Admin {current_user} rejected {item_type} {item_id} with note: {rejection_note}"
-            )
-            payload = {
-                "success": True,
-                "message": f"{item_type} rejected successfully",
-                "email_sent": email_sent,
-            }
-            if email_error:
-                payload["email_error"] = "Rejection email was not sent"
-            return jsonify(payload), 200
-        else:
-            logger.error(
-                f"Error rejecting {item_type} {item_id}: {status_code} - {response}"
-            )
-            return jsonify({"error": f"Failed to reject {item_type}"}), status_code
-
-    except Exception as e:
-        logger.error(f"Exception in api_reject_item: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/admin/approve/<item_type>", methods=["GET"])
-@token_required
-def api_admin_list_items(current_user, item_type):
-    """Token-auth admin listing endpoint used by React admin screens."""
-    try:
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Admin access required"}), 403
-
-        table_name = ADMIN_ITEM_TYPE_TO_TABLE.get(item_type)
-        if not table_name:
-            return jsonify({"error": "Invalid item type"}), 400
-
-        status = request.args.get("status", "pending")
-        query_params = {"select": "*", "order": "created_at.desc"}
-        if status:
-            query_params["status"] = f"eq.{status}"
-
-        response, status_code = supabase_request(
-            "get",
-            f"/rest/v1/{table_name}",
-            params=query_params,
-            use_service_role=True,
-        )
-        if status_code >= 400:
-            return jsonify({"error": "Failed to fetch listings"}), status_code
-
-        listings = response or []
-        listing_ids = {
-            str(item.get("id"))
-            for item in listings
-            if isinstance(item, dict) and item.get("id") is not None
-        }
-
-        lead_counts_by_listing = defaultdict(lambda: defaultdict(int))
-        if listing_ids:
-            normalized_listing_type = item_type.rstrip("s")
-            lead_events, lead_status = supabase_request(
-                "get",
-                "/rest/v1/lead_events",
-                params={
-                    "select": "listing_id,action,created_at",
-                    "listing_type": f"eq.{normalized_listing_type}",
-                    "order": "created_at.desc",
-                    "limit": "10000",
-                },
-                use_service_role=True,
-            )
-            if lead_status < 400:
-                for event in lead_events or []:
-                    listing_id = str(event.get("listing_id"))
-                    if listing_id not in listing_ids:
-                        continue
-                    action = event.get("action") or "unknown"
-                    lead_counts_by_listing[listing_id][action] += 1
-            else:
-                logger.warning(
-                    f"Failed loading lead events for admin listing view: {lead_events}"
-                )
-
-        enriched_listings = []
-        for item in listings:
-            item_copy = dict(item) if isinstance(item, dict) else item
-            if not isinstance(item_copy, dict):
-                enriched_listings.append(item_copy)
-                continue
-
-            listing_id = str(item_copy.get("id"))
-            counts = lead_counts_by_listing.get(listing_id, {})
-            call_click = int(counts.get("call_click", 0))
-            whatsapp_click = int(counts.get("whatsapp_click", 0))
-            vin_open = int(counts.get("vin_open", 0))
-            vin_reveal = int(counts.get("vin_reveal", 0))
-            item_copy["lead_metrics"] = {
-                "call_click": call_click,
-                "whatsapp_click": whatsapp_click,
-                "vin_open": vin_open,
-                "vin_reveal": vin_reveal,
-                "qualified_leads": call_click + whatsapp_click,
-            }
-            # Mirror listings-search: inject listing_type so frontend approve/reject uses correct table.
-            item_copy.setdefault("listing_type", item_type)
-            enriched_listings.append(item_copy)
-
-        return jsonify(enriched_listings), 200
-    except Exception as e:
-        logger.error(f"Exception in api_admin_list_items: {e}")
-        return jsonify({"error": "Failed to fetch listings"}), 500
-
-
-@app.route("/api/admin/approve/<item_type>/<item_id>/approve", methods=["POST"])
-@token_required
-def api_admin_approve_item(current_user, item_type, item_id):
-    return api_approve_item.__wrapped__(current_user, item_type, item_id)
-
-
-@app.route("/api/admin/approve/<item_type>/<item_id>/reject", methods=["POST"])
-@token_required
-def api_admin_reject_item(current_user, item_type, item_id):
-    return api_reject_item.__wrapped__(current_user, item_type, item_id)
 
 
 def admin_required(f):
@@ -19282,6 +18887,61 @@ from routes.admin_listing_lifecycle import (
     admin_set_listing_status,
     admin_set_listing_expiry,
 )
+
+# Generic moderation routes are registered after the runtime dependency table
+# is complete.  The canonical admin blueprint reject route remains owned by
+# routes.admin; api_admin_reject_item is retained only for direct callers.
+try:
+    from routes.moderation import (
+        _perform_approval as _moderation_perform_approval,
+        api_admin_approve_item,
+        api_admin_list_items,
+        api_approve_item,
+        api_reject_item as _moderation_api_reject_item,
+        register_moderation_routes,
+    )
+
+    register_moderation_routes(app, globals())
+    logger.info("Moderation API routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register moderation API routes: {e}")
+
+
+def _perform_approval(
+    item_type,
+    item_id,
+    *,
+    actor,
+    actor_id,
+    origin_header=None,
+    signals=None,
+    dry_run=False,
+):
+    """Compatibility callable that supplies Flask context to worker callers."""
+    with app.app_context():
+        return _moderation_perform_approval(
+            item_type,
+            item_id,
+            actor=actor,
+            actor_id=actor_id,
+            origin_header=origin_header,
+            signals=signals,
+            dry_run=dry_run,
+        )
+
+
+@token_required
+def api_reject_item(current_user, item_type, item_id):
+    """Compatibility callable for direct legacy callers; not a live route."""
+    rejection_fix = request.json.get("rejection_fix", "") if request.is_json and request.json else ""
+    del rejection_fix
+    return _moderation_api_reject_item.__wrapped__(current_user, item_type, item_id)
+
+
+@token_required
+def api_admin_reject_item(current_user, item_type, item_id):
+    """Compatibility callable; the live rule remains ``routes.admin``."""
+    return api_reject_item.__wrapped__(current_user, item_type, item_id)
 
 
 if __name__ == "__main__":
