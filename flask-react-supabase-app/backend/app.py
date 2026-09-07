@@ -17363,166 +17363,6 @@ def get_deleted_listings(current_user):
         return jsonify({"events": [], "total": 0, "error": str(e)}), 500
 
 
-@app.route("/api/recommendations", methods=["POST"])
-def get_recommendations():
-    """Return recommended listings.
-
-    Two modes: pass listing_type + listing_id for "similar to this listing"
-    (used by every detail page's Similar Listings section); otherwise this
-    falls back to a viewed-history/preferred-type feed, or newest-across-
-    categories when there's no history yet.
-    """
-    try:
-        data = request.json or {}
-        limit = min(int(data.get("limit", 8)), 20)
-
-        listing_type = data.get("listing_type") or data.get("listingType")
-        listing_id = data.get("listing_id") or data.get("listingId")
-        if listing_type and listing_id:
-            return _get_similar_listings(listing_type, listing_id, limit)
-
-        viewed = data.get("viewed", [])
-        preferred_types = data.get("preferredTypes", [])
-        avg_price = data.get("avgPrice")
-
-        if not viewed and not preferred_types:
-            return _get_newest_recommendations(limit)
-
-        viewed_ids = {str(v["id"]) for v in viewed if v.get("id")}
-        viewed_types = [v["type"] for v in viewed if v.get("type")]
-        target_types = preferred_types or list(set(viewed_types))
-
-        cards = []
-        for t in target_types:
-            normalized_type, config = _saved_listing_config(t)
-            if not normalized_type:
-                continue
-            price_col = "expected_selling_price" if normalized_type == "car" else "price"
-
-            params = [
-                ("select", "*"), ("is_approved", "eq.true"),
-                ("order", "created_at.desc"), ("limit", str(limit)),
-            ]
-            if avg_price:
-                params.append((price_col, f"gte.{avg_price * 0.6}"))
-                params.append((price_col, f"lte.{avg_price * 1.4}"))
-
-            items, status = supabase_request(
-                "get", f"/rest/v1/{config['table']}", params=params, use_service_role=True,
-            )
-            if status >= 400 or not isinstance(items, list):
-                continue
-            items = [item for item in items if str(item.get("id", "")) not in viewed_ids]
-            cards.extend(_build_recommendation_cards(normalized_type, config, items))
-
-        cards.sort(key=lambda c: c.get("createdAt") or "", reverse=True)
-        return jsonify({"recommendations": cards[:limit]})
-
-    except Exception as e:
-        logger.error(f"Recommendations error: {e}")
-        return jsonify({"recommendations": [], "error": str(e)}), 500
-
-
-def _get_newest_recommendations(limit):
-    """Cold start: return newest listings across all types."""
-    cards = []
-    type_count = len(SAVED_LISTING_TYPE_CONFIG)
-    for normalized_type, config in SAVED_LISTING_TYPE_CONFIG.items():
-        items, status = supabase_request(
-            "get", f"/rest/v1/{config['table']}",
-            params=[
-                ("select", "*"), ("is_approved", "eq.true"),
-                ("order", "created_at.desc"),
-                ("limit", str(limit // type_count + 1)),
-            ],
-            use_service_role=True,
-        )
-        if status >= 400 or not isinstance(items, list):
-            continue
-        cards.extend(_build_recommendation_cards(normalized_type, config, items))
-
-    cards.sort(key=lambda c: c.get("createdAt") or "", reverse=True)
-    return jsonify({"recommendations": cards[:limit]})
-
-
-def _get_similar_listings(listing_type, listing_id, limit):
-    """Listings similar to one specific listing: same category, comparable
-    price band first, falling back to newest-in-category if that's too thin."""
-    normalized_type, config = _saved_listing_config(listing_type)
-    if not normalized_type:
-        return jsonify({"recommendations": []})
-
-    table = config["table"]
-    price_col = "expected_selling_price" if normalized_type == "car" else "price"
-
-    source, source_status = supabase_request(
-        "get", f"/rest/v1/{table}",
-        params=[("select", price_col), ("id", f"eq.{listing_id}"), ("limit", "1")],
-        use_service_role=True,
-    )
-    price = None
-    if source_status < 400 and isinstance(source, list) and source:
-        price = source[0].get(price_col)
-
-    def _fetch(with_price_band):
-        params = [
-            ("select", "*"), ("is_approved", "eq.true"),
-            ("id", f"neq.{listing_id}"),
-            ("order", "created_at.desc"), ("limit", str(limit * 3)),
-        ]
-        if with_price_band and price not in (None, ""):
-            try:
-                p = float(price)
-                params.append((price_col, f"gte.{p * 0.6}"))
-                params.append((price_col, f"lte.{p * 1.4}"))
-            except (TypeError, ValueError):
-                pass
-        items, status = supabase_request(
-            "get", f"/rest/v1/{table}", params=params, use_service_role=True,
-        )
-        return items if status < 400 and isinstance(items, list) else []
-
-    items = _fetch(with_price_band=True)
-    if len(items) < limit:
-        seen_ids = {str(item.get("id")) for item in items}
-        for item in _fetch(with_price_band=False):
-            if str(item.get("id")) not in seen_ids:
-                items.append(item)
-                seen_ids.add(str(item.get("id")))
-
-    cards = _build_recommendation_cards(normalized_type, config, items[: limit * 2])
-    return jsonify({"recommendations": cards[:limit]})
-
-
-def _build_recommendation_cards(normalized_type, config, items):
-    """Batch-attach images and build saved-listing-shaped cards — the same
-    shape the Saved tab uses, so mobile and web can render both consistently."""
-    ids = [item.get("id") for item in items if item.get("id")]
-    images_by_listing = defaultdict(list)
-    if ids:
-        id_query = ",".join(str(i) for i in ids)
-        image_rows, image_status = supabase_request(
-            "get", f"/rest/v1/{config['images_table']}",
-            params={"select": "*", config["fk"]: f"in.({id_query})"},
-            use_service_role=True,
-        )
-        if image_status < 400:
-            for image in image_rows or []:
-                images_by_listing[image.get(config["fk"])].append(image)
-
-    if normalized_type == "bike":
-        for item in items:
-            _normalize_bike_record(item)
-
-    cards = []
-    for item in items:
-        item["images"] = _sort_listing_images(images_by_listing.get(item.get("id"), []))
-        card = _build_saved_listing_card(normalized_type, item)
-        if card:
-            cards.append(card)
-    return cards
-
-
 @app.route("/api/check-session", methods=["GET"])
 @token_required
 def check_session_route(current_user):
@@ -18337,6 +18177,23 @@ try:
     logger.info("Sitemap routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register sitemap routes: {e}")
+
+# Recommendation HTTP handlers are registered after the runtime dependency
+# table exists so their shared saved-listing card and image helpers remain
+# patchable compatibility exports without importing this root module.
+try:
+    from routes.recommendations import (
+        _build_recommendation_cards,
+        _get_newest_recommendations,
+        _get_similar_listings,
+        get_recommendations,
+        register_recommendations_routes,
+    )
+
+    register_recommendations_routes(app)
+    logger.info("Recommendations routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register recommendations routes: {e}")
 
 # Profile handlers are registered after shared helpers are defined so the
 # extracted module can retain the existing field, username, and phone contracts.
