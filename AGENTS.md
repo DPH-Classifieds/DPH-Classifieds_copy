@@ -70,9 +70,9 @@ saved-listings, saved-searches, and push-token routes live in
 of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
-The verified local baseline for the current staged drafts/statistics slice is:
-`app.py` 21,515 lines; the focused dealer/profile/drafts/statistics/manifest
-suite is `122 passed`; Docker API liveness/readiness/404/auth-gate smoke
+The verified local baseline for the current staged listing-mutation slice is:
+`app.py` 21,112 lines; the focused dealer/profile/drafts/statistics/media/VIN/
+outcome/manifest suite is `128 passed`; Docker API liveness/readiness/404/auth-gate smoke
 passed; worker health plus Redis heartbeat smoke passed. Protected browser
 flows remain credential-gated and must not be reported as passed when their
 disposable credentials and target environment are absent.
@@ -85,6 +85,11 @@ preserves compatibility exports from `app.py`.
 User statistics live in `routes/statistics.py`, while authenticated draft
 listing/read/write/delete routes live in `routes/drafts.py`; reminder workers
 remain in their existing worker boundary.
+
+Listing image uploads live in `routes/media.py`, admin VIN unlock in
+`routes/vin_admin.py`, and the authenticated listing outcome transition in
+`routes/listing_outcomes.py`. These modules keep compatibility exports and
+resolve patchable services through the runtime dependency registry.
 
 Any further app.py reduction must be a separately scoped, contract-first
 extraction. Account deletion, authentication/signup, drafts, and lifecycle

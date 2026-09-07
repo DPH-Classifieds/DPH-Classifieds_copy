@@ -7356,44 +7356,6 @@ def delete_car(current_user, car_id):
 
 
 # Upload car images (authenticated)
-@app.route("/api/cars/<string:car_id>/images", methods=["POST"])
-@token_required
-def upload_car_images(current_user, car_id):
-    try:
-        # Verify the car belongs to the user
-        verify_query = f"/rest/v1/cars?id=eq.{car_id}&user_id=eq.{current_user}"
-        verify_response, verify_status = supabase_request("get", verify_query)
-
-        if verify_status >= 400 or not verify_response:
-            return jsonify({"error": "Car not found or you don't have permission"}), 403
-
-        # Process the images (in a real implementation, you would handle file uploads)
-        data = request.json
-        image_urls = data.get("image_urls", [])
-        if not isinstance(image_urls, list) or len(image_urls) > PART_IMAGE_MAX_COUNT:
-            return jsonify({"error": "Invalid image list"}), 400
-        if any(not _validate_listing_image_entry(image_url, current_user) for image_url in image_urls):
-            return jsonify({"error": "Images must be public listing uploads for this user"}), 400
-
-        # Save each image URL to the database
-        for index, image_url in enumerate(image_urls):
-            image_data = {
-                "car_id": car_id,
-                "url": image_url,
-                "image_url": image_url,  # Add image_url field for frontend compatibility
-                "crop_meta": {"sort_index": index},
-                "cropped_at": _isoformat_utc(_utc_now()),
-            }
-            supabase_request(
-                "post", "/rest/v1/car_images", data=image_data, user_id=current_user
-            )
-
-        return jsonify({"message": f"{len(image_urls)} images uploaded successfully"})
-    except Exception as e:
-        logger.error(f"Error uploading images: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
 def ensure_storage_bucket(bucket_name="listing-images"):
     """Ensure a storage bucket exists with its intended public/private policy."""
     now_ts = time.time()
@@ -8183,78 +8145,6 @@ def upload_to_supabase_storage(
         return None, str(e)
 
 
-@app.route("/api/upload-images", methods=["POST"])
-@token_required
-def upload_images(current_user):
-    try:
-        logger.info(f"Image upload request received from user: {current_user}")
-
-        # Ensure storage bucket exists
-        if not ensure_storage_bucket("listing-images"):
-            logger.error("Failed to ensure storage bucket exists")
-            return jsonify(
-                {"error": "Storage bucket not available. Please try again later."}
-            ), 500
-
-        # Check if files were uploaded
-        if "images" not in request.files:
-            logger.error("No images field in request")
-            return jsonify({"error": "No images provided"}), 400
-
-        files = request.files.getlist("images")
-        if not files or all(file.filename == "" for file in files):
-            logger.error("No image files selected")
-            return jsonify({"error": "No images selected"}), 400
-
-        crop_data = _parse_crop_data_payload(request.form.get("crop_data"), len(files))
-
-        logger.info(f"Processing {len(files)} images for user {current_user}")
-        image_records = []
-        image_urls = []
-        errors = []
-
-        for index, file in enumerate(files):
-            if file and file.filename:
-                upload_metadata, error = upload_to_supabase_storage(
-                    file,
-                    bucket_name="listing-images",
-                    folder=str(current_user),
-                    return_metadata=True,
-                    crop_settings=crop_data[index],
-                )
-
-                if upload_metadata:
-                    image_records.append(upload_metadata)
-                    image_urls.append(upload_metadata["url"])
-                else:
-                    errors.append(f"Failed to upload {file.filename}: {error}")
-                    logger.error(f"Failed to upload {file.filename}: {error}")
-
-        if not image_records and errors:
-            return jsonify(
-                {"error": "All image uploads failed", "details": errors}
-            ), 500
-
-        logger.info(
-            f"Successfully uploaded {len(image_records)} images to Supabase Storage"
-        )
-
-        return jsonify(
-            {
-                "images": image_records,
-                "urls": image_urls,
-                "absolute_urls": image_urls,  # Already absolute URLs from Supabase
-                "count": len(image_records),
-                "errors": errors if errors else None,
-            }
-        ), 200
-    except Exception as e:
-        logger.error(f"Error in upload_images: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-
-
-# Serve uploaded files
-@app.route("/static/uploads/<filename>")
 def uploaded_file(filename):
     """Serve uploaded files from the uploads directory."""
     try:
@@ -15733,69 +15623,6 @@ def api_reject_item(current_user, item_type, item_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/admin/listings/<item_type>/<item_id>/vin-unlock", methods=["POST"])
-@token_required
-def admin_vin_unlock(current_user, item_type, item_id):
-    try:
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        listing_meta = _admin_get_listing_meta(item_type)
-        if not listing_meta:
-            return jsonify({"error": "Invalid listing type"}), 400
-
-        listing_rows, listing_status = supabase_request(
-            "get",
-            f"/rest/v1/{listing_meta['table']}",
-            params={
-                "select": "id,user_id,vin_number",
-                "id": f"eq.{item_id}",
-                "limit": 1,
-            },
-            use_service_role=True,
-        )
-        if listing_status >= 400:
-            return jsonify({"error": "Failed to fetch listing"}), listing_status
-        if not listing_rows:
-            return jsonify({"error": "Listing not found"}), 404
-
-        listing = listing_rows[0]
-        owner_id = listing.get("user_id")
-        if not owner_id:
-            return jsonify({"error": "Listing owner not found"}), 400
-
-        owner_profile = _get_user_profile_for_verification(owner_id) or {}
-        if not _normalize_phone_number(
-            owner_profile.get("phone"), owner_profile.get("country_code")
-        ):
-            return jsonify(
-                {
-                    "error": "Listing owner must have a valid phone number on file before VIN unlock can mark them verified."
-                }
-            ), 400
-
-        _sync_user_verification_flags(
-            owner_id,
-            phone_verified=True,
-            phone_verified_at=_isoformat_utc(_utc_now()),
-            phone=owner_profile.get("phone"),
-            country_code=owner_profile.get("country_code"),
-        )
-
-        return jsonify(
-            {
-                "success": True,
-                "message": "VIN unlocked for listing owner",
-                "listing_id": listing.get("id"),
-                "owner_id": owner_id,
-            }
-        ), 200
-    except Exception as e:
-        logger.error(f"Error unlocking VIN: {e}")
-        return jsonify({"error": "Failed to unlock VIN"}), 500
-
-
 @app.route("/api/admin/approve/<item_type>", methods=["GET"])
 @token_required
 def api_admin_list_items(current_user, item_type):
@@ -17913,146 +17740,6 @@ def track_listing_lead_event(item_type, item_id):
         return jsonify({"error": "Failed to track lead event"}), 500
 
 
-@app.route("/api/user/listings/<item_type>/<item_id>/outcome", methods=["POST"])
-@token_required
-def set_listing_outcome(current_user, item_type, item_id):
-    """Handle listing outcome popup action after expiry."""
-    _PLURAL_TO_SINGULAR = {"cars": "car", "bikes": "bike", "parts": "part", "plates": "plate"}
-    item_type = _PLURAL_TO_SINGULAR.get(item_type, item_type)
-    config = LISTING_TABLE_CONFIG.get(item_type)
-    if not config:
-        return jsonify({"error": "Invalid listing type"}), 400
-
-    data = request.json or {}
-    outcome = (data.get("outcome") or "").strip()
-    if outcome not in LISTING_OUTCOME_OPTIONS:
-        return jsonify({"error": "Invalid outcome"}), 400
-
-    listing_resp, listing_status = supabase_request(
-        "get",
-        f"/rest/v1/{config['table']}",
-        params={"id": f"eq.{item_id}", "select": "*", "limit": 1},
-        user_id=current_user,
-    )
-    if listing_status >= 400:
-        return jsonify({"error": "Failed to fetch listing"}), listing_status
-    if not listing_resp:
-        return jsonify({"error": "Listing not found"}), 404
-
-    listing = listing_resp[0]
-    if listing.get("user_id") != current_user:
-        return jsonify(
-            {"error": "You do not have permission to update this listing"}
-        ), 403
-
-    if _is_listing_deleted(listing):
-        return jsonify({"error": "Listing is no longer available"}), 410
-    _apply_listing_lifecycle_metadata(listing)
-
-    now = _utc_now()
-    updates = {
-        "sold_status": outcome,
-        "sold_status_set_at": _isoformat_utc(now),
-    }
-
-    if outcome == "not_sold_renew":
-        refreshed, refreshed_status, refresh_error = _renew_listing_and_verify(
-            config["table"],
-            item_id,
-            listing,
-            current_user=current_user,
-        )
-        if refreshed_status >= 400:
-            return jsonify(refresh_error or {"error": "Failed to renew listing"}), refreshed_status
-
-        _invalidate_public_inventory_cache(config["table"])
-
-        try:
-            user_email = refreshed.get("user_email") or refreshed.get("contact_email")
-            if not user_email:
-                user_email = get_user_email(current_user)
-            if user_email and EMAIL_REGEX.match(user_email):
-                _send_listing_status_email(
-                    user_email,
-                    item_type,
-                    refreshed,
-                    "renewed",
-                    request.headers.get("Origin"),
-                )
-        except Exception as email_err:
-            logger.error(f"Error sending renewal email: {email_err}")
-
-        return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
-
-    if outcome == "move_to_draft":
-        expiry_anchor = _parse_datetime(listing.get("expires_at")) or now
-        if expiry_anchor < now:
-            expiry_anchor = now
-        new_expires_at = expiry_anchor + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
-        lifecycle_updates = _resubmission_listing_lifecycle_fields()
-        lifecycle_updates["expires_at"] = _isoformat_utc(new_expires_at)
-        lifecycle_updates["retention_expires_at"] = _isoformat_utc(
-            new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
-        )
-        updates.update(
-            {
-                "status": "draft",
-                "sold_status": None,
-                "sold_status_set_at": None,
-                "expired_at": None,
-                "retention_expires_at": lifecycle_updates["retention_expires_at"],
-                "sold_response_deadline": None,
-                "auto_removed_at": None,
-                "last_extended_at": lifecycle_updates["last_extended_at"],
-                "is_archived": False,
-                "expires_at": lifecycle_updates["expires_at"],
-            }
-        )
-        if config["table"] == "cars":
-            updates["is_approved"] = False
-    else:
-        updates.update(
-            {
-                "status": "sold",
-                "sold_response_deadline": None,
-            }
-        )
-
-    patch_resp, patch_status = supabase_request(
-        "patch",
-        f"/rest/v1/{config['table']}?id=eq.{item_id}",
-        data=updates,
-        use_service_role=True,
-    )
-    if patch_status >= 400:
-        return jsonify({"error": "Failed to update listing outcome"}), patch_status
-
-    _invalidate_public_inventory_cache(config["table"])
-
-    if isinstance(patch_resp, list) and patch_resp:
-        refreshed = patch_resp[0]
-        _apply_listing_lifecycle_metadata(refreshed)
-        return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
-    if isinstance(patch_resp, dict) and patch_resp:
-        _apply_listing_lifecycle_metadata(patch_resp)
-        return jsonify({"message": "Listing outcome saved", "listing": patch_resp}), 200
-
-    refreshed_resp, refreshed_status = supabase_request(
-        "get",
-        f"/rest/v1/{config['table']}",
-        params={"id": f"eq.{item_id}", "select": "*", "limit": 1},
-        use_service_role=True,
-    )
-    if refreshed_status < 400 and refreshed_resp:
-        refreshed = refreshed_resp[0]
-        _apply_listing_lifecycle_metadata(refreshed)
-
-        return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
-
-    return jsonify({"message": "Listing outcome saved"}), 200
-
-
-# =====================
 # Reports API Routes
 # =====================
 
@@ -21367,6 +21054,36 @@ except Exception as e:
     logger.error(f"Failed to register draft routes: {e}")
 
 from routes.drafts import list_user_drafts, manage_user_draft
+
+try:
+    from routes.vin_admin import register_vin_admin_routes
+
+    register_vin_admin_routes(app, globals())
+    logger.info("Admin VIN routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin VIN routes: {e}")
+
+from routes.vin_admin import admin_vin_unlock
+
+try:
+    from routes.media import register_media_routes
+
+    register_media_routes(app, globals())
+    logger.info("Media routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register media routes: {e}")
+
+from routes.media import upload_car_images, upload_images
+
+try:
+    from routes.listing_outcomes import register_listing_outcome_routes
+
+    register_listing_outcome_routes(app, globals())
+    logger.info("Listing outcome routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register listing outcome routes: {e}")
+
+from routes.listing_outcomes import set_listing_outcome
 
 
 if __name__ == "__main__":

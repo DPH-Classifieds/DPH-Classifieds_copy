@@ -114,6 +114,10 @@ Task 8o statistics and draft route extraction: implementation verified (moved `/
 
 Ruling: Continue with listing update/image/VIN routes as separate contract-tested mutation slices. Do not move the broad admin lifecycle block until its route ownership and direct-call compatibility are mapped.
 
+Task 8p listing mutation extraction: implementation verified (moved authenticated image upload routes, admin VIN unlock, and user listing outcome transitions into `routes/media.py`, `routes/vin_admin.py`, and `routes/listing_outcomes.py`; preserved ownership/admin/phone gates, storage metadata, lifecycle transitions, live helper patchability, compatibility exports, and route-manifest hashes). Focused dealer/profile/draft/statistics/media/VIN/outcome/manifest suite `128 passed`; `app.py` is now `21,112` lines. Full backend, Docker, frontend/mobile, and public browser lanes remain to be rerun at this head.
+
+Ruling: Freeze this extraction batch and run the full local regression matrix before touching the remaining large car/bike/plate/part update handlers or admin lifecycle block. Live authenticated tests remain blocked until disposable credentials and a target environment are supplied.
+
 Task 8l account-deletion extraction: implementation verified (moved the authenticated account cleanup helpers and `/api/user/delete-account` route into `routes/user.py`; preserved soft-delete fallback behavior, public-profile cleanup, auth-user deletion, cookie clearing, and compatibility imports). Focused account/lifecycle tests 4 passed, full backend 1075 passed/11 skipped, Docker API smoke passed, worker health/Redis heartbeat smoke passed, and `app.py` is now 22,429 lines.
 
 Ruling: Continue with profile and dealer-document routes as separate slices. Keep destructive admin deletion and background lifecycle workers isolated from the user account-deletion boundary.
