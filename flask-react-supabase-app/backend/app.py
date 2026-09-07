@@ -15747,77 +15747,6 @@ def _send_info_request_email(email, dealer_name, documents, message, link_url):
     return _send_resend_email(payload, email_type="info_request")
 
 
-@app.route("/api/info-requests/<token>", methods=["GET"])
-def get_public_info_request(token):
-    """Public lookup of an info request by token. Returns the requested
-    document list, current uploads, and basic status. No auth required —
-    the token IS the authorization."""
-    try:
-        if not token or len(token) < 16:
-            return jsonify({"error": "Invalid token"}), 404
-
-        reqs_resp, reqs_status = supabase_request(
-            "get",
-            "/rest/v1/dealer_info_requests",
-            params={
-                "select": "id,requested_documents,message,status,expires_at,submitted_at,created_at,dealer_user_id,dealer_info_request_uploads(id,document_label,filename,file_type,uploaded_at)",
-                "token": f"eq.{token}",
-                "limit": 1,
-            },
-            use_service_role=True,
-        )
-        if reqs_status >= 400 or not reqs_resp:
-            return jsonify({"error": "Not found"}), 404
-        req = reqs_resp[0]
-
-        # Auto-expire
-        try:
-            exp = datetime.datetime.fromisoformat(
-                str(req["expires_at"]).replace("Z", "+00:00")
-            )
-            if exp < datetime.datetime.now(datetime.timezone.utc) and req["status"] == "pending":
-                supabase_request(
-                    "patch",
-                    "/rest/v1/dealer_info_requests",
-                    params={"id": f"eq.{req['id']}"},
-                    data={"status": "expired"},
-                    use_service_role=True,
-                )
-                req["status"] = "expired"
-        except Exception:
-            pass
-
-        # Resolve dealer display name (don't leak email)
-        dealer_resp, dealer_status = supabase_request(
-            "get",
-            "/rest/v1/users",
-            params={
-                "select": "first_name,company_name",
-                "id": f"eq.{req['dealer_user_id']}",
-                "limit": 1,
-            },
-            use_service_role=True,
-        )
-        dealer_name = None
-        if dealer_status < 400 and dealer_resp:
-            dealer = dealer_resp[0]
-            dealer_name = dealer.get("company_name") or dealer.get("first_name") or None
-
-        return jsonify({
-            "id": req["id"],
-            "documents": req.get("requested_documents") or [],
-            "message": req.get("message"),
-            "status": req.get("status"),
-            "expires_at": req.get("expires_at"),
-            "submitted_at": req.get("submitted_at"),
-            "dealer_name": dealer_name,
-            "uploads": req.get("dealer_info_request_uploads") or [],
-        }), 200
-    except Exception as e:
-        logger.exception("Error fetching public info request")
-        return jsonify({"error": "Failed to load request"}), 500
-
-
 @app.route("/api/info-requests/<token>/upload", methods=["POST"])
 def upload_public_info_request(token):
     """Public file upload against an info request token. Multipart with
@@ -17084,6 +17013,19 @@ try:
     logger.info("Admin dealer info-request routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register admin dealer info-request routes: {e}")
+
+# Public token lookup is registered separately from the admin controls; the
+# token remains the authorization boundary and uploads remain root-owned.
+try:
+    from routes.public_info_request import (
+        get_public_info_request,
+        register_public_info_request_routes,
+    )
+
+    register_public_info_request_routes(app)
+    logger.info("Public dealer info-request lookup registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register public dealer info-request lookup: {e}")
 
 # Admin email/error metrics are registered after the runtime dependency table
 # exists; overview, live-user, and Cloudflare metrics remain root-owned.
