@@ -46,12 +46,12 @@ def test_row_and_post():
     first = date(2026, 8, 16)
     last = date(2026, 8, 17)
     title, body = build_post(rows, first, last, SITE)
-    assert title == "[16 Aug - 17 Aug] Cars listed in the last 3 days"
+    assert title == "[16 Aug - 17 Aug] Cars listed in the last 2 days"
     assert "16–17 Aug 2026" in body            # body heading remains explicit
     assert "previous 48 hours" not in body     # vague heading gone
     assert "previous 48 hours" not in title
     assert body.startswith("**2 cars listed on 16–17 Aug 2026**")
-    assert "Here are the cars listed across r/DubaiPetrolHeads in the last 3 days:\n\n" in body
+    assert "Here are the cars listed across r/DubaiPetrolHeads in the last 2 days:\n\n" in body
     assert "| Year | Make | Model | Odometer | Price | Link |" in body  # labeled header
     assert "|:---:|:---|:---|---:|---:|:---:|" in body                  # alignment row
     assert "Price on request" in body           # null-price row
@@ -75,7 +75,7 @@ def test_post_title_and_heading_use_explicit_date_range():
     first = date(2026, 8, 16)
     last = date(2026, 8, 17)
     title, body = build_post(rows, first, last, SITE)
-    assert title == "[16 Aug - 17 Aug] Cars listed in the last 3 days"
+    assert title == "[16 Aug - 17 Aug] Cars listed in the last 2 days"
     assert "16–17 Aug 2026" in body
     assert "previous 48 hours" not in body
     assert "previous 48 hours" not in title
@@ -104,7 +104,7 @@ def test_posts_split_without_losing_rows():
     last = date(2026, 8, 17)
     posts = build_posts(rows, first, last, SITE, max_body_chars=300)
     assert len(posts) > 1
-    assert all("[16 Aug - 17 Aug] Cars listed in the last 3 days" in title for title, _ in posts)
+    assert all("[16 Aug - 17 Aug] Cars listed in the last 2 days" in title for title, _ in posts)
     assert sum(body.count("[View listing]") for _, body in posts) == len(rows)
 
 
@@ -117,6 +117,38 @@ def test_ascii_table_aligns():
     assert lines[0].startswith("Year") and "-+-" in lines[1]
     # every rendered line is the same visual width (padded/aligned)
     assert len({len(l) for l in [lines[0], lines[2]]}) == 1
+
+
+def test_run_widens_window_when_recent_days_are_empty(monkeypatch):
+    """A quiet 1-day/7-day window should keep widening (up to 30 days) instead
+    of recording skipped_empty and posting nothing."""
+    import workers.reddit_daily_post_worker as worker
+
+    monkeypatch.setenv("REDDIT_DAILY_POST_ENABLED", "true")
+    monkeypatch.setenv("REDDIT_DAILY_POST_HOUR", "0")
+    monkeypatch.setenv("REDDIT_CLIENT_ID", "id")
+    monkeypatch.setenv("REDDIT_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("REDDIT_REFRESH_TOKEN", "token")
+    monkeypatch.setenv("REDDIT_USER_AGENT", "ua")
+
+    monkeypatch.setattr(worker, "_last_post_date", lambda: None)
+    monkeypatch.setattr(worker, "_record", lambda *a, **k: None)
+    monkeypatch.setattr(worker, "get_user_access_token", lambda *a, **k: "tok")
+    monkeypatch.setattr(worker, "submit_self_post", lambda *a, **k: {"id": "x", "url": "https://reddit.com/x"})
+
+    calls = []
+
+    def fake_fetch(since_iso, until_iso):
+        calls.append((since_iso, until_iso))
+        if len(calls) < 3:
+            return []
+        return [{"id": "1", "make_year": 2024, "car_manufacturer": "Kia", "car_model": "Rio", "expected_selling_price": 50000}]
+
+    monkeypatch.setattr(worker, "_fetch_listings", fake_fetch)
+
+    result = worker.run()
+    assert result["status"] == "posted"
+    assert len(calls) == 3            # widened past 1-day and 7-day before finding rows at 14
 
 
 if __name__ == "__main__":

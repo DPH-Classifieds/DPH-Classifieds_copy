@@ -18,7 +18,10 @@ The scheduled job is daily at 12:00 PM Dubai time (08:00 UTC). It has an
 exactly-once daily guard; consecutive daily posts deliberately overlap by 48
 hours because each contains the preceding rolling 72-hour window. Titles use
 the format `[31 Aug - 2 Sept] Cars listed in the last 3 days`. Imported rows
-link to their original Reddit post.
+link to their original Reddit post. On a quiet cycle (no cars in the last 72
+hours), the backend widens its lookback (7 → 14 → 30 days) before publishing,
+so the bot still posts daily in the same format; the day count in the title
+reflects whatever window was actually used.
 
 Set the subreddit `roundupFlairText` to the exact existing post flair text,
 normally `Selling`. The bot resolves that flair to its Reddit template ID and
