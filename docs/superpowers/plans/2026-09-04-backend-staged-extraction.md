@@ -487,6 +487,8 @@ Playwright, Supabase HTTP APIs.
 
 ### Task 8ag: Extract public dealer information-request upload
 
+Status: complete in commit `56445c34`.
+
 **Files:**
 - Create: `flask-react-supabase-app/backend/routes/public_info_upload.py`
 - Create or modify: `flask-react-supabase-app/backend/test_public_info_upload_route_extraction.py`
