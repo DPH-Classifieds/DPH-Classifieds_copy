@@ -13,7 +13,9 @@ APP_PY = REPO / "app.py"
 
 
 def _read_app():
-    return APP_PY.read_text(encoding="utf-8")
+    return APP_PY.read_text(encoding="utf-8") + "\n" + (
+        REPO / "routes" / "dealer_verification.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_admin_upgrade_requests_does_not_query_featured_table():

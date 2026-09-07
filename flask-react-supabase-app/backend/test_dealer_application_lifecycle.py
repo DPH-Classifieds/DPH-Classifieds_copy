@@ -107,8 +107,8 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         self.assertIsNone(document_type_from_label("Shareholder passport"))
 
     def test_source_contracts_cover_upload_privacy_and_admin_guard(self):
-        source = APP_PATH.read_text()
-        self.assertIn('@app.route("/api/auth/upload-dealer-document", methods=["POST"])', source)
+        source = APP_PATH.read_text() + Path(APP_PATH.parent / "routes" / "dealer_verification.py").read_text()
+        self.assertIn('@dealer_verification_bp.route("/api/auth/upload-dealer-document", methods=["POST"])', source)
         self.assertIn('"public": False', source)
         self.assertIn('"dealer_application_status": "action_required"', source)
         approve_section = source[source.index("def api_verify_dealer"):source.index("def api_reject_dealer")]
@@ -134,9 +134,9 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         self.assertIn("extension_to_mime", upload_section)
 
     def test_two_document_policy_and_trade_license_ocr_contract(self):
-        source = APP_PATH.read_text()
+        source = Path(APP_PATH.parent / "routes" / "dealer_verification.py").read_text()
         self.assertEqual(set(REQUIRED_DOCS), {"trade_license", "tax_registration"})
-        upload_section = source[source.index("def upload_dealer_document"):source.index("def delete_dealer_document")]
+        upload_section = source[source.index("def upload_dealer_document"):source.index("def dealer_submit_application")]
         self.assertIn("scan_trade_license_expiry", upload_section)
         self.assertIn('"ocr_expires_at"', upload_section)
 

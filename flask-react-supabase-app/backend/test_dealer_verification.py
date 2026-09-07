@@ -97,7 +97,12 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
     def _read_app_source(self):
         app_path = os.path.join(os.path.dirname(__file__), "app.py")
         with open(app_path, "r") as f:
-            return f.read()
+            app_source = f.read()
+        route_path = os.path.join(
+            os.path.dirname(__file__), "routes", "dealer_verification.py"
+        )
+        with open(route_path, "r") as f:
+            return app_source + "\n" + f.read()
 
     def test_dealer_documents_bucket_in_allowlist(self):
         """dealer-documents must be in the signed upload URL bucket allowlist."""
