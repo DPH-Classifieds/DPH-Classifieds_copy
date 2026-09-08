@@ -6166,37 +6166,6 @@ def _requester_can_view_vin(requesting_user, is_owner):
 
 
 
-def _legacy_listing_view_response(listing_type, listing_id):
-    """Accept deprecated view pings without creating a second metric source.
-
-    Listing views are now recorded as idempotent ``listing_view`` events. The
-    old read-then-write counter was race-prone and made its value disagree
-    with the admin dashboard, so it must never mutate listing rows again.
-    """
-    logger.info("Ignored deprecated %s view counter ping for %s", listing_type, listing_id)
-    return jsonify({"message": "Listing views are tracked by canonical analytics events"}), 202
-
-
-@app.route("/api/cars/<string:car_id>/view", methods=["POST"])
-def track_car_view(car_id):
-    return _legacy_listing_view_response("car", car_id)
-
-
-@app.route("/api/bikes/<string:bike_id>/view", methods=["POST"])
-def track_bike_view(bike_id):
-    return _legacy_listing_view_response("bike", bike_id)
-
-
-@app.route("/api/plates/<string:plate_id>/view", methods=["POST"])
-def track_plate_view(plate_id):
-    return _legacy_listing_view_response("plate", plate_id)
-
-
-@app.route("/api/parts/<string:part_id>/view", methods=["POST"])
-def track_part_view(part_id):
-    return _legacy_listing_view_response("part", part_id)
-
-
 # Handle OPTIONS preflight for /api/cars
 @app.route("/api/cars", methods=["OPTIONS"])
 def cars_options():
@@ -13701,6 +13670,20 @@ try:
     logger.info("Public content routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register public content routes: {e}")
+
+try:
+    from routes.legacy_view_shims import (
+        register_legacy_view_shim_routes,
+        track_bike_view,
+        track_car_view,
+        track_part_view,
+        track_plate_view,
+    )
+
+    register_legacy_view_shim_routes(app)
+    logger.info("Legacy listing-view shims registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register legacy listing-view shims: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details
