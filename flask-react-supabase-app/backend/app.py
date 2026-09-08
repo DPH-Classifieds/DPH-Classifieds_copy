@@ -3689,65 +3689,6 @@ def token_required_optional(f):
     return decorated
 
 
-@app.route("/api/admin/saved-searches", methods=["GET"])
-@token_required
-def get_admin_saved_searches(current_user):
-    if not _require_admin_api_user(current_user):
-        return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-    days = max(min(int(request.args.get("days", 30)), 365), 1)
-    limit = max(min(int(request.args.get("limit", 200)), 1000), 1)
-    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
-    rows, status_code = supabase_request(
-        "get",
-        "/rest/v1/saved_searches",
-        params={
-            "select": "*",
-            "created_at": f"gte.{cutoff}",
-            "order": "updated_at.desc",
-            "limit": str(limit),
-        },
-        use_service_role=True,
-    )
-    if status_code >= 400:
-        if _looks_like_missing_table(rows):
-            return _saved_search_missing_table_response()
-        return jsonify({"error": "Failed to load saved searches"}), status_code
-
-    rows = rows or []
-    user_ids = sorted({str(row.get("user_id")) for row in rows if row.get("user_id")})
-    owner_map = {}
-    if user_ids:
-        users, users_status = supabase_request(
-            "get",
-            "/rest/v1/users",
-            params={
-                "select": "id,email,username,display_name,first_name,last_name",
-                "id": f"in.({','.join(user_ids)})",
-            },
-            use_service_role=True,
-        )
-        if users_status < 400:
-            owner_map = {str(user.get("id")): user for user in users or []}
-
-    categories = defaultdict(int)
-    for row in rows:
-        category = _normalize_saved_search_category(row.get("category"))
-        categories[category] += 1
-        owner = owner_map.get(str(row.get("user_id")))
-        if owner:
-            row["owner_email"] = owner.get("email")
-            row["owner_name"] = _admin_display_name_from_user_row(owner)
-
-    summary = {
-        "total": len(rows),
-        "unique_users": len(user_ids),
-        "categories": dict(categories),
-        "days": days,
-    }
-    return jsonify({"summary": summary, "searches": rows}), 200
-
-
 def _to_int(value, field_name, *, minimum=None, maximum=None, allow_empty=True):
     if value is None:
         return None
@@ -13981,6 +13922,17 @@ try:
     logger.info("Featured-listing routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register featured-listing routes: {e}")
+
+try:
+    from routes.admin_saved_searches import (
+        get_admin_saved_searches,
+        register_admin_saved_search_routes,
+    )
+
+    register_admin_saved_search_routes(app)
+    logger.info("Admin saved-search route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin saved-search route: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details

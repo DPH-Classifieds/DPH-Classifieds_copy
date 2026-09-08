@@ -773,3 +773,17 @@ route methods, and compatibility exports.
 Focused featured/audit/manifest suite: `51 passed`; full backend suite:
 `1277 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
 `14,524` lines.
+
+### Task 8bc: Extract admin saved-search analytics route
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `GET /api/admin/saved-searches` into
+`routes/admin_saved_searches.py`, preserving the admin gate, date/limit
+clamping, service-role reads, owner enrichment, category summary,
+missing-table handling, response/status contract, route methods, and
+compatibility export.
+
+Focused saved-search suite: `5 passed`; full backend suite:
+`1280 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+`14,476` lines.
