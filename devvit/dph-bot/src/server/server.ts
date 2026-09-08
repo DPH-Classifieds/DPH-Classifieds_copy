@@ -106,13 +106,7 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
     const post = await reddit.submitPost({subredditName: targetSubreddit, title: item.title!, text: item.body!})
     // Flair passed inline to submitPost doesn't reliably render; the dedicated
     // flair endpoint does.
-    try {
-      await reddit.setPostFlair({postId: post.id, subredditName: targetSubreddit, flairTemplateId: flair.id, text: flair.text})
-      const check = await reddit.getPostById(post.id)
-      console.log(`dph-bot flair-debug: set flairTemplateId=${flair.id} text=${flair.text} -> post.flair=${JSON.stringify(check.flair)}`)
-    } catch (flairError) {
-      console.log(`dph-bot flair-debug: setPostFlair threw: ${flairError instanceof Error ? flairError.message : String(flairError)}`)
-    }
+    await reddit.setPostFlair({postId: post.id, subredditName: targetSubreddit, flairTemplateId: flair.id, text: flair.text})
     await redis.set(postedKey, post.id)
     firstUrl ??= post.url
   }
