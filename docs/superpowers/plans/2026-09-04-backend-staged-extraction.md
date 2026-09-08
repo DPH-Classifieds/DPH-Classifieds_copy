@@ -564,7 +564,7 @@ Focused suite: `35 passed`; full backend suite: `1208 passed, 11 skipped,
 
 ### Task 8am: Extract unified admin listing search route
 
-Status: complete in commit `pending`.
+Status: complete in commit `053542e2`.
 
 Scope: move `/api/admin/listings-search` into a runtime-bound route module,
 preserving type/source/status filters, draft and buying-request handling,
@@ -865,3 +865,16 @@ Ruling: Do not mechanically extract lifecycle/reminder bodies. The next stage
 is a pure worker-composition registry with injected callables and contract tests,
 followed by one bounded admin/diagnostic route at a time. Credentialed local and
 live provider E2E remain release gates.
+
+### Task 8bj: Integrate validated worker composition
+
+Status: complete in commit `pending`.
+
+Scope: make `worker.py` use the validated worker registry for all scheduled
+jobs, preserving environment-configured intervals, thread names, adaptive
+backoff, and shutdown joins. Correct zero-work mapping for structured results
+such as `{processed: 0, sent: 0}`. Lifecycle/reminder implementations remain
+compatibility callables in `app.py` until separately contract-tested.
+
+Focused worker registry/integration suite: `21 passed`; worker Docker smoke
+passed with health 200 and a Redis heartbeat.

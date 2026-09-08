@@ -433,6 +433,16 @@ Ruling: Continue with a pure worker registry/coordination boundary and direct
 contract tests. Keep lifecycle/reminder helper bodies root-owned until their
 provider, schema-fallback, and duplicate-claim semantics have dedicated tests.
 
+Task 8bj: complete (worker registry commit 053542e2; `worker.py` now consumes a
+validated declarative registry for all scheduled jobs, with one start/join path;
+structured zero-work results no longer force hot polling. Focused worker
+registry/integration suite 21 passed, compileall passed, and worker Docker smoke
+passed with health 200 plus a Redis heartbeat).
+
+Ruling: Continue only with isolated legacy/admin routes or a separately tested
+worker claim/delivery boundary. Do not move lifecycle/reminder bodies as a bulk
+operation; live provider and authenticated E2E gates remain open.
+
 Task 8bf: complete (current checkpoint; extracted compatibility `GET /api/users`
 into `routes/users_legacy.py`, preserving its admin/super-admin gate,
 service-role fetch, 206 partial-content envelope, response/status contract,
