@@ -155,6 +155,21 @@ def login():
         logger.error(f"[Login] Exception during login: {str(e)}", exc_info=True)
         return jsonify({"message": "An error occurred during login"}), 500
 
+
+@auth_public_bp.route("/beta-verify", methods=["POST"])
+def beta_verify():
+    if not BETA_PASSWORD:
+        return jsonify({"success": True}), 200
+
+    data = request.json
+    if not data or not data.get("password"):
+        return jsonify({"success": False}), 401
+
+    if data.get("password") == BETA_PASSWORD:
+        return jsonify({"success": True}), 200
+
+    return jsonify({"success": False}), 401
+
 @auth_public_bp.route("/check-username", methods=["GET"])
 def check_username_availability():
     username = request.args.get("username", "")

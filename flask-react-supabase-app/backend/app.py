@@ -12873,22 +12873,6 @@ def check_session_route(current_user):
     ), 200
 
 
-# Beta gate endpoint - verify password server-side
-@app.route("/api/auth/beta-verify", methods=["POST"])
-def beta_verify():
-    if not BETA_PASSWORD:
-        return jsonify({"success": True}), 200
-
-    data = request.json
-    if not data or not data.get("password"):
-        return jsonify({"success": False}), 401
-
-    if data.get("password") == BETA_PASSWORD:
-        return jsonify({"success": True}), 200
-
-    return jsonify({"success": False}), 401
-
-
 def _run_dealer_doc_expiry_reminders_once(reminder_days_before=30):
     """Nudge dealers whose trade license (or other required docs) expires soon.
 
@@ -13525,6 +13509,7 @@ def _send_dealer_verification_update_admin_notification(user_row, message_text, 
 # table for compatibility with the legacy implementation.
 try:
     from routes.auth_public import (
+        beta_verify,
         check_username_availability,
         login,
         register_auth_public_routes,
