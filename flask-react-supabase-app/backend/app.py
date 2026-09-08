@@ -41,7 +41,6 @@ from posthog import Posthog
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from xml.sax.saxutils import escape as xml_escape
-
 from analytics_metrics import build_platform_metrics, classify_platform_path
 from application.bike_create_routes import (
     BikeCreateDependencies,
@@ -8596,57 +8595,6 @@ def dealer_create_listing_upgrade_request(current_user):
     return jsonify(row), 201
 
 
-@app.route("/api/admin/dealer/listing-upgrade-requests", methods=["GET"])
-@token_required
-def admin_list_listing_upgrade_requests(current_user):
-    """Admin-only list of listing-upgrade requests, filterable by status.
-
-    Joins each request with a minimal dealer record so the admin UI can
-    render the queue without a second round-trip per row.
-    """
-    if not _require_admin_api_user(current_user):
-        return jsonify({"error": "Admin only"}), 403
-    status_filter = (request.args.get("status") or "pending").strip()
-    if status_filter not in ("pending", "approved", "rejected", "cancelled"):
-        status_filter = "pending"
-    params = {
-        "select": "id,dealer_id,current_limit,requested_limit,reason,status,created_at,resolved_at,resolution_note",
-        "status": f"eq.{status_filter}",
-        "order": "created_at.desc",
-        "limit": "100",
-    }
-    rows, code = supabase_request(
-        "get", "/rest/v1/dealer_listing_upgrade_requests",
-        params=params, use_service_role=True,
-    )
-    if code >= 400:
-        logger.error("admin_list_listing_upgrade_requests: supabase returned %s body=%s",
-                     code, str(rows)[:300])
-        hint = ""
-        if isinstance(rows, dict) and rows.get("code") == "42P01":
-            hint = " — table dealer_listing_upgrade_requests is missing. Run migrations/2026_08_18_dealer_listing_upgrade_requests.sql"
-        return jsonify({"error": f"Failed to fetch upgrade requests{hint}"}), 500
-    rows = rows or []
-    dealer_ids = list({r["dealer_id"] for r in rows})
-    dealers = {}
-    if dealer_ids:
-        in_filter = ",".join(dealer_ids)
-        drows, dcode = supabase_request(
-            "get", "/rest/v1/users",
-            params={
-                "id": f"in.({in_filter})",
-                "select": "id,email,company_name,legal_business_name,dealer_listing_limit,is_dealer,dealer_verified",
-            },
-            use_service_role=True,
-        )
-        if dcode < 400 and isinstance(drows, list):
-            for d in drows:
-                dealers[d["id"]] = d
-    for r in (rows or []):
-        r["dealer"] = dealers.get(r["dealer_id"], {"id": r["dealer_id"]})
-    return jsonify(rows or []), 200
-
-
 # --- Featured listings (admin-curated) ---------------------------------------
 
 def _resolve_featured_listing_meta(rows_by_type, listing_type, listing_id):
@@ -14898,6 +14846,7 @@ except Exception as e:
 
 try:
     from routes.admin_upgrade_decisions import (
+        admin_list_listing_upgrade_requests,
         admin_decide_listing_upgrade_request,
         register_admin_upgrade_decision_routes,
     )

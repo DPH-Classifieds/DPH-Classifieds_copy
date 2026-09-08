@@ -682,3 +682,15 @@ Out of scope: the dealer upgrade-request creation/list routes and the shared
 decision validator.
 Focused suite: `40 passed`; full backend suite: `1251 passed, 11 skipped,
 57 warnings`.
+
+### Task 8av: Extract admin upgrade-request queue route
+
+Status: complete in commit `pending`.
+
+Scope: move `GET /api/admin/dealer/listing-upgrade-requests` into the existing
+runtime-bound upgrade-decision module, preserving admin authorization, status
+filtering, missing-table hints, dealer enrichment, response shaping, and the
+legacy compatibility export.
+
+Focused suite: `41 passed`; full backend suite: `1252 passed, 11 skipped,
+57 warnings`.

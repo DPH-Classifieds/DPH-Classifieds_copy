@@ -19,6 +19,8 @@ def _read_app():
         + (REPO / "routes" / "dealer_verification.py").read_text(encoding="utf-8")
         + "\n"
         + (REPO / "routes" / "admin_users.py").read_text(encoding="utf-8")
+        + "\n"
+        + (REPO / "routes" / "admin_upgrade_decisions.py").read_text(encoding="utf-8")
     )
 
 

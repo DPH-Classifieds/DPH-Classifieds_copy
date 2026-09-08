@@ -27,6 +27,60 @@ def _token_required(function):
 
 
 @_token_required
+def admin_list_listing_upgrade_requests(current_user):
+    """List pending or resolved dealer listing-limit upgrade requests."""
+    backend = _backend()
+    if not backend._require_admin_api_user(current_user):
+        return jsonify({"error": "Admin only"}), 403
+
+    status_filter = (request.args.get("status") or "pending").strip()
+    if status_filter not in ("pending", "approved", "rejected", "cancelled"):
+        status_filter = "pending"
+    rows, code = backend.supabase_request(
+        "get",
+        "/rest/v1/dealer_listing_upgrade_requests",
+        params={
+            "select": "id,dealer_id,current_limit,requested_limit,reason,status,created_at,resolved_at,resolution_note",
+            "status": f"eq.{status_filter}",
+            "order": "created_at.desc",
+            "limit": "100",
+        },
+        use_service_role=True,
+    )
+    if code >= 400:
+        backend.logger.error(
+            "admin_list_listing_upgrade_requests: supabase returned %s body=%s",
+            code,
+            str(rows)[:300],
+        )
+        hint = ""
+        if isinstance(rows, dict) and rows.get("code") == "42P01":
+            hint = " — table dealer_listing_upgrade_requests is missing. Run migrations/2026_08_18_dealer_listing_upgrade_requests.sql"
+        return jsonify({"error": f"Failed to fetch upgrade requests{hint}"}), 500
+
+    rows = rows or []
+    dealer_ids = list({row["dealer_id"] for row in rows})
+    dealers = {}
+    if dealer_ids:
+        in_filter = ",".join(dealer_ids)
+        dealer_rows, dealer_code = backend.supabase_request(
+            "get",
+            "/rest/v1/users",
+            params={
+                "id": f"in.({in_filter})",
+                "select": "id,email,company_name,legal_business_name,dealer_listing_limit,is_dealer,dealer_verified",
+            },
+            use_service_role=True,
+        )
+        if dealer_code < 400 and isinstance(dealer_rows, list):
+            for dealer in dealer_rows:
+                dealers[dealer["id"]] = dealer
+    for row in rows:
+        row["dealer"] = dealers.get(row["dealer_id"], {"id": row["dealer_id"]})
+    return jsonify(rows), 200
+
+
+@_token_required
 def admin_decide_listing_upgrade_request(current_user, request_id):
     """Approve or reject one pending dealer listing-limit request."""
     backend = _backend()
@@ -131,9 +185,14 @@ def admin_decide_listing_upgrade_request(current_user, request_id):
 
 def register_admin_upgrade_decision_routes(app: Flask) -> None:
     app.add_url_rule(
+        "/api/admin/dealer/listing-upgrade-requests",
+        endpoint="admin_list_listing_upgrade_requests",
+        view_func=admin_list_listing_upgrade_requests,
+        methods=["GET"],
+    )
+    app.add_url_rule(
         "/api/admin/dealer/listing-upgrade-requests/<request_id>/decision",
         endpoint="admin_decide_listing_upgrade_request",
         view_func=admin_decide_listing_upgrade_request,
         methods=["POST"],
     )
-

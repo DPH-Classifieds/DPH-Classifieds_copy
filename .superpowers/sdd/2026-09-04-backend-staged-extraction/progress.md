@@ -335,6 +335,18 @@ Ruling: Continue with the remaining listing/admin mutation routes and worker
 composition. Shared upgrade-request creation/list helpers remain root-owned;
 live provider and authenticated browser flows remain credential-gated.
 
+Task 8av: complete (commit pending; extracted `GET
+/api/admin/dealer/listing-upgrade-requests` into
+`routes/admin_upgrade_decisions.py`, preserving admin authorization, status
+filtering, missing-table hints, dealer enrichment, response shaping, runtime
+registration, and compatibility export). Focused upgrade-decision/independence/
+manifest suite `41 passed`; full backend `1252 passed, 11 skipped, 57 warnings`;
+`app.py` is now `15,195` lines.
+
+Ruling: Continue with the remaining listing/admin mutation routes and worker
+composition. Shared dealer upgrade-request creation and provider helpers remain
+separate boundaries; live provider and authenticated browser flows remain gated.
+
 Task 8aq: in progress (authenticated repost route mapped; implementation and
 contract tests pending). Shared image cloning and lifecycle helpers remain
 root-owned and will resolve through the runtime backend registry.
