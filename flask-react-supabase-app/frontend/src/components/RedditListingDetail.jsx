@@ -126,6 +126,11 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
   const cfg = TYPE_CONFIG[listingType] || TYPE_CONFIG.car;
   const images = useMemo(() => resolveImages(listing), [listing]);
 
+  const stepHeroImage = (direction) => {
+    if (images.length < 2) return;
+    setActive((current) => (current + direction + images.length) % images.length);
+  };
+
   const title = cfg.title(listing) || listing?.listing_title || 'Reddit listing';
   const location = cfg.location(listing);
   const description = cfg.description(listing);
@@ -207,6 +212,26 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
                   </span>
                   <span className="cd-placeholder-title">{title}</span>
                 </div>
+              )}
+              {images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="cd-hero-arrow cd-hero-arrow-prev"
+                    onClick={(e) => { e.stopPropagation(); stepHeroImage(-1); }}
+                    aria-label="Previous photo"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="cd-hero-arrow cd-hero-arrow-next"
+                    onClick={(e) => { e.stopPropagation(); stepHeroImage(1); }}
+                    aria-label="Next photo"
+                  >
+                    ›
+                  </button>
+                </>
               )}
               {images.length > 0 ? (
                 <span className="cd-photo-count">

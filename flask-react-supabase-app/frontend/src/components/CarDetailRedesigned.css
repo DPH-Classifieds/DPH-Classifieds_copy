@@ -17,26 +17,13 @@
   --cd-border-radius-md: 8px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --cd-color-background-primary: #0a0a0a;
-    --cd-color-background-secondary: #1a1a1a;
-    --cd-color-text-primary: #ffffff;
-    --cd-color-text-secondary: #999999;
-    --cd-color-border-tertiary: #2a2a2a;
-    --cd-color-border-secondary: #3a3a3a;
-    --cd-color-info: #4da3ff;
-    --cd-color-info-bg: #1a2a3a;
-    --cd-color-success: #4dff4d;
-    --cd-color-success-bg: #1a3a1a;
-    --cd-color-warning: #ffb84d;
-    --cd-color-warning-bg: #3a2a1a;
-  }
-}
-
-/* Toggle-driven dark mode (.dark on <html>) — mirrors the prefers-color-scheme
-   block above so users who explicitly pick dark get the same palette. */
-.dark :root {
+/* Toggle-driven dark mode only (.dark on <html>, flipped by ThemeContext).
+   The OS-level prefers-color-scheme query deliberately does NOT drive these
+   tokens: the site defaults to light, so an OS-dark user in site-light mode
+   must still get the light detail page — every other stylesheet on the site
+   works the same way. Note the selector is `.dark`, not `.dark :root` (the
+   latter can never match: :root IS <html>, so it cannot descend from .dark). */
+.dark {
   --cd-color-background-primary: #0a0a0a;
   --cd-color-background-secondary: #1a1a1a;
   --cd-color-text-primary: #ffffff;
@@ -68,7 +55,7 @@
   gap: 0.5rem;
   font-size: 13px;
   color: var(--cd-color-text-secondary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
 }
 
@@ -90,7 +77,7 @@
 }
 
 .cd-title-block {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .cd-title {

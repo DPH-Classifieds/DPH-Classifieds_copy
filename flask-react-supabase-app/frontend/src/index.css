@@ -3,35 +3,37 @@
 @tailwind utilities;
 
 :root {
-  /* shadcn/ui CSS variables - Dark theme */
+  /* shadcn/ui CSS variables — light values are the default. The site theme
+     is toggle-driven (ThemeContext flips .dark on <html>), so dark values
+     live in the .dark block below and never leak into light mode. */
   --background: 0 0% 100%;
-  --foreground: 0 0% 100%;
-  
-  --card: 0 0% 6%;
-  --card-foreground: 0 0% 100%;
-  
-  --popover: 0 0% 6%;
-  --popover-foreground: 0 0% 100%;
-  
+  --foreground: 0 0% 9%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 9%;
+
   --primary: 150 60% 35%;
-  --primary-foreground: 0 0% 0%;
-  
-  --secondary: 0 0% 15%;
-  --secondary-foreground: 0 0% 100%;
-  
-  --muted: 0 0% 15%;
-  --muted-foreground: 0 0% 63%;
-  
-  --accent: 0 0% 15%;
-  --accent-foreground: 0 0% 100%;
-  
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 9%;
+
   --destructive: 0 62% 50%;
   --destructive-foreground: 0 0% 100%;
-  
-  --border: 0 0% 15%;
-  --input: 0 0% 15%;
+
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
   --ring: 150 60% 35%;
-  
+
   --radius: 0.5rem;
   
   --radix-accordion-content-height: var(--radix-accordion-content-height);
@@ -59,6 +61,39 @@
   --listing-image-frame-ratio: 16 / 10;
 }
 
+/* Toggle-driven dark mode (ThemeContext flips .dark on <html>).
+   Same specificity as :root and placed later, so these win whenever the
+   toggle is dark — and light mode never sees dark surfaces. */
+.dark {
+  --background: 0 0% 7%;
+  --foreground: 0 0% 98%;
+
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 100%;
+
+  --popover: 0 0% 6%;
+  --popover-foreground: 0 0% 100%;
+
+  --primary: 150 60% 35%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 63%;
+
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 0 0% 15%;
+  --input: 0 0% 15%;
+  --ring: 150 60% 35%;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -81,6 +116,11 @@ body {
 }
 
 select option {
+  background-color: #ffffff;
+  color: #101613;
+}
+
+.dark select option {
   background-color: #1a1a1a;
   color: #f0f0f0;
 }

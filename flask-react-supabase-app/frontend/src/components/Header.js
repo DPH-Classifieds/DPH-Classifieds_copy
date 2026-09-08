@@ -232,7 +232,7 @@ const Header = () => {
               <NavigationMenuContent>
                 <div className="grid w-[420px] gap-1.5 p-3">
                   {user && !dealerCanPost && (
-                    <div className="mb-1 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-200">
+                    <div className="mb-1 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-700 dark:text-amber-200">
                       Admin verification required before you can post.{' '}
                       <Link to="/settings" className="underline">View status</Link>
                     </div>
@@ -392,7 +392,7 @@ const Header = () => {
                   </AccordionTrigger>
                   <AccordionContent>
                     {user && !dealerCanPost && (
-                      <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-200">
+                      <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-700 dark:text-amber-200">
                         Admin verification required before you can post.{' '}
                         <Link to="/settings" className="underline">View status</Link>
                       </div>
@@ -468,7 +468,7 @@ const Header = () => {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="w-full justify-start rounded-xl border border-red-400/20 bg-transparent px-4 py-3 text-red-300/80 hover:bg-red-500/10 hover:text-red-200"
+                      className="w-full justify-start rounded-xl border border-red-400/20 bg-transparent px-4 py-3 text-red-600 hover:bg-red-500/10 hover:text-red-700 dark:text-red-300/80 dark:hover:text-red-200"
                       onClick={handleLogout}
                     >
                       Log Out
