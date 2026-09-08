@@ -408,6 +408,17 @@ Ruling: Continue with bounded admin/read-only routes or worker composition only
 when direct contracts are identified; live authenticated/provider verification
 and shared startup/storage lifecycle helpers remain separate gates.
 
+Task 8bf: complete (current checkpoint; extracted compatibility `GET /api/users`
+into `routes/users_legacy.py`, preserving its admin/super-admin gate,
+service-role fetch, 206 partial-content envelope, response/status contract,
+route methods, and compatibility export). Focused legacy-user suite `5 passed`;
+full backend `1292 passed, 11 skipped, 57 warnings`; compileall passed;
+`app.py` is now `14,302` lines.
+
+Ruling: Continue with bounded admin/read-only routes or worker composition only
+when direct contracts are identified; live authenticated/provider verification
+and shared startup/storage lifecycle helpers remain separate gates.
+
 Task 8be: complete (current checkpoint; moved dealer verification notification
 and message-timeline handlers into `routes/dealer_verification.py`, preserving
 their original unprefixed endpoint names, dealer-only authorization, audit

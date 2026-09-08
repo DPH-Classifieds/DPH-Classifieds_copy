@@ -813,3 +813,15 @@ provider-error mapping, response/status contracts, and compatibility exports.
 Focused dealer verification suite: `82 passed`; full backend suite:
 `1288 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
 `14,345` lines.
+
+### Task 8bf: Extract legacy authenticated user-list route
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `GET /api/users` into `routes/users_legacy.py`, preserving its
+admin/super-admin gate, service-role fetch, 206 partial-content envelope,
+response/status contract, route methods, and compatibility export.
+
+Focused legacy-user suite: `5 passed`; full backend suite:
+`1292 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+`14,302` lines.

@@ -10632,57 +10632,6 @@ create_part = register_part_create_route(
 
 
 
-@app.route("/api/users", methods=["GET"])
-@token_required
-def get_users(current_user):
-    try:
-        # Check if the current user is an admin
-        user_data, status_code = supabase_request(
-            "get", f"/rest/v1/users?id=eq.{current_user}", user_id=current_user
-        )
-
-        if (
-            status_code >= 400
-            or not user_data
-            or not (
-                user_data[0].get("is_admin")
-                or _is_super_admin_record(user_data[0], user_id=current_user)
-            )
-        ):
-            return jsonify({"error": "Unauthorized. Only admins can view users."}), 403
-
-        # Get all users with the service role key to bypass RLS
-        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
-
-        # Create headers with service role
-        headers = {
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
-            "Content-Type": "application/json",
-            "X-Client-Info": "backend-api",
-            "X-Postgres-Role": "service_role",  # This bypasses RLS
-        }
-
-        # Fetch all users
-        response = requests.get(
-            f"{SUPABASE_URL}/rest/v1/users?select=*", headers=headers
-        )
-
-        if response.status_code not in (200, 206):
-            logger.error(f"Failed to get users: {response.text}")
-            return jsonify({"error": "Failed to fetch users"}), response.status_code
-
-        payload = response.json()
-        if response.status_code == 206:
-            return jsonify({"users": payload, "partial_content": True}), 200
-
-        return jsonify(payload), 200
-
-    except Exception as e:
-        logger.error(f"Error getting users: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
 def _get_service_role_headers():
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
     return {
@@ -13800,6 +13749,14 @@ try:
     logger.info("Admin status route registered successfully")
 except Exception as e:
     logger.error(f"Failed to register admin status route: {e}")
+
+try:
+    from routes.users_legacy import get_users, register_legacy_user_routes
+
+    register_legacy_user_routes(app)
+    logger.info("Legacy user-list route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register legacy user-list route: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details
