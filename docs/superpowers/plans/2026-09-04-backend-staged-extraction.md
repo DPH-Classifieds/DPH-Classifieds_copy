@@ -586,3 +586,13 @@ top-listing shaping, latest-run health, admin auth, cache, and compatibility
 exports.
 Focused suite: `60 passed`; full backend suite: `1215 passed, 11 skipped,
 56 warnings`.
+
+### Task 8ao: Extract user lead-metrics route
+
+Status: complete in commit `pending`.
+
+Scope: move `/api/user/lead-metrics` into a runtime-bound route module while
+preserving authenticated owner scoping, listing-type normalization, days
+clamping, zero-owner behavior, recent-event shaping, and error envelopes.
+Focused suite: `14 passed`; full backend suite: `1219 passed, 11 skipped,
+56 warnings`.

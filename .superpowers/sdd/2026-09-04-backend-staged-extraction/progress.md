@@ -232,7 +232,7 @@ and then background lifecycle/reminder composition. Keep each destructive or
 worker change independently contract-tested; live authenticated/provider flows
 remain credential-gated.
 
-Task 8an: complete (pending commit; extracted `/api/admin/reddit-import-analytics`
+Task 8an: complete (commit `2ac321c0`; extracted `/api/admin/reddit-import-analytics`
 into `routes/admin_reddit_analytics.py`, preserving aggregate-only privacy,
 days clamping, Reddit category rollups, event windowing, top-listing shaping,
 latest import-run health, admin auth, cache, runtime registration, and the
@@ -243,6 +243,22 @@ lines.
 Ruling: Continue with the remaining admin/dealer mutation and public lead
 analytics helpers, then background lifecycle/reminder composition. Do not
 combine worker extraction with destructive route moves.
+
+Task 8ao: complete (pending commit; extracted `/api/user/lead-metrics` into
+`routes/user_lead_metrics.py`, preserving authenticated owner scoping, type
+normalization, days clamping, zero-owner behavior, recent-event limits, safe
+error envelopes, runtime registration, and compatibility export). Focused
+route/manifest suite `14 passed`; full backend `1219 passed, 11 skipped, 56
+warnings`; `app.py` is now `15,912` lines.
+
+Ruling: Remaining root-owned work is concentrated in lead-event ingestion,
+dealer/admin mutation helpers, and lifecycle/reminder worker composition. The
+next slice should be selected from those boundaries with direct tests before
+any worker or destructive route changes.
+
+Task 8ao: in progress (user lead-metrics route mapped; implementation and
+contract tests pending). Listing ownership and lead-event reads remain runtime
+resolved so existing isolation tests keep their patch points.
 
 Task 8an: in progress (Reddit-import analytics route mapped; implementation and
 contract tests pending). The route remains aggregate-only and is being kept
