@@ -596,3 +596,17 @@ preserving authenticated owner scoping, listing-type normalization, days
 clamping, zero-owner behavior, recent-event shaping, and error envelopes.
 Focused suite: `14 passed`; full backend suite: `1219 passed, 11 skipped,
 56 warnings`.
+
+### Task 8ap: Extract public listing lead-event route
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/listings/<item_type>/<item_id>/lead-events` into a
+runtime-bound module, preserving listing-type validation, rate limiting,
+canonical and legacy event writes, optional auth, bot metadata, seller push
+notifications, response/status envelopes, and compatibility exports.
+
+Out of scope: analytics aggregation routes and the provider-backed notification
+helpers themselves.
+Focused suite: `19 passed`; full backend suite: `1223 passed, 11 skipped,
+56 warnings`.

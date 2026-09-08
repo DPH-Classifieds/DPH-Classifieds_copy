@@ -244,7 +244,7 @@ Ruling: Continue with the remaining admin/dealer mutation and public lead
 analytics helpers, then background lifecycle/reminder composition. Do not
 combine worker extraction with destructive route moves.
 
-Task 8ao: complete (pending commit; extracted `/api/user/lead-metrics` into
+Task 8ao: complete (commit `acc3da28`; extracted `/api/user/lead-metrics` into
 `routes/user_lead_metrics.py`, preserving authenticated owner scoping, type
 normalization, days clamping, zero-owner behavior, recent-event limits, safe
 error envelopes, runtime registration, and compatibility export). Focused
@@ -255,6 +255,22 @@ Ruling: Remaining root-owned work is concentrated in lead-event ingestion,
 dealer/admin mutation helpers, and lifecycle/reminder worker composition. The
 next slice should be selected from those boundaries with direct tests before
 any worker or destructive route changes.
+
+Task 8ap: complete (pending commit; extracted `POST
+/api/listings/<item_type>/<item_id>/lead-events` into `routes/lead_events.py`,
+preserving public access, listing validation, rate limiting, canonical and
+legacy analytics writes, optional auth, bot metadata, seller push notification
+behavior, safe errors, runtime registration, and compatibility export). Focused
+lead-event/rate-limit/manifest suite `19 passed`; full backend `1223 passed, 11
+skipped, 56 warnings`; `app.py` is now `15,813` lines.
+
+Ruling: Continue with the remaining admin/dealer mutation helpers and worker
+composition. The major analytics read routes are now separated; destructive
+and background changes still require their own contracts and exact-head smoke.
+
+Task 8ap: in progress (public listing lead-event route mapped; implementation
+and contract tests pending). Analytics normalization, notification, and
+rate-limit helpers remain root-owned and will resolve through the runtime table.
 
 Task 8ao: in progress (user lead-metrics route mapped; implementation and
 contract tests pending). Listing ownership and lead-event reads remain runtime
