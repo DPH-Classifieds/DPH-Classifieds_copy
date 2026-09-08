@@ -7118,40 +7118,6 @@ def uploaded_file(filename):
         abort(404)
 
 
-# Get privacy policy
-@app.route("/api/privacy-policy", methods=["GET"])
-def get_privacy_policy():
-    try:
-        query = "/rest/v1/privacy_policies?select=*&order=created_at.desc&limit=1"
-        response, response_status = supabase_request("get", query)
-
-        if not response or len(response) == 0:
-            return jsonify({"privacy_policy": "Privacy policy not found"}), 404
-
-        return jsonify(response[0])
-    except Exception as e:
-        logger.error(f"Error fetching privacy policy: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-# Get advertisements
-@app.route("/api/advertisements", methods=["GET"])
-def get_advertisements():
-    try:
-        query = "/rest/v1/advertisements?select=*&order=created_at.desc&limit=1"
-        response, response_status = supabase_request(
-            "get", query, use_service_role=True
-        )
-
-        if not response or len(response) == 0:
-            return jsonify({"error": "Advertisements not found"}), 404
-
-        return jsonify(response[0])
-    except Exception as e:
-        logger.error(f"Error fetching advertisements: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
 def _send_resend_email(payload, email_type=None, user_id=None):
     resend_api_key = os.getenv("RESEND_API_KEY")
     if not resend_api_key:
@@ -13723,6 +13689,18 @@ try:
     logger.info("Legacy license-plate route registered successfully")
 except Exception as e:
     logger.error(f"Failed to register legacy license-plate route: {e}")
+
+try:
+    from routes.public_content import (
+        get_advertisements,
+        get_privacy_policy,
+        register_public_content_routes,
+    )
+
+    register_public_content_routes(app)
+    logger.info("Public content routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register public content routes: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details
