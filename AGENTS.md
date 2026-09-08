@@ -73,7 +73,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 14,428 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 14,345 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
 reports, overview-metrics, admin-stats, admin-listing-search,
 admin-reddit-analytics, user-lead-metrics, lead-events, price-history, and
@@ -82,7 +82,7 @@ manifest suites pass; dealer document review is now also isolated in
 isolated in `routes/dealer_admin_actions.py`; admin dealer listing deletion is
 isolated in `routes/admin_listing_delete.py`; dealer listing-limit decisions are
 isolated in `routes/admin_upgrade_decisions.py`; the full backend suite is
-`1284 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
+`1288 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
 routes now live in their extracted boundary; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
@@ -122,8 +122,14 @@ credential-gated skips.
 The authenticated `/api/auth/admin-check` route now lives in
 `routes/admin_check.py`, preserving token enforcement, service-role lookup,
 super-admin resolution, fail-closed user/provider handling, and its legacy
-endpoint export. The current backend total is `1284 passed, 11 skipped, 57
-warnings`, with `app.py` at `14,428` lines.
+endpoint export. The admin-check checkpoint passed `1284 tests`, with 11
+credential-gated skips.
+
+The dealer verification notification and message timeline routes now live in
+`routes/dealer_verification.py` with their original unprefixed endpoint names,
+runtime helper bridge, dealer-only guard, audit insert, notification isolation,
+and provider-error mapping. The current backend total is `1288 passed, 11
+skipped, 57 warnings`, with `app.py` at `14,345` lines.
 
 Dealer document listing, upload, deletion, profile-photo, and KYC application
 submission routes now live in `routes/dealer_verification.py`. It follows the

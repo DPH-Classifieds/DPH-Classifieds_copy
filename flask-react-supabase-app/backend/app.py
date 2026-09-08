@@ -13681,91 +13681,6 @@ def _send_dealer_verification_update_admin_notification(user_row, message_text, 
     )
 
 
-@app.route("/api/dealer/verification/notify-admin", methods=["POST"])
-@token_required
-def dealer_verification_notify_admin(current_user):
-    """Dealer-initiated ping from the verification status page. Records the
-    message in `dealer_admin_messages` (audit trail) and emails every admin.
-    Same delivery path as the existing dealer-side admin notifications.
-    """
-    body = request.get_json(silent=True) or {}
-    message = (body.get("message") or "").strip()
-    context = (body.get("context") or "").strip()
-    if len(message) < 4:
-        return jsonify({"error": "Message is too short"}), 400
-    if len(message) > 1500:
-        return jsonify({"error": "Message must be 1500 characters or fewer"}), 400
-    try:
-        user_row, _ = supabase_request(
-            "get",
-            (
-                f"/rest/v1/users?id=eq.{current_user}"
-                "&select=id,email,first_name,last_name,company_name,legal_business_name,"
-                "is_dealer,dealer_verified,dealer_application_status"
-            ),
-            use_service_role=True,
-        )
-    except Exception as exc:
-        logger.warning("dealer_verification_notify_admin: user lookup failed: %s", exc)
-        user_row = []
-    user = user_row[0] if isinstance(user_row, list) and user_row else {}
-    if not user or not user.get("is_dealer"):
-        return jsonify({"error": "Only dealers can send verification updates"}), 403
-
-    try:
-        supabase_request(
-            "post",
-            "/rest/v1/dealer_admin_messages",
-            data={
-                "dealer_id": current_user,
-                "channel": "verification_update",
-                "context": context[:200] or None,
-                "message": message[:1500],
-            },
-            use_service_role=True,
-        )
-    except Exception as exc:
-        logger.warning("dealer_verification_notify_admin: insert failed: %s", exc)
-
-    try:
-        _send_dealer_verification_update_admin_notification(user, message, context)
-    except Exception as exc:
-        logger.warning("dealer_verification_notify_admin: email send failed: %s", exc)
-
-    return jsonify({
-        "ok": True,
-        "dealer": {
-            "id": user.get("id"),
-            "email": user.get("email"),
-            "dealer_verified": bool(user.get("dealer_verified")),
-            "application_status": user.get("dealer_application_status"),
-        },
-    }), 200
-
-
-@app.route("/api/dealer/verification/messages", methods=["GET"])
-@token_required
-def dealer_verification_list_messages(current_user):
-    """Dealer-facing timeline of messages they have sent to admins from the
-    verification status page. Newest first, capped at 50 rows."""
-    try:
-        rows, status_code = supabase_request(
-            "get",
-            (
-                f"/rest/v1/dealer_admin_messages?dealer_id=eq.{current_user}"
-                "&select=id,channel,context,message,created_at"
-                "&order=created_at.desc&limit=50"
-            ),
-            use_service_role=True,
-        )
-    except Exception as exc:
-        logger.warning("dealer_verification_list_messages: fetch failed: %s", exc)
-        return jsonify({"error": "Failed to load messages"}), 500
-    if status_code >= 400:
-        return jsonify({"error": "Failed to load messages"}), 500
-    return jsonify({"messages": rows or []}), 200
-
-
 # Public authentication handlers are registered only after app.py has finished
 # defining their shared helpers, then receive a snapshot of the backend symbol
 # table for compatibility with the legacy implementation.
@@ -14231,6 +14146,8 @@ except Exception as e:
 # imported these handlers from app.py.
 from routes.dealer_verification import (
     dealer_submit_application,
+    dealer_verification_list_messages,
+    dealer_verification_notify_admin,
     delete_dealer_document,
     get_dealer_documents,
     get_dealer_verification_status,

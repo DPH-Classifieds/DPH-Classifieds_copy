@@ -800,3 +800,16 @@ compatibility export.
 Focused admin-check/guard suite: `18 passed`; full backend suite:
 `1284 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
 `14,428` lines.
+
+### Task 8be: Complete dealer verification message routes
+
+Status: complete in the current staged checkpoint.
+
+Scope: move dealer verification notification and message-timeline handlers
+into `routes/dealer_verification.py`, preserving original unprefixed endpoint
+names, dealer-only authorization, audit insert, notification isolation,
+provider-error mapping, response/status contracts, and compatibility exports.
+
+Focused dealer verification suite: `82 passed`; full backend suite:
+`1288 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+`14,345` lines.

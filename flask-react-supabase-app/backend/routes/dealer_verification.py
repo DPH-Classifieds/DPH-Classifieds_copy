@@ -5,7 +5,7 @@ These routes keep their legacy contracts while living outside the compatibility 
 
 from functools import wraps
 
-from flask import Blueprint, current_app
+from flask import Blueprint, current_app, jsonify, request
 
 
 dealer_verification_bp = Blueprint("dealer_verification", __name__)
@@ -371,6 +371,87 @@ def dealer_submit_application(current_user):
         return jsonify({"error": "Failed to submit application"}), 500
 
 
+@_token_required
+def dealer_verification_notify_admin(current_user):
+    """Record a dealer verification-page message and notify administrators."""
+    body = request.get_json(silent=True) or {}
+    message = (body.get("message") or "").strip()
+    context = (body.get("context") or "").strip()
+    if len(message) < 4:
+        return jsonify({"error": "Message is too short"}), 400
+    if len(message) > 1500:
+        return jsonify({"error": "Message must be 1500 characters or fewer"}), 400
+    try:
+        user_row, _ = supabase_request(
+            "get",
+            (
+                f"/rest/v1/users?id=eq.{current_user}"
+                "&select=id,email,first_name,last_name,company_name,legal_business_name,"
+                "is_dealer,dealer_verified,dealer_application_status"
+            ),
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("dealer_verification_notify_admin: user lookup failed: %s", exc)
+        user_row = []
+    user = user_row[0] if isinstance(user_row, list) and user_row else {}
+    if not user or not user.get("is_dealer"):
+        return jsonify({"error": "Only dealers can send verification updates"}), 403
+
+    try:
+        supabase_request(
+            "post",
+            "/rest/v1/dealer_admin_messages",
+            data={
+                "dealer_id": current_user,
+                "channel": "verification_update",
+                "context": context[:200] or None,
+                "message": message[:1500],
+            },
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("dealer_verification_notify_admin: insert failed: %s", exc)
+
+    try:
+        _send_dealer_verification_update_admin_notification(user, message, context)
+    except Exception as exc:
+        logger.warning("dealer_verification_notify_admin: email send failed: %s", exc)
+
+    return jsonify(
+        {
+            "ok": True,
+            "dealer": {
+                "id": user.get("id"),
+                "email": user.get("email"),
+                "dealer_verified": bool(user.get("dealer_verified")),
+                "application_status": user.get("dealer_application_status"),
+            },
+        }
+    ), 200
+
+
+@_token_required
+def dealer_verification_list_messages(current_user):
+    """Return the dealer's verification-page message timeline."""
+    try:
+        rows, status_code = supabase_request(
+            "get",
+            (
+                f"/rest/v1/dealer_admin_messages?dealer_id=eq.{current_user}"
+                "&select=id,channel,context,message,created_at"
+                "&order=created_at.desc&limit=50"
+            ),
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("dealer_verification_list_messages: fetch failed: %s", exc)
+        return jsonify({"error": "Failed to load messages"}), 500
+    if status_code >= 400:
+        return jsonify({"error": "Failed to load messages"}), 500
+    return jsonify({"messages": rows or []}), 200
+
+
 
 
 def register_dealer_verification_routes(app, backend_symbols):
@@ -385,12 +466,25 @@ def register_dealer_verification_routes(app, backend_symbols):
         "_utc_now",
         "ensure_storage_bucket",
         "upload_to_supabase_storage",
+        "_send_dealer_verification_update_admin_notification",
     ):
         def _live_helper(*args, _name=name, **kwargs):
             return backend_symbols[_name](*args, **kwargs)
 
         globals()[name] = _live_helper
     app.register_blueprint(dealer_verification_bp)
+    app.add_url_rule(
+        "/api/dealer/verification/notify-admin",
+        endpoint="dealer_verification_notify_admin",
+        view_func=dealer_verification_notify_admin,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        "/api/dealer/verification/messages",
+        endpoint="dealer_verification_list_messages",
+        view_func=dealer_verification_list_messages,
+        methods=["GET"],
+    )
 
 @dealer_verification_bp.route("/api/user/dealer-documents", methods=["DELETE"])
 @_token_required
@@ -504,5 +598,3 @@ def upload_profile_photo(current_user):
         return jsonify(
             {"error": str(e), "message": "Failed to upload profile photo"}
         ), 500
-
-
