@@ -838,3 +838,30 @@ methods, and compatibility export.
 Focused plate-read suite: `19 passed`; full backend suite:
 `1295 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
 `14,268` lines.
+
+### Task 8bh: Extract public policy and advertisement routes
+
+Status: complete in commit `5a866abb`.
+
+Scope: move `GET /api/privacy-policy` and `GET /api/advertisements` into a
+runtime-bound public-content module, preserving newest-row queries, service-role
+advertisement reads, response/status contracts, route methods, and compatibility
+exports.
+
+Focused extraction/manifest suite: `14 passed`; compileall passed.
+
+### Task 8bi: Extract deprecated listing-view shims
+
+Status: complete in commit `4d48b7ae`.
+
+Scope: move the four deprecated car, bike, plate, and part `/view` POST shims
+into a runtime-bound compatibility module. Preserve the non-mutating 202
+canonical-analytics response, route methods, endpoint names, and compatibility
+exports.
+
+Focused shim/analytics/manifest suite: `20 passed`; compileall passed.
+
+Ruling: Do not mechanically extract lifecycle/reminder bodies. The next stage
+is a pure worker-composition registry with injected callables and contract tests,
+followed by one bounded admin/diagnostic route at a time. Credentialed local and
+live provider E2E remain release gates.

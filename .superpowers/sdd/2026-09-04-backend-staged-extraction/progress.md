@@ -419,6 +419,20 @@ Ruling: Continue only with bounded admin/read-only routes or worker composition
 when direct contracts are identified. Credentialed authenticated E2E and live
 provider verification remain required release gates.
 
+Task 8bh: complete (commit 5a866abb; extracted public policy and advertisement
+routes into `routes/public_content.py`; focused extraction/manifest suite 14
+passed; compileall passed; compatibility exports and service-role behavior are
+covered).
+
+Task 8bi: complete (commit 4d48b7ae; extracted four deprecated listing-view
+shims into `routes/legacy_view_shims.py`; focused shim/analytics/manifest suite
+20 passed; compileall passed; the shims remain non-mutating 202 compatibility
+responses).
+
+Ruling: Continue with a pure worker registry/coordination boundary and direct
+contract tests. Keep lifecycle/reminder helper bodies root-owned until their
+provider, schema-fallback, and duplicate-claim semantics have dedicated tests.
+
 Task 8bf: complete (current checkpoint; extracted compatibility `GET /api/users`
 into `routes/users_legacy.py`, preserving its admin/super-admin gate,
 service-role fetch, 206 partial-content envelope, response/status contract,
