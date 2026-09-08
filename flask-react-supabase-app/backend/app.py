@@ -13774,157 +13774,6 @@ def _admin_collect_dealer_stats(dealer_id):
     return _admin_collect_owned_listing_stats(dealer_id)
 
 
-@app.route("/api/admin/dealers/<dealer_id>/verify", methods=["POST"])
-@token_required
-def api_verify_dealer(current_user, dealer_id):
-    """Force-approve a dealer (admin OCR override).
-
-    Default approval path is PaddleOCR + minute-tick dealer_auto_approval_worker.
-    This endpoint exists so admins can rescue a borderline case or push a dealer
-    past OCR while they wait for a clearer upload. A reason is required for audit.
-    See spec docs/superpowers/specs/2026-08-25-dealer-ocr-auto-approval-copy-and-admin-override.md
-    """
-    try:
-        # Verify admin status
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        reason = ((request.json or {}).get("reason") if request.is_json else "") if request.json else ""
-        reason = (reason or "").strip() if isinstance(reason, str) else ""
-        if not reason:
-            return jsonify({
-                "error": "A reason is required when force-approving a dealer.",
-                "code": "force_approve_reason_required",
-            }), 400
-        logger.info(
-            "Admin force-approved dealer %s (actor=%s, reason=%s)",
-            dealer_id, current_user, reason,
-        )
-
-        readiness, readiness_error = _get_dealer_application_readiness(dealer_id)
-        if readiness_error:
-            return jsonify({"error": readiness_error}), 404
-        if not readiness["ready_to_approve"]:
-            return jsonify({
-                "error": "Dealer cannot be approved until all active required documents are approved.",
-                "code": "dealer_application_not_ready_for_approval",
-                "readiness": readiness,
-            }), 409
-
-        from datetime import datetime
-
-        # Update dealer verification
-        update_data = {
-            "dealer_verified": True,
-            "dealer_verified_at": datetime.utcnow().isoformat(),
-            "dealer_application_status": "approved",
-        }
-
-        response, status_code = supabase_request(
-            "patch",
-            f"/rest/v1/users?id=eq.{dealer_id}",
-            data=update_data,
-            use_service_role=True,
-        )
-
-        if status_code in [200, 204]:
-            dealer_response, dealer_status = supabase_request(
-                "get",
-                f"/rest/v1/users?id=eq.{dealer_id}&select=email",
-                use_service_role=True,
-            )
-            if dealer_status < 400 and dealer_response:
-                dealer_email = dealer_response[0].get("email")
-                _, email_error = _send_dealer_status_email(
-                    dealer_email, "approved", request.headers.get("Origin")
-                )
-                if email_error:
-                    logger.error(
-                        f"Dealer approval email failed for {dealer_id}: {email_error}"
-                    )
-
-            logger.info(f"Admin {current_user} force-approved dealer {dealer_id}: {reason}")
-            return jsonify(
-                {"success": True, "message": "Dealer force-approved"}
-            ), 200
-        else:
-            logger.error(
-                f"Error verifying dealer {dealer_id}: {status_code} - {response}"
-            )
-            return jsonify({"error": "Failed to verify dealer"}), status_code
-
-    except Exception as e:
-        logger.error(f"Exception in api_verify_dealer: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/admin/dealers/<dealer_id>/reject", methods=["POST"])
-@token_required
-def api_reject_dealer(current_user, dealer_id):
-    """Reject a dealer verification request"""
-    try:
-        # Verify admin status
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        # Get rejection note from request
-        rejection_note = ""
-        rejection_fix = ""
-        if request.is_json and request.json:
-            rejection_note = request.json.get("rejection_note", "")
-            rejection_fix = request.json.get("rejection_fix", "")
-
-        # Preserve the dealer account and its audit trail; they may correct and reapply.
-        update_data = {
-            "dealer_verified": False,
-            "dealer_application_status": "rejected",
-            "rejection_note": rejection_note,
-        }
-
-        response, status_code = supabase_request(
-            "patch",
-            f"/rest/v1/users?id=eq.{dealer_id}",
-            data=update_data,
-            use_service_role=True,
-        )
-
-        if status_code in [200, 204]:
-            dealer_response, dealer_status = supabase_request(
-                "get",
-                f"/rest/v1/users?id=eq.{dealer_id}&select=email",
-                use_service_role=True,
-            )
-            if dealer_status < 400 and dealer_response:
-                dealer_email = dealer_response[0].get("email")
-                _, email_error = _send_dealer_status_email(
-                    dealer_email,
-                    "rejected",
-                    request.headers.get("Origin"),
-                    rejection_note=rejection_note,
-                    rejection_fix=rejection_fix,
-                )
-                if email_error:
-                    logger.error(
-                        f"Dealer rejection email failed for {dealer_id}: {email_error}"
-                    )
-
-            logger.info(f"Admin {current_user} rejected dealer {dealer_id}")
-            return jsonify(
-                {"success": True, "message": "Dealer verification rejected"}
-            ), 200
-        else:
-            logger.error(
-                f"Error rejecting dealer {dealer_id}: {status_code} - {response}"
-            )
-            return jsonify({"error": "Failed to reject dealer"}), status_code
-
-    except Exception as e:
-        logger.error(f"Exception in api_reject_dealer: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
 @app.route("/api/admin/dealers/<dealer_id>/documents", methods=["GET"])
 @token_required
 def get_admin_dealer_documents(current_user, dealer_id):
@@ -15253,6 +15102,18 @@ try:
     logger.info("Dealer document review route registered successfully")
 except Exception as e:
     logger.error(f"Failed to register dealer document review route: {e}")
+
+try:
+    from routes.dealer_admin_actions import (
+        api_verify_dealer,
+        api_reject_dealer,
+        register_dealer_admin_action_routes,
+    )
+
+    register_dealer_admin_action_routes(app)
+    logger.info("Dealer admin action routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register dealer admin action routes: {e}")
 
 # Live-user metrics are registered after the runtime dependency table exists;
 # broader overview/stats analytics remain root-owned.

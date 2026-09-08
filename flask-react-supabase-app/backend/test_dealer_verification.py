@@ -102,7 +102,12 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
             os.path.dirname(__file__), "routes", "dealer_verification.py"
         )
         with open(route_path, "r") as f:
-            return app_source + "\n" + f.read()
+            dealer_verification_source = f.read()
+        action_path = os.path.join(
+            os.path.dirname(__file__), "routes", "dealer_admin_actions.py"
+        )
+        with open(action_path, "r") as f:
+            return app_source + "\n" + dealer_verification_source + "\n" + f.read()
 
     def test_dealer_documents_bucket_in_allowlist(self):
         """dealer-documents must be in the signed upload URL bucket allowlist."""
@@ -537,7 +542,12 @@ class TestRejectItemEmail(unittest.TestCase):
     def _read_app_source(self):
         app_path = os.path.join(os.path.dirname(__file__), "app.py")
         with open(app_path, "r") as f:
-            return f.read()
+            app_source = f.read()
+        action_path = os.path.join(
+            os.path.dirname(__file__), "routes", "dealer_admin_actions.py"
+        )
+        with open(action_path, "r") as f:
+            return app_source + "\n" + f.read()
 
     def test_reject_item_api_sends_email(self):
         """The reject_item_api on admin_web_bp must call _send_listing_status_email."""
@@ -641,7 +651,12 @@ class TestRejectionDropdownAndFix(unittest.TestCase):
     def _read_app_source(self):
         app_path = os.path.join(os.path.dirname(__file__), "app.py")
         with open(app_path, "r") as f:
-            return f.read()
+            app_source = f.read()
+        action_path = os.path.join(
+            os.path.dirname(__file__), "routes", "dealer_admin_actions.py"
+        )
+        with open(action_path, "r") as f:
+            return app_source + "\n" + f.read()
 
     def _read_moderation_source(self):
         moderation_path = os.path.join(

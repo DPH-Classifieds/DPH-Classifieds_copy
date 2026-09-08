@@ -107,17 +107,17 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         self.assertIsNone(document_type_from_label("Shareholder passport"))
 
     def test_source_contracts_cover_upload_privacy_and_admin_guard(self):
-        source = (
-            APP_PATH.read_text()
-            + Path(APP_PATH.parent / "routes" / "dealer_verification.py").read_text()
-            + Path(APP_PATH.parent / "routes" / "dealer_document_review.py").read_text()
-        )
+        app_source = APP_PATH.read_text()
+        verification_source = Path(APP_PATH.parent / "routes" / "dealer_verification.py").read_text()
+        review_source = Path(APP_PATH.parent / "routes" / "dealer_document_review.py").read_text()
+        verify_source = Path(APP_PATH.parent / "routes" / "dealer_admin_actions.py").read_text()
+        source = app_source + verification_source + review_source + verify_source
         self.assertIn('@dealer_verification_bp.route("/api/auth/upload-dealer-document", methods=["POST"])', source)
         self.assertIn('"public": False', source)
         self.assertIn('"dealer_application_status": "action_required"', source)
-        approve_section = source[source.index("def api_verify_dealer"):source.index("def api_reject_dealer")]
+        approve_section = verify_source[verify_source.index("def api_verify_dealer"):]
         self.assertIn('readiness["ready_to_approve"]', approve_section)
-        review_section = source[source.index("def review_dealer_document"):]
+        review_section = review_source[review_source.index("def review_dealer_document"):]
         self.assertIn('("approve", "deny", "pending")', review_section)
 
     def test_info_request_contracts_keep_documents_private_and_reviewable(self):

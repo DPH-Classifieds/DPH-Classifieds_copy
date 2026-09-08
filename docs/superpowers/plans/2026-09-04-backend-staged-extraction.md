@@ -536,7 +536,7 @@ with its approved-listing and migration-fallback contracts preserved.
 
 ### Task 8ak: Extract admin metrics overview route
 
-Status: complete in commit `pending`.
+Status: complete in commit `57fd0ccc`.
 
 Scope: move `/api/admin/metrics/overview` into a runtime-bound route module,
 preserving the admin guard, paginated analytics reads, platform metric shape,
@@ -641,3 +641,18 @@ The route is registered once with its legacy endpoint and resolves admin,
 Supabase, and email dependencies through the runtime backend registry. The
 source-coupled lifecycle contract now inspects the extracted module as well as
 the compatibility root.
+
+### Task 8as: Extract dealer admin verify/reject actions
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/admin/dealers/<dealer_id>/verify` and
+`POST /api/admin/dealers/<dealer_id>/reject` into the runtime-bound dealer admin
+action module, preserving admin auth, reason/note validation, readiness gates,
+user state transitions, response/status envelopes, notification behavior, and
+compatibility exports.
+
+Out of scope: dealer document policy evaluation, document review, and shared
+email/provider helpers.
+Focused suite: `99 passed`; full backend suite: `1239 passed, 11 skipped,
+57 warnings`.
