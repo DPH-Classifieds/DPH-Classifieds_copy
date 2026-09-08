@@ -6247,25 +6247,6 @@ create_car = register_car_create_route(
 )
 
 
-# Delete a car listing (authenticated)
-@app.route("/api/cars/<string:car_id>", methods=["DELETE"])
-@token_required
-def delete_car(current_user, car_id):
-    try:
-        delete_response, delete_status = _delete_user_owned_listing(
-            current_user, "car", car_id
-        )
-        if delete_status >= 400:
-            return jsonify(delete_response), delete_status
-
-        _invalidate_public_inventory_cache("cars")
-        _invalidate_api_cache_prefixes([f"/api/cars/{car_id}"])
-        return jsonify({"message": "Car deleted successfully"}), 200
-    except Exception as e:
-        logger.error(f"Error deleting car: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
 # Upload car images (authenticated)
 def ensure_storage_bucket(bucket_name="listing-images"):
     """Ensure a storage bucket exists with its intended public/private policy."""
@@ -13996,7 +13977,7 @@ try:
 except Exception as e:
     logger.error(f"Failed to register car update routes: {e}")
 
-from routes.car_update import update_car
+from routes.car_update import delete_car, update_car
 
 try:
     from routes.bike_update import register_bike_update_routes

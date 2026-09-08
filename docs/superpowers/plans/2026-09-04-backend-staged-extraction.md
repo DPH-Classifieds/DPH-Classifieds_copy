@@ -910,3 +910,13 @@ missing-ID behavior, status envelopes, endpoint identity, and compatibility
 export.
 
 Focused webhook/manifest suite: `14 passed`; compileall passed.
+
+### Task 8bn: Move authenticated car deletion into car updates
+
+Status: complete in commit `pending`.
+
+Scope: move `DELETE /api/cars/<car_id>` into the existing car-update module,
+preserving authentication, ownership/deletion helper behavior, error envelopes,
+cache invalidation, route identity, and compatibility export.
+
+Focused delete/manifest suite: `12 passed`; compileall passed.

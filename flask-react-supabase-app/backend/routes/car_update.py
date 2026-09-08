@@ -590,6 +590,25 @@ def update_car(current_user, car_id):
         return jsonify({"error": str(e)}), 500
 
 
+@car_update_bp.route("/api/cars/<string:car_id>", methods=["DELETE"])
+@_token_required
+def delete_car(current_user, car_id):
+    backend = _backend()
+    try:
+        delete_response, delete_status = backend._delete_user_owned_listing(
+            current_user, "car", car_id
+        )
+        if delete_status >= 400:
+            return jsonify(delete_response), delete_status
+
+        backend._invalidate_public_inventory_cache("cars")
+        backend._invalidate_api_cache_prefixes([f"/api/cars/{car_id}"])
+        return jsonify({"message": "Car deleted successfully"}), 200
+    except Exception as exc:
+        backend.logger.error("Error deleting car: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
 
 
 def register_car_update_routes(app, backend_symbols):
@@ -616,10 +635,10 @@ def register_car_update_routes(app, backend_symbols):
         "upload_to_supabase_storage",
         "ensure_storage_bucket",
         "_is_valid_car_fuel_type",
+        "_delete_user_owned_listing",
     ):
         def _live_helper(*args, _name=name, **kwargs):
             return backend_symbols[_name](*args, **kwargs)
 
         globals()[name] = _live_helper
     app.register_blueprint(car_update_bp)
-

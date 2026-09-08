@@ -458,6 +458,11 @@ Task 8bm: complete (commit 9dada2bc; extracted `POST /api/webhooks/resend` into
 service-role update behavior, and compatibility export. Focused webhook/manifest
 suite 14 passed; compileall passed).
 
+Task 8bn: complete (commit pending; moved authenticated car deletion into
+`routes/car_update.py`, preserving owner/delete behavior, cache invalidation,
+error envelopes, and compatibility export. Focused delete/manifest suite 12
+passed; compileall passed).
+
 Task 8bf: complete (current checkpoint; extracted compatibility `GET /api/users`
 into `routes/users_legacy.py`, preserving its admin/super-admin gate,
 service-role fetch, 206 partial-content envelope, response/status contract,
