@@ -195,3 +195,15 @@ Ruling: The next remaining app.py cleanup targets are overview/stats aggregation
 Task 8aj: complete (commit `a9e1a922`; extracted public price-history handling into `routes/price_history.py`, preserving approved-listing gating, analysis, current-price fallback, compatibility export, runtime registration, and route contract). Focused suite `19 passed`; full backend `1197 passed, 11 skipped, 56 warnings`. `app.py` is now `16,765` lines.
 
 Ruling: Continue with admin overview/stats aggregation only after mapping its direct consumers and missing-table/error contracts; lifecycle/reminder workers remain a separate later stage.
+
+Task 8ak: complete (pending commit; extracted `/api/admin/metrics/overview` into
+`routes/admin_overview_metrics.py`, preserving admin auth, days clamping,
+paginated six-table reads, platform aggregation, live-user counts, Cloudflare
+override/fallback, cache coordination, runtime registration, and the legacy
+compatibility export). Focused overview/metrics/stats suite `28 passed`; full
+backend `1204 passed, 11 skipped, 56 warnings`; `app.py` is now `16,610` lines.
+
+Ruling: Continue with admin stats as a separate contract-tested slice. Keep
+listing-search/moderation actions, Cloudflare diagnostics, and lifecycle/
+reminder workers isolated until their direct consumers and failure contracts
+are mapped. Authenticated browser/provider flows remain credential-gated.

@@ -13065,173 +13065,6 @@ def report_app_error(current_user):
     return jsonify({"ok": True}), 200
 
 
-@app.route("/api/admin/metrics/overview", methods=["GET"])
-@token_required
-def get_admin_metrics_overview(current_user):
-    """Return user, car, and plate analytics for the admin metrics page."""
-    try:
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        days = max(min(int(request.args.get("days", 30)), 365), 1)
-        cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
-
-        _OVERVIEW_METRICS_TTL = 60
-        _overview_cache_key = f"api-cache:/api/admin/metrics/overview?days={days}"
-        _overview_cached = _api_cache_get(_overview_cache_key)
-        if _overview_cached is not None:
-            return jsonify(_overview_cached), 200
-        if not _cache_lock_acquire(_overview_cache_key):
-            time.sleep(0.15)
-            _overview_cached = _api_cache_get(_overview_cache_key)
-            if _overview_cached is not None:
-                return jsonify(_overview_cached), 200
-
-        events_resp, events_status = _fetch_all_rows(
-            "/rest/v1/platform_events",
-            {
-                "select": "*",
-                "created_at": f"gte.{cutoff}",
-                "order": "created_at.desc",
-            },
-        )
-        if events_status >= 400:
-            return jsonify({"error": "Failed to fetch analytics events"}), events_status
-
-        # Page through the full tables: a single request caps at PostgREST's
-        # db-max-rows (~1000), which under-counted total_listings / GMV /
-        # unique_sellers / new_users once a table crossed that threshold.
-        car_rows_resp, car_status = _fetch_all_rows(
-            "/rest/v1/cars",
-            {
-                "select": "id,car_manufacturer,car_model,make_year,body_type,vehicle_type,expected_selling_price,view_count,status,user_id,created_at",
-                "order": "created_at.desc",
-            },
-        )
-        if car_status >= 400:
-            car_rows_resp = []
-
-        plate_rows_resp, plate_status = _fetch_all_rows(
-            "/rest/v1/license_plates",
-            {
-                "select": "id,city,code,number,digits,price,plate_format,view_count,status,user_id,created_at",
-                "order": "created_at.desc",
-            },
-        )
-        if plate_status >= 400:
-            plate_rows_resp = []
-
-        bike_rows_resp, bike_status = _fetch_all_rows(
-            "/rest/v1/bikes",
-            {
-                "select": "id,make,model,make_year,body_type,vehicle_type,price,view_count,status,user_id,created_at",
-                "order": "created_at.desc",
-            },
-        )
-        if bike_status >= 400:
-            bike_rows_resp = []
-
-        part_rows_resp, part_status = _fetch_all_rows(
-            "/rest/v1/car_parts",
-            {
-                "select": "id,title,name,price,view_count,status,user_id,created_at",
-                "order": "created_at.desc",
-            },
-        )
-        if part_status >= 400:
-            part_rows_resp = []
-
-        user_rows_resp, user_status = _fetch_all_rows(
-            "/rest/v1/users",
-            {
-                "select": "id,username,display_name,first_name,last_name,email,created_at,is_dealer,account_status,phone_verified,email_verified",
-                "order": "created_at.desc",
-            },
-        )
-        if user_status >= 400:
-            user_rows_resp = []
-
-        metrics = build_platform_metrics(
-            events_resp or [],
-            car_rows=car_rows_resp or [],
-            plate_rows=plate_rows_resp or [],
-            user_rows=user_rows_resp or [],
-            bike_rows=bike_rows_resp or [],
-            part_rows=part_rows_resp or [],
-            days=days,
-        )
-
-        live_cutoff = _utc_now() - datetime.timedelta(minutes=5)
-        live_visitor_ids = set()
-        for event in events_resp or []:
-            try:
-                event_time = _parse_datetime(event.get("created_at"))
-                if not event_time or event_time < live_cutoff:
-                    continue
-                live_visitor_ids.add(
-                    str(
-                        event.get("visitor_id")
-                        or event.get("user_id")
-                        or event.get("session_id")
-                        or "anonymous"
-                    )
-                )
-            except Exception:
-                continue
-
-        metrics["live_users"] = len(live_visitor_ids)
-        metrics.setdefault("user_metrics", {})["live_users"] = len(live_visitor_ids)
-
-        # When Cloudflare is configured, override the headline traffic numbers
-        # with what the edge sees. Per-listing engagement (view_count, lead
-        # events) and the bounce / conversion fields stay on platform_events
-        # because Cloudflare can't tell us which listing got viewed. Admins
-        # will see a "Source: Cloudflare" badge on the affected tiles.
-        try:
-            from services.cloudflare_analytics import (
-                fetch_zone_metrics as _cf_fetch,
-                is_enabled as _cf_enabled,
-            )
-
-            user_metrics = metrics.setdefault("user_metrics", {})
-            if _cf_enabled():
-                cf = _cf_fetch(days)
-                if cf:
-                    user_metrics["unique_visitors"] = cf["unique_visitors"]
-                    user_metrics["page_views"] = cf["page_views"]
-                    user_metrics["sessions"] = cf["unique_visitors"]
-                    user_metrics["edge_requests"] = cf["requests"]
-                    user_metrics["edge_threats"] = cf["threats"]
-                    user_metrics["edge_cached_requests"] = cf["cached_requests"]
-                    user_metrics["edge_bytes"] = cf["bytes"]
-                    user_metrics["peak_daily_uniques"] = cf["peak_daily_uniques"]
-                    user_metrics["data_source"] = "cloudflare"
-                    user_metrics["unique_visitors_source"] = cf.get("unique_visitors_source")
-                    # Daily chart series — preserve the platform_events one as
-                    # `daily_trends_platform` in case the frontend wants both.
-                    if user_metrics.get("daily_trends"):
-                        user_metrics["daily_trends_platform"] = user_metrics["daily_trends"]
-                    user_metrics["daily_trends"] = cf["daily_trends"]
-                else:
-                    user_metrics["data_source"] = "platform_events"
-                    user_metrics["data_source_note"] = (
-                        "Cloudflare configured but the API call failed; "
-                        "showing platform_events numbers."
-                    )
-            else:
-                user_metrics["data_source"] = "platform_events"
-        except Exception as cf_err:
-            logger.warning("Cloudflare metrics override skipped: %s", cf_err)
-            metrics.setdefault("user_metrics", {})["data_source"] = "platform_events"
-
-        _api_cache_set(_overview_cache_key, metrics, _OVERVIEW_METRICS_TTL)
-        return jsonify(metrics), 200
-    except Exception as e:
-        logger.error(f"Error fetching admin metrics overview: {str(e)}")
-        return jsonify({"error": "Failed to fetch admin metrics"}), 500
-
-
 @app.route("/api/admin/cloudflare/status", methods=["GET"])
 @token_required
 def get_admin_cloudflare_status(current_user):
@@ -16412,8 +16245,9 @@ try:
 except Exception as e:
     logger.error(f"Failed to register report create/list routes: {e}")
 
-# Admin email/error metrics are registered after the runtime dependency table
-# exists; overview, live-user, and Cloudflare metrics remain root-owned.
+# Admin metrics routes are registered after the runtime dependency table exists;
+# broader admin stats and Cloudflare diagnostics remain separate root-owned
+# compatibility surfaces.
 try:
     from routes.admin_metrics import (
         get_email_metrics,
@@ -16425,6 +16259,17 @@ try:
     logger.info("Admin email/error metrics routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register admin email/error metrics routes: {e}")
+
+try:
+    from routes.admin_overview_metrics import (
+        get_admin_metrics_overview,
+        register_admin_overview_metrics_routes,
+    )
+
+    register_admin_overview_metrics_routes(app)
+    logger.info("Admin metrics overview route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin metrics overview route: {e}")
 
 # Live-user metrics are registered after the runtime dependency table exists;
 # broader overview/stats analytics remain root-owned.

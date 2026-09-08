@@ -533,3 +533,18 @@ Status: complete in commit `a9e1a922`.
 
 The public listing price-history endpoint now lives in `routes/price_history.py`
 with its approved-listing and migration-fallback contracts preserved.
+
+### Task 8ak: Extract admin metrics overview route
+
+Status: complete in commit `pending`.
+
+Scope: move `/api/admin/metrics/overview` into a runtime-bound route module,
+preserving the admin guard, paginated analytics reads, platform metric shape,
+Cloudflare override/fallback behavior, cache coordination, compatibility
+export, and route manifest. Add direct contract coverage for cache hits,
+provider fallback, and error responses before running the full backend suite.
+
+Out of scope: `/api/admin/stats`, unified admin listing search, Cloudflare
+diagnostics, and lifecycle/reminder worker composition; those remain separate
+coupled stages. Focused suite: `6 passed`; full backend suite: `1204 passed,
+11 skipped, 56 warnings`.
