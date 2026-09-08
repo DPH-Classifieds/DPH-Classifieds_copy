@@ -30,3 +30,16 @@ a fixture JSON file containing disposable payloads for `car`, `part`, `plate`,
 and/or `bike`, then set `E2E_ALLOW_MUTATIONS=true` and
 `E2E_MUTATION_FIXTURE=/absolute/path/to/fixture.json`. The suite deletes the
 created records after each run.
+
+For a fully repeatable browser-only simulation of authenticated flows, use:
+
+```bash
+npm run e2e:local-sim
+```
+
+This lane uses disposable `.test` identities in `e2e/localCredentials.js` and
+an in-memory API contract simulator. It exercises the real React login, posting
+screens, VIN reveal, dealer dashboard, admin metrics, OTP UI, and responsive
+scrolling without contacting Supabase, SMS, email, storage, or production data.
+It is complementary to release E2E; it does not prove live provider, RLS, or
+deployment behavior.

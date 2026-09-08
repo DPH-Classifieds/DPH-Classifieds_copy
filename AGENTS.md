@@ -208,3 +208,15 @@ lifecycle/reminder worker composition. These must not be
 deleted mechanically. Protected browser/provider verification remains
 credential-gated; the ordinary public browser lane is not evidence for those
 flows.
+
+Local authenticated browser simulation is available from
+`flask-react-supabase-app/frontend` with `npm run e2e:local-sim`. It uses only
+`.test` identities and an in-memory page-local API simulator; it verifies the
+real React login, car/part/plate/bike posting contracts, VIN reveal analytics,
+phone verification UI, dealer metrics, admin metrics, and responsive scrolling
+at desktop, tablet, and mobile viewports. The 2026-09-08 verification passed
+27/27 simulation tests, the full browser matrix 75 passed/27 skipped, backend pytest 1334/1334,
+mobile TypeScript plus Jest 261/261, frontend Jest 153/153, the production
+build/bundle/media checks, and both Docker smoke scripts. The simulator is not
+evidence for Supabase RLS, SMS/email/OCR providers, storage, or deployment;
+those remain release-gated and require disposable live credentials/fixtures.

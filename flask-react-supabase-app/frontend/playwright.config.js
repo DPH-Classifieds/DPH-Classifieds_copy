@@ -22,7 +22,10 @@ module.exports = defineConfig({
     webServer: {
       command: 'npm run build && npx --yes serve -s build -l 3001',
       url: baseURL,
-      reuseExistingServer: !process.env.CI,
+      // Always own the static server for a run. Reusing an unrelated process on
+      // port 3001 can serve a directory listing or stale build and makes public
+      // route checks fail before the app has mounted.
+      reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === 'true',
       timeout: 120_000,
     },
   }),
