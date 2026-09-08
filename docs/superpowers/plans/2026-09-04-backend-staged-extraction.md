@@ -899,3 +899,14 @@ before Flask's automatic OPTIONS rules so configured origins receive the
 intended response.
 
 Focused CORS/manifest suite: `13 passed`; compileall passed.
+
+### Task 8bm: Extract Resend webhook route
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/webhooks/resend` into a runtime-bound module,
+preserving signature validation, event-to-column mapping, service-role updates,
+missing-ID behavior, status envelopes, endpoint identity, and compatibility
+export.
+
+Focused webhook/manifest suite: `14 passed`; compileall passed.
