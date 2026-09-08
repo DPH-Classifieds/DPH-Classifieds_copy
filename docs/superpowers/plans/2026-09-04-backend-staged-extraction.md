@@ -685,7 +685,7 @@ Focused suite: `40 passed`; full backend suite: `1251 passed, 11 skipped,
 
 ### Task 8av: Extract admin upgrade-request queue route
 
-Status: complete in commit `pending`.
+Status: complete in commit `c565d6f8`.
 
 Scope: move `GET /api/admin/dealer/listing-upgrade-requests` into the existing
 runtime-bound upgrade-decision module, preserving admin authorization, status

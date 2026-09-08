@@ -335,7 +335,7 @@ Ruling: Continue with the remaining listing/admin mutation routes and worker
 composition. Shared upgrade-request creation/list helpers remain root-owned;
 live provider and authenticated browser flows remain credential-gated.
 
-Task 8av: complete (commit pending; extracted `GET
+Task 8av: complete (commit `c565d6f8`; extracted `GET
 /api/admin/dealer/listing-upgrade-requests` into
 `routes/admin_upgrade_decisions.py`, preserving admin authorization, status
 filtering, missing-table hints, dealer enrichment, response shaping, runtime

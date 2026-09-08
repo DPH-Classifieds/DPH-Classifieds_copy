@@ -83,8 +83,7 @@ isolated in `routes/dealer_admin_actions.py`; admin dealer listing deletion is
 isolated in `routes/admin_listing_delete.py`; dealer listing-limit decisions are
 isolated in `routes/admin_upgrade_decisions.py`; the full backend suite is
 `1252 passed, 11 skipped, 57 warnings`; admin dealer document listing and the
-upgrade-request queue now live in their extracted boundaries; admin dealer document listing now lives
-with the document review boundary; Docker API
+upgrade-request queue now live in their extracted boundaries; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
 `153 passed`, CRA production build passed, the main bundle is `102.0 KiB`, the
