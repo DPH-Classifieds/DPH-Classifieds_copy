@@ -282,6 +282,22 @@ is shared startup/auth/storage/lifecycle machinery, admin/dealer mutation
 helpers, and background reminder workers; these are not safe to remove without
 their direct contracts and live-provider verification.
 
+Task 8ar: in progress (admin dealer-document review route mapped; implementation
+and contract tests pending). Shared KYC policy and provider/email helpers remain
+root-owned and will resolve through the runtime backend boundary.
+
+Task 8ar: complete (commit pending; extracted `POST
+/api/admin/dealer-documents/<doc_id>/review` into
+`routes/dealer_document_review.py`, preserving admin auth, action validation,
+document lookup/status updates, denial metadata, application-state updates,
+best-effort denial email, runtime registration, and compatibility export).
+Focused dealer-document/manifest suite `95 passed`; full backend `1231 passed,
+11 skipped, 56 warnings`; `app.py` is now `15,593` lines.
+
+Ruling: Continue with the remaining admin/dealer mutation helpers and worker
+composition. This slice keeps document policy/provider helpers root-owned and
+does not claim live authenticated or provider-backed verification.
+
 Task 8aq: in progress (authenticated repost route mapped; implementation and
 contract tests pending). Shared image cloning and lifecycle helpers remain
 root-owned and will resolve through the runtime backend registry.

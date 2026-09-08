@@ -13955,104 +13955,6 @@ def get_admin_dealer_documents(current_user, dealer_id):
         return jsonify({"error": "Failed to fetch documents"}), 500
 
 
-@app.route("/api/admin/dealer-documents/<doc_id>/review", methods=["POST"])
-@token_required
-def review_dealer_document(current_user, doc_id):
-    """Approve or deny a specific dealer document"""
-    try:
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        data = request.json
-        action = data.get("action")
-        if action not in ("approve", "deny", "pending"):
-            return jsonify({"error": "action must be 'approve', 'deny', or 'pending'"}), 400
-
-        denial_reason = data.get("denial_reason", "")
-        denial_fix = data.get("denial_fix", "")
-
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        doc_resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{doc_id}&select=*,users:user_id(email,first_name,last_name,company_name)",
-            headers=headers,
-            timeout=10,
-        )
-        if doc_resp.status_code != 200 or not doc_resp.json():
-            return jsonify({"error": "Document not found"}), 404
-
-        doc = doc_resp.json()[0]
-        from datetime import datetime
-
-        update_fields = {
-            "status": {"approve": "approved", "deny": "denied", "pending": "pending"}[action],
-            "reviewed_at": datetime.utcnow().isoformat(),
-            "reviewed_by": current_user,
-        }
-        if action == "deny":
-            update_fields["denial_reason"] = denial_reason
-            update_fields["denial_fix"] = denial_fix
-        elif action == "pending":
-            update_fields["denial_reason"] = None
-            update_fields["denial_fix"] = None
-
-        update_resp = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{doc_id}",
-            headers={**headers, "Prefer": "return=representation"},
-            json=update_fields,
-            timeout=10,
-        )
-
-        if update_resp.status_code not in [200, 204]:
-            logger.error(f"Failed to update document: {update_resp.text}")
-            return jsonify({"error": "Failed to update document"}), 500
-
-        if action == "deny":
-            supabase_request(
-                "patch",
-                f"/rest/v1/users?id=eq.{doc['user_id']}",
-                data={"dealer_application_status": "action_required", "dealer_verified": False},
-                use_service_role=True,
-            )
-
-        if action == "deny":
-            user_data = doc.get("users", {})
-            dealer_email = (
-                user_data.get("email") if isinstance(user_data, dict) else None
-            )
-            if dealer_email:
-                doc_type_nice = {
-                    "trade_license": "Trade License",
-                    "company_registration": "Company Registration",
-                    "tax_registration": "Tax Registration (TRN)",
-                }.get(doc.get("document_type", ""), doc.get("document_type", ""))
-
-                try:
-                    _send_document_denial_email(
-                        dealer_email,
-                        doc_type_nice,
-                        denial_reason,
-                        denial_fix,
-                        request.headers.get("Origin"),
-                    )
-                except Exception as email_err:
-                    logger.error(f"Document denial email failed: {email_err}")
-
-        logger.info(f"Admin {current_user} {action}d document {doc_id}")
-        return jsonify(
-            {"success": True, "message": f"Document {action}d successfully"}
-        ), 200
-
-    except Exception as e:
-        logger.error(f"Error reviewing document: {str(e)}")
-        return jsonify({"error": "Failed to review document"}), 500
-
-
 # ─── Admin "request more info" dealer flow ────────────────────────────────────
 
 DEALER_INFO_REQUEST_TTL_DAYS = int(os.getenv("DEALER_INFO_REQUEST_TTL_DAYS", "14"))
@@ -15340,6 +15242,17 @@ try:
     logger.info("Listing repost route registered successfully")
 except Exception as e:
     logger.error(f"Failed to register listing repost route: {e}")
+
+try:
+    from routes.dealer_document_review import (
+        register_dealer_document_review_routes,
+        review_dealer_document,
+    )
+
+    register_dealer_document_review_routes(app)
+    logger.info("Dealer document review route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register dealer document review route: {e}")
 
 # Live-user metrics are registered after the runtime dependency table exists;
 # broader overview/stats analytics remain root-owned.

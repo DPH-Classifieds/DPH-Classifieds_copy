@@ -622,5 +622,22 @@ original dismissal, cache invalidation, response contracts, and auth.
 
 Out of scope: shared repost/image/lifecycle helpers and the adjacent dismiss
 route.
-Focused suite: `14 passed`; full backend suite: `1227 passed, 11 skipped,
+
+### Task 8ar: Extract admin dealer-document review route
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/admin/dealer-documents/<doc_id>/review` into a
+runtime-bound module, preserving admin auth, action validation, document lookup,
+status updates, denial metadata, dealer application state changes, denial email
+behavior, and safe error responses.
+
+Out of scope: shared dealer policy evaluation, document listing/upload routes,
+and email provider implementation.
+Focused dealer-document/manifest suite: `95 passed`; full backend suite: `1231 passed, 11 skipped,
 56 warnings`.
+
+The route is registered once with its legacy endpoint and resolves admin,
+Supabase, and email dependencies through the runtime backend registry. The
+source-coupled lifecycle contract now inspects the extracted module as well as
+the compatibility root.
