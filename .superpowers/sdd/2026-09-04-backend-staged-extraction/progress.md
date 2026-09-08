@@ -298,7 +298,7 @@ Ruling: Continue with the remaining admin/dealer mutation helpers and worker
 composition. This slice keeps document policy/provider helpers root-owned and
 does not claim live authenticated or provider-backed verification.
 
-Task 8as: complete (commit pending; extracted `POST
+Task 8as: complete (commit `3e6e6c91`; extracted `POST
 /api/admin/dealers/<dealer_id>/verify` and `POST
 /api/admin/dealers/<dealer_id>/reject` into
 `routes/dealer_admin_actions.py`, preserving admin auth, force-approval
@@ -310,6 +310,18 @@ admin-action/verification/manifest suite `99 passed`; full backend `1239 passed,
 Ruling: Continue with the remaining listing/admin mutation routes and then
 worker composition. Provider-backed email delivery and live authenticated
 flows remain credential-gated.
+
+Task 8at: complete (commit pending; extracted `GET
+/api/admin/dealers/<dealer_id>/documents` into
+`routes/dealer_document_review.py`, preserving admin authorization, private
+document URL shaping, provider query/error behavior, runtime registration, and
+compatibility export). Focused dealer-document/verification/manifest suite
+`105 passed`; full backend `1241 passed, 11 skipped, 57 warnings`; `app.py` is
+now `15,425` lines.
+
+Ruling: Continue with the remaining listing/admin mutation routes and worker
+composition. Live provider and authenticated browser flows remain gated on
+disposable credentials and a target environment.
 
 Task 8aq: in progress (authenticated repost route mapped; implementation and
 contract tests pending). Shared image cloning and lifecycle helpers remain

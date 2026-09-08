@@ -129,6 +129,39 @@ def review_dealer_document(current_user, doc_id):
         return jsonify({"error": "Failed to review document"}), 500
 
 
+@_token_required
+def get_admin_dealer_documents(current_user, dealer_id):
+    """Get all documents for a specific dealer."""
+    backend = _backend()
+    try:
+        user_details = backend._get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        headers = {
+            "apikey": backend.SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {backend.SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+        response = requests.get(
+            f"{backend.SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{dealer_id}&select=*&order=uploaded_at.desc",
+            headers=headers,
+            timeout=10,
+        )
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch documents"}), 500
+
+        return jsonify({
+            "documents": [
+                backend._with_private_dealer_document_url(doc)
+                for doc in response.json()
+            ]
+        }), 200
+    except Exception as exc:
+        backend.logger.error(f"Error fetching dealer documents: {str(exc)}")
+        return jsonify({"error": "Failed to fetch documents"}), 500
+
+
 
 def register_dealer_document_review_routes(app: Flask) -> None:
     app.add_url_rule(
@@ -136,4 +169,10 @@ def register_dealer_document_review_routes(app: Flask) -> None:
         endpoint="review_dealer_document",
         view_func=review_dealer_document,
         methods=["POST"],
+    )
+    app.add_url_rule(
+        "/api/admin/dealers/<dealer_id>/documents",
+        endpoint="get_admin_dealer_documents",
+        view_func=get_admin_dealer_documents,
+        methods=["GET"],
     )

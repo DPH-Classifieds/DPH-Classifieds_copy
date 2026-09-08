@@ -13774,36 +13774,6 @@ def _admin_collect_dealer_stats(dealer_id):
     return _admin_collect_owned_listing_stats(dealer_id)
 
 
-@app.route("/api/admin/dealers/<dealer_id>/documents", methods=["GET"])
-@token_required
-def get_admin_dealer_documents(current_user, dealer_id):
-    """Get all documents for a specific dealer"""
-    try:
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
-        resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{dealer_id}&select=*&order=uploaded_at.desc",
-            headers=headers,
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            return jsonify({"error": "Failed to fetch documents"}), 500
-
-        return jsonify({
-            "documents": [_with_private_dealer_document_url(doc) for doc in resp.json()]
-        }), 200
-    except Exception as e:
-        logger.error(f"Error fetching dealer documents: {str(e)}")
-        return jsonify({"error": "Failed to fetch documents"}), 500
-
-
 # ─── Admin "request more info" dealer flow ────────────────────────────────────
 
 DEALER_INFO_REQUEST_TTL_DAYS = int(os.getenv("DEALER_INFO_REQUEST_TTL_DAYS", "14"))
@@ -15094,6 +15064,7 @@ except Exception as e:
 
 try:
     from routes.dealer_document_review import (
+        get_admin_dealer_documents,
         register_dealer_document_review_routes,
         review_dealer_document,
     )

@@ -536,7 +536,7 @@ with its approved-listing and migration-fallback contracts preserved.
 
 ### Task 8ak: Extract admin metrics overview route
 
-Status: complete in commit `57fd0ccc`.
+Status: complete in commit `2c464a74`.
 
 Scope: move `/api/admin/metrics/overview` into a runtime-bound route module,
 preserving the admin guard, paginated analytics reads, platform metric shape,
@@ -551,7 +551,7 @@ coupled stages. Focused suite: `6 passed`; full backend suite: `1204 passed,
 
 ### Task 8al: Extract admin stats route
 
-Status: complete in commit `pending`.
+Status: complete in commit `f32bcdca`.
 
 Scope: move `/api/admin/stats` into a runtime-bound route module while keeping
 the existing shared pagination, lifecycle summary, visitor identity, lead
@@ -625,7 +625,7 @@ route.
 
 ### Task 8ar: Extract admin dealer-document review route
 
-Status: complete in commit `pending`.
+Status: complete in commit `57fd0ccc`.
 
 Scope: move `POST /api/admin/dealer-documents/<doc_id>/review` into a
 runtime-bound module, preserving admin auth, action validation, document lookup,
@@ -644,7 +644,7 @@ the compatibility root.
 
 ### Task 8as: Extract dealer admin verify/reject actions
 
-Status: complete in commit `pending`.
+Status: complete in commit `3e6e6c91`.
 
 Scope: move `POST /api/admin/dealers/<dealer_id>/verify` and
 `POST /api/admin/dealers/<dealer_id>/reject` into the runtime-bound dealer admin
@@ -655,4 +655,16 @@ compatibility exports.
 Out of scope: dealer document policy evaluation, document review, and shared
 email/provider helpers.
 Focused suite: `99 passed`; full backend suite: `1239 passed, 11 skipped,
+57 warnings`.
+
+### Task 8at: Extract admin dealer-document listing route
+
+Status: complete in commit `pending`.
+
+Scope: move `GET /api/admin/dealers/<dealer_id>/documents` into the existing
+runtime-bound dealer document module, preserving admin auth, private signed-URL
+shaping, provider query/error behavior, response envelopes, and the legacy
+compatibility export.
+
+Focused suite: `105 passed`; full backend suite: `1241 passed, 11 skipped,
 57 warnings`.
