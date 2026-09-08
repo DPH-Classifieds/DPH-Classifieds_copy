@@ -589,7 +589,7 @@ Focused suite: `60 passed`; full backend suite: `1215 passed, 11 skipped,
 
 ### Task 8ao: Extract user lead-metrics route
 
-Status: complete in commit `pending`.
+Status: complete in commit `6a839203`.
 
 Scope: move `/api/user/lead-metrics` into a runtime-bound route module while
 preserving authenticated owner scoping, listing-type normalization, days
