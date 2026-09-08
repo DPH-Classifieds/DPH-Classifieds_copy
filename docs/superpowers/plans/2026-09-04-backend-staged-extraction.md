@@ -613,7 +613,7 @@ Focused suite: `19 passed`; full backend suite: `1223 passed, 11 skipped,
 
 ### Task 8aq: Extract authenticated listing repost route
 
-Status: complete in commit `pending`.
+Status: complete in commit `6ce23d80`.
 
 Scope: move `POST /api/user/listings/<item_type>/<item_id>/repost` into a
 runtime-bound module, preserving ownership and deleted-state gates, listing
