@@ -578,7 +578,7 @@ Focused suite: `76 passed`; full backend suite: `1212 passed, 11 skipped,
 
 ### Task 8an: Extract Reddit-import analytics route
 
-Status: complete in commit `pending`.
+Status: complete in commit `ab6a0834`.
 
 Scope: move `/api/admin/reddit-import-analytics` into a runtime-bound module,
 preserving aggregate-only privacy, import-category rollups, event windowing,
@@ -878,3 +878,13 @@ compatibility callables in `app.py` until separately contract-tested.
 
 Focused worker registry/integration suite: `21 passed`; worker Docker smoke
 passed with health 200 and a Redis heartbeat.
+
+### Task 8bk: Move beta verification into public auth
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/auth/beta-verify` into the existing public-auth
+blueprint, preserving disabled-gate, missing-password, wrong-password, success
+responses, endpoint identity, and compatibility export.
+
+Focused beta/manifest suite: `12 passed`; compileall passed.

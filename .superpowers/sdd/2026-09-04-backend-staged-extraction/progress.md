@@ -443,6 +443,11 @@ Ruling: Continue only with isolated legacy/admin routes or a separately tested
 worker claim/delivery boundary. Do not move lifecycle/reminder bodies as a bulk
 operation; live provider and authenticated E2E gates remain open.
 
+Task 8bk: complete (commit ab6a0834; moved `POST /api/auth/beta-verify` into the
+public-auth blueprint, updated the immutable route hash, and added disabled,
+missing, wrong, and matching password coverage; focused beta/manifest suite 12
+passed and compileall passed).
+
 Task 8bf: complete (current checkpoint; extracted compatibility `GET /api/users`
 into `routes/users_legacy.py`, preserving its admin/super-admin gate,
 service-role fetch, 206 partial-content envelope, response/status contract,
