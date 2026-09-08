@@ -208,7 +208,7 @@ listing-search/moderation actions, Cloudflare diagnostics, and lifecycle/
 reminder workers isolated until their direct consumers and failure contracts
 are mapped. Authenticated browser/provider flows remain credential-gated.
 
-Task 8al: complete (pending commit; extracted `/api/admin/stats` into
+Task 8al: complete (commit `f32bcdca`; extracted `/api/admin/stats` into
 `routes/admin_stats.py`, preserving admin auth, days clamping, cache, paginated
 analytics reads, lifecycle totals, visitor identity/lead deduplication,
 Cloudflare override/fallback, runtime registration, and compatibility export).
@@ -219,3 +219,15 @@ Ruling: The next practical reductions are unified admin listing search and
 remaining admin/dealer lifecycle helpers, followed by lifecycle/reminder worker
 composition. Shared analytics and lifecycle helpers stay root-owned until each
 consumer is moved and contract-tested.
+
+Task 8am: complete (pending commit; extracted `/api/admin/listings-search` into
+`routes/admin_listing_search.py`, preserving type/source/status filters, draft
+handling, limit clamping, image normalization, verification enrichment, admin
+guard, metadata counts, runtime registration, and compatibility export).
+Focused admin-search/draft/performance/OCR/manifest suite `76 passed`; full
+backend `1212 passed, 11 skipped, 56 warnings`; `app.py` is now `16,086` lines.
+
+Ruling: Continue with the remaining high-value admin/dealer mutation helpers
+and then background lifecycle/reminder composition. Keep each destructive or
+worker change independently contract-tested; live authenticated/provider flows
+remain credential-gated.

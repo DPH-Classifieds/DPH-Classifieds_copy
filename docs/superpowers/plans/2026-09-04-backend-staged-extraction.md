@@ -561,3 +561,17 @@ Out of scope: the shared lifecycle-summary helpers, unified admin listing
 search, Cloudflare diagnostics, and background lifecycle/reminder workers.
 Focused suite: `35 passed`; full backend suite: `1208 passed, 11 skipped,
 56 warnings`.
+
+### Task 8am: Extract unified admin listing search route
+
+Status: complete in commit `pending`.
+
+Scope: move `/api/admin/listings-search` into a runtime-bound route module,
+preserving type/source/status filters, draft and buying-request handling,
+per-type limits, image normalization, verification enrichment, admin guards,
+metadata counts, compatibility exports, and route precedence.
+
+Out of scope: shared preview/normalization helpers and admin mutation routes;
+they remain root-owned until their own consumer contracts are mapped.
+Focused suite: `76 passed`; full backend suite: `1212 passed, 11 skipped,
+56 warnings`.
