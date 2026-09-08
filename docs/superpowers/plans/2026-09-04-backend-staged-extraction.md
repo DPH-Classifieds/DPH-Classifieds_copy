@@ -659,7 +659,7 @@ Focused suite: `99 passed`; full backend suite: `1239 passed, 11 skipped,
 
 ### Task 8at: Extract admin dealer-document listing route
 
-Status: complete in commit `pending`.
+Status: complete in commit `cb2bda59`.
 
 Scope: move `GET /api/admin/dealers/<dealer_id>/documents` into the existing
 runtime-bound dealer document module, preserving admin auth, private signed-URL

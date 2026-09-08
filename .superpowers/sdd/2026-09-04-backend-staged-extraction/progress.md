@@ -311,7 +311,7 @@ Ruling: Continue with the remaining listing/admin mutation routes and then
 worker composition. Provider-backed email delivery and live authenticated
 flows remain credential-gated.
 
-Task 8at: complete (commit pending; extracted `GET
+Task 8at: complete (commit `cb2bda59`; extracted `GET
 /api/admin/dealers/<dealer_id>/documents` into
 `routes/dealer_document_review.py`, preserving admin authorization, private
 document URL shaping, provider query/error behavior, runtime registration, and
