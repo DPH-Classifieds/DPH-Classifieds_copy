@@ -268,6 +268,24 @@ Ruling: Continue with the remaining admin/dealer mutation helpers and worker
 composition. The major analytics read routes are now separated; destructive
 and background changes still require their own contracts and exact-head smoke.
 
+Task 8aq: complete (pending commit; extracted `POST
+/api/user/listings/<item_type>/<item_id>/repost` into `routes/repost.py`,
+preserving authenticated ownership/deleted-state gates, listing limits, dealer
+verification, lifecycle-field stripping, image cloning, original dismissal,
+cache invalidation, safe errors, runtime registration, and compatibility
+export). Focused repost/manifest suite `14 passed`; full backend `1227 passed,
+11 skipped, 56 warnings`; `app.py` is now `15,680` lines.
+
+Ruling: This staged cleanup has now separated the major analytics reads,
+listing search, lead ingestion, and repost route. Remaining root concentration
+is shared startup/auth/storage/lifecycle machinery, admin/dealer mutation
+helpers, and background reminder workers; these are not safe to remove without
+their direct contracts and live-provider verification.
+
+Task 8aq: in progress (authenticated repost route mapped; implementation and
+contract tests pending). Shared image cloning and lifecycle helpers remain
+root-owned and will resolve through the runtime backend registry.
+
 Task 8ap: in progress (public listing lead-event route mapped; implementation
 and contract tests pending). Analytics normalization, notification, and
 rate-limit helpers remain root-owned and will resolve through the runtime table.

@@ -11371,147 +11371,6 @@ def _clone_listing_images(images_table, fk_field, new_listing_id, original_image
 
 
 @app.route(
-    "/api/user/listings/<item_type>/<item_id>/repost", methods=["POST"]
-)
-@token_required
-def repost_user_listing(current_user, item_type, item_id):
-    config = LISTING_TABLE_CONFIG.get(item_type)
-    if not config:
-        return jsonify({"error": "Invalid listing type"}), 400
-
-    listing_data, listing_status = supabase_request(
-        "get",
-        f"/rest/v1/{config['table']}",
-        params={"select": "*", "id": f"eq.{item_id}", "limit": 1},
-        user_id=current_user,
-    )
-    if listing_status >= 400:
-        return jsonify(listing_data), listing_status
-    if not listing_data:
-        return jsonify({"error": "Listing not found"}), 404
-
-    original = listing_data[0]
-    if original.get("user_id") != current_user:
-        return jsonify({"error": "You do not have permission to repost this listing"}), 403
-
-    status_value = str(original.get("status") or "").lower()
-    if status_value not in {"deleted", "rejected"} and not original.get("deleted_at"):
-        return jsonify({"error": "Only deleted listings can be reposted"}), 400
-
-    # Per-account listing cap applies to fresh listings too.
-    limit_response = _enforce_listing_limit(current_user)
-    if limit_response:
-        return limit_response
-
-    dealer_check = _require_dealer_verified(current_user)
-    if dealer_check:
-        return dealer_check
-
-    # Build the new row from the original, stripping persistence/analytics fields.
-    new_listing = {
-        key: value
-        for key, value in original.items()
-        if key not in _REPOST_STRIP_KEYS
-    }
-    new_listing["user_id"] = current_user
-    new_listing["status"] = "pending"
-    new_listing.update(_new_listing_lifecycle_fields())
-    new_listing.pop("user_dismissed_at", None)
-
-    logger.info(
-        "Reposting %s/%s: payload keys=%s",
-        config["table"],
-        item_id,
-        sorted(new_listing.keys()),
-    )
-    insert_response, insert_status = supabase_request(
-        "post",
-        f"/rest/v1/{config['table']}",
-        data=new_listing,
-        use_service_role=True,
-    )
-
-    # If lifecycle/idempotency columns haven't been migrated yet (or PostgREST cache
-    # is stale), retry without those fields so repost still works.
-    if (
-        insert_status >= 400
-        and isinstance(insert_response, dict)
-        and str(insert_response.get("code") or "") == "PGRST204"
-    ):
-        stripped_listing = _strip_listing_lifecycle_write_fields(new_listing)
-        logger.warning(
-            "Repost insert failed due to missing columns; retrying without lifecycle fields. table=%s listing_id=%s error=%s",
-            config["table"],
-            item_id,
-            insert_response.get("message"),
-        )
-        insert_response, insert_status = supabase_request(
-            "post",
-            f"/rest/v1/{config['table']}",
-            data=stripped_listing,
-            use_service_role=True,
-        )
-    if insert_status >= 400 or not insert_response:
-        logger.warning(
-            "Repost insert failed for %s/%s (status=%s): %s",
-            config["table"],
-            item_id,
-            insert_status,
-            insert_response,
-        )
-        detail = None
-        if isinstance(insert_response, dict):
-            detail = (
-                insert_response.get("message")
-                or insert_response.get("error")
-                or insert_response.get("hint")
-                or insert_response.get("details")
-            )
-        return jsonify(
-            {
-                "error": "Failed to repost listing",
-                "detail": detail or str(insert_response)[:300],
-            }
-        ), 500
-
-    new_record = (
-        insert_response[0] if isinstance(insert_response, list) else insert_response
-    )
-    new_id = new_record.get("id")
-
-    # Clone images so the user doesn't have to re-upload.
-    original_images, images_status = supabase_request(
-        "get",
-        f"/rest/v1/{config['images_table']}",
-        params={"select": "*", config["fk"]: f"eq.{item_id}"},
-        use_service_role=True,
-    )
-    if images_status < 400 and new_id is not None:
-        _clone_listing_images(
-            config["images_table"], config["fk"], new_id, original_images or []
-        )
-
-    # Hide the original from the user's listings view (audit trail stays).
-    supabase_request(
-        "patch",
-        f"/rest/v1/{config['table']}",
-        params={"id": f"eq.{item_id}", "user_id": f"eq.{current_user}"},
-        data={"user_dismissed_at": _isoformat_utc(_utc_now())},
-        use_service_role=True,
-    )
-
-    _invalidate_public_inventory_cache(config["table"])
-
-    return jsonify(
-        {
-            "message": "Listing reposted as a new pending listing",
-            "new_listing_id": new_id,
-            "listing": new_record,
-        }
-    ), 201
-
-
-@app.route(
     "/api/user/listings/<item_type>/<item_id>/dismiss", methods=["POST"]
 )
 @token_required
@@ -15473,6 +15332,14 @@ try:
     logger.info("Listing lead-event route registered successfully")
 except Exception as e:
     logger.error(f"Failed to register listing lead-event route: {e}")
+
+try:
+    from routes.repost import register_repost_routes, repost_user_listing
+
+    register_repost_routes(app)
+    logger.info("Listing repost route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register listing repost route: {e}")
 
 # Live-user metrics are registered after the runtime dependency table exists;
 # broader overview/stats analytics remain root-owned.

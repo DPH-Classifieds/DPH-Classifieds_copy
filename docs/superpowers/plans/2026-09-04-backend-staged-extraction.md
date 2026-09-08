@@ -610,3 +610,17 @@ Out of scope: analytics aggregation routes and the provider-backed notification
 helpers themselves.
 Focused suite: `19 passed`; full backend suite: `1223 passed, 11 skipped,
 56 warnings`.
+
+### Task 8aq: Extract authenticated listing repost route
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/user/listings/<item_type>/<item_id>/repost` into a
+runtime-bound module, preserving ownership and deleted-state gates, listing
+limits, dealer verification, lifecycle-field stripping, image cloning,
+original dismissal, cache invalidation, response contracts, and auth.
+
+Out of scope: shared repost/image/lifecycle helpers and the adjacent dismiss
+route.
+Focused suite: `14 passed`; full backend suite: `1227 passed, 11 skipped,
+56 warnings`.
