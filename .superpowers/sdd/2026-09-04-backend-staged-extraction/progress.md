@@ -448,6 +448,11 @@ public-auth blueprint, updated the immutable route hash, and added disabled,
 missing, wrong, and matching password coverage; focused beta/manifest suite 12
 passed and compileall passed).
 
+Task 8bl: complete (commit pending; extracted the explicit car CORS preflight
+handlers into `routes/legacy_cors.py`, preserved headers and exports, and moved
+registration before canonical car routes so configured origins use the explicit
+response. Focused CORS/manifest suite 13 passed; compileall passed).
+
 Task 8bf: complete (current checkpoint; extracted compatibility `GET /api/users`
 into `routes/users_legacy.py`, preserving its admin/super-admin gate,
 service-role fetch, 206 partial-content envelope, response/status contract,

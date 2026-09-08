@@ -888,3 +888,14 @@ blueprint, preserving disabled-gate, missing-password, wrong-password, success
 responses, endpoint identity, and compatibility export.
 
 Focused beta/manifest suite: `12 passed`; compileall passed.
+
+### Task 8bl: Extract and order legacy car CORS preflight routes
+
+Status: complete in commit `pending`.
+
+Scope: move the explicit car preflight handlers into a runtime-bound module,
+preserving the CORS headers and compatibility exports while registering them
+before Flask's automatic OPTIONS rules so configured origins receive the
+intended response.
+
+Focused CORS/manifest suite: `13 passed`; compileall passed.

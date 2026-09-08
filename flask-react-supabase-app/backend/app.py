@@ -6056,6 +6056,20 @@ def _car_read_dependencies():
     )
 
 
+# Register the legacy preflight handlers before the canonical car route so
+# their explicit CORS response wins over Flask's automatic OPTIONS rule.
+try:
+    from routes.legacy_cors import (
+        cars_options,
+        register_legacy_cors_routes,
+        update_car_options,
+    )
+
+    register_legacy_cors_routes(app)
+    logger.info("Legacy car CORS routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register legacy car CORS routes: {e}")
+
 # Get all cars (public)
 get_cars = register_car_read_route(app, dependencies=_car_read_dependencies)
 
@@ -6166,23 +6180,6 @@ def _requester_can_view_vin(requesting_user, is_owner):
 
 
 
-# Handle OPTIONS preflight for /api/cars
-@app.route("/api/cars", methods=["OPTIONS"])
-def cars_options():
-    response = make_response()
-    origin = request.headers.get("Origin")
-    if origin in _get_cors_origins():
-        response.headers.add("Access-Control-Allow-Origin", origin)
-        response.headers.add("Access-Control-Allow-Credentials", "true")
-    response.headers.add(
-        "Access-Control-Allow-Headers", "Content-Type, Authorization, Origin"
-    )
-    response.headers.add(
-        "Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    )
-    return response
-
-
 def _car_create_dependencies():
     return CarCreateDependencies(
         require_verified_user_for_listing=lambda user_id: (
@@ -6248,24 +6245,6 @@ create_car = register_car_create_route(
     token_required=token_required,
     dependencies=_car_create_dependencies,
 )
-
-
-# Handle OPTIONS preflight for car update
-@app.route("/api/cars/<string:car_id>/update", methods=["OPTIONS"])
-@app.route("/api/cars/<string:car_id>", methods=["OPTIONS"])
-def update_car_options(car_id):
-    response = make_response()
-    origin = request.headers.get("Origin")
-    if origin in _get_cors_origins():
-        response.headers.add("Access-Control-Allow-Origin", origin)
-        response.headers.add("Access-Control-Allow-Credentials", "true")
-    response.headers.add(
-        "Access-Control-Allow-Headers", "Content-Type, Authorization, Origin"
-    )
-    response.headers.add(
-        "Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    )
-    return response
 
 
 # Delete a car listing (authenticated)
