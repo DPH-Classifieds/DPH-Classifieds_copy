@@ -73,7 +73,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 15,195 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 15,140 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
 reports, overview-metrics, admin-stats, admin-listing-search,
 admin-reddit-analytics, user-lead-metrics, lead-events, price-history, and
@@ -82,8 +82,8 @@ manifest suites pass; dealer document review is now also isolated in
 isolated in `routes/dealer_admin_actions.py`; admin dealer listing deletion is
 isolated in `routes/admin_listing_delete.py`; dealer listing-limit decisions are
 isolated in `routes/admin_upgrade_decisions.py`; the full backend suite is
-`1252 passed, 11 skipped, 57 warnings`; admin dealer document listing and the
-upgrade-request queue now live in their extracted boundaries; Docker API
+`1254 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
+routes now live in their extracted boundary; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
 `153 passed`, CRA production build passed, the main bundle is `102.0 KiB`, the

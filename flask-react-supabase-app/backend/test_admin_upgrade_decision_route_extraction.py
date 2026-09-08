@@ -10,6 +10,7 @@ from routes import admin_upgrade_decisions
 MODULE_PATH = Path(__file__).parent / "routes" / "admin_upgrade_decisions.py"
 ROUTE = "/api/admin/dealer/listing-upgrade-requests/<request_id>/decision"
 LIST_ROUTE = "/api/admin/dealer/listing-upgrade-requests"
+CREATE_ROUTE = "/api/dealer/listing-upgrade-requests"
 
 
 def test_admin_upgrade_decision_module_has_no_static_app_import():
@@ -41,6 +42,14 @@ def test_admin_upgrade_decision_keeps_single_route_and_legacy_export():
         backend.admin_list_listing_upgrade_requests
         is admin_upgrade_decisions.admin_list_listing_upgrade_requests
     )
+    create_contracts = [c for c in build_route_manifest(backend.app) if c.rule == CREATE_ROUTE]
+    assert len(create_contracts) == 1
+    assert create_contracts[0].endpoint == "dealer_create_listing_upgrade_request"
+    assert create_contracts[0].methods == ("OPTIONS", "POST")
+    assert (
+        backend.dealer_create_listing_upgrade_request
+        is admin_upgrade_decisions.dealer_create_listing_upgrade_request
+    )
 
 
 def test_admin_upgrade_decision_requires_authentication():
@@ -50,6 +59,55 @@ def test_admin_upgrade_decision_requires_authentication():
     )
     assert response.status_code == 401
     assert backend.app.test_client().get(LIST_ROUTE).status_code == 401
+    assert backend.app.test_client().post(CREATE_ROUTE, json={}).status_code == 401
+
+
+def test_dealer_upgrade_create_requires_verified_dealer_and_validates_request():
+    with backend.app.test_request_context(CREATE_ROUTE, method="POST", json={}), patch.object(
+        backend, "_fetch_dealer_listing_policy", return_value=None
+    ):
+        response, status = backend.dealer_create_listing_upgrade_request.__wrapped__("user-1")
+    assert status == 403
+    assert response.get_json() == {"error": "Not a dealer"}
+
+    with backend.app.test_request_context(CREATE_ROUTE, method="POST", json={}), patch.object(
+        backend, "_fetch_dealer_listing_policy", return_value={"verified": False, "limit": 4}
+    ):
+        response, status = backend.dealer_create_listing_upgrade_request.__wrapped__("dealer-1")
+    assert status == 403
+    assert "verified" in response.get_json()["error"]
+
+
+def test_dealer_upgrade_create_inserts_and_notifies_admin_best_effort():
+    row = {"id": "request-1", "dealer_id": "dealer-1", "status": "pending"}
+    with backend.app.test_request_context(
+        CREATE_ROUTE,
+        method="POST",
+        json={"requested_limit": 10, "reason": "We expanded our showroom"},
+    ), patch.object(
+        backend,
+        "_fetch_dealer_listing_policy",
+        return_value={"verified": True, "limit": 4},
+    ), patch.object(
+        backend, "validate_upgrade_request", return_value=None
+    ), patch.object(
+        backend,
+        "supabase_request",
+        side_effect=[([row], 201), ([{"email": "dealer@example.com"}], 200)],
+    ) as supabase_request, patch.object(
+        backend, "_send_dealer_listing_upgrade_admin_notification"
+    ) as notify:
+        response, status = backend.dealer_create_listing_upgrade_request.__wrapped__("dealer-1")
+
+    assert status == 201
+    assert response.get_json() == row
+    assert supabase_request.call_args_list[0].kwargs["data"] == {
+        "dealer_id": "dealer-1",
+        "current_limit": 4,
+        "requested_limit": 10,
+        "reason": "We expanded our showroom",
+    }
+    notify.assert_called_once_with(row, {"email": "dealer@example.com"})
 
 
 def test_admin_upgrade_list_filters_status_and_enriches_dealers():

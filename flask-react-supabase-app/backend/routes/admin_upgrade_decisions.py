@@ -27,6 +27,81 @@ def _token_required(function):
 
 
 @_token_required
+def dealer_create_listing_upgrade_request(current_user):
+    """Create one dealer listing-limit upgrade request."""
+    backend = _backend()
+    body = request.get_json(silent=True) or {}
+    policy = backend._fetch_dealer_listing_policy(current_user)
+    if not policy:
+        return jsonify({"error": "Not a dealer"}), 403
+    if not policy.get("verified"):
+        return jsonify({
+            "error": "Your dealer account must be verified before requesting more listings"
+        }), 403
+
+    error = backend.validate_upgrade_request(
+        policy["limit"], body.get("requested_limit"), body.get("reason", "")
+    )
+    if error:
+        status = 422 if error["code"] in (
+            "reason_too_short",
+            "reason_too_long",
+            "invalid_requested_limit",
+            "reason_required",
+        ) else 400
+        return jsonify(error), status
+
+    insert, status_code = backend.supabase_request(
+        "post",
+        "/rest/v1/dealer_listing_upgrade_requests",
+        data={
+            "dealer_id": current_user,
+            "current_limit": policy["limit"],
+            "requested_limit": int(body["requested_limit"]),
+            "reason": body["reason"].strip(),
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400 or not insert:
+        if isinstance(insert, dict):
+            message = str(insert.get("message", "")).lower()
+            provider_code = str(insert.get("code", "")).lower()
+            if (
+                "dealer_listing_upgrade_requests_one_pending" in message
+                or "duplicate" in message
+                or "duplicate" in provider_code
+            ):
+                return jsonify({
+                    "error": "You already have a pending upgrade request",
+                    "code": "pending_request_exists",
+                }), 409
+        backend.logger.error(
+            "dealer_create_listing_upgrade_request: supabase returned %s body=%s",
+            status_code,
+            str(insert)[:300],
+        )
+        hint = ""
+        if isinstance(insert, dict) and insert.get("code") == "42P01":
+            hint = " — table dealer_listing_upgrade_requests is missing. Run migrations/2026_08_18_dealer_listing_upgrade_requests.sql"
+        return jsonify({"error": f"Failed to create upgrade request{hint}"}), 500
+
+    row = insert[0] if isinstance(insert, list) else insert
+    try:
+        dealer_rows, _ = backend.supabase_request(
+            "get",
+            f"/rest/v1/users?id=eq.{current_user}&select=email,company_name,legal_business_name",
+            use_service_role=True,
+        )
+        dealer = dealer_rows[0] if isinstance(dealer_rows, list) and dealer_rows else {}
+        backend._send_dealer_listing_upgrade_admin_notification(row, dealer)
+    except Exception as exc:
+        backend.logger.warning(
+            "Dealer upgrade request admin notification failed: %s", exc
+        )
+    return jsonify(row), 201
+
+
+@_token_required
 def admin_list_listing_upgrade_requests(current_user):
     """List pending or resolved dealer listing-limit upgrade requests."""
     backend = _backend()
@@ -184,6 +259,12 @@ def admin_decide_listing_upgrade_request(current_user, request_id):
 
 
 def register_admin_upgrade_decision_routes(app: Flask) -> None:
+    app.add_url_rule(
+        "/api/dealer/listing-upgrade-requests",
+        endpoint="dealer_create_listing_upgrade_request",
+        view_func=dealer_create_listing_upgrade_request,
+        methods=["POST"],
+    )
     app.add_url_rule(
         "/api/admin/dealer/listing-upgrade-requests",
         endpoint="admin_list_listing_upgrade_requests",

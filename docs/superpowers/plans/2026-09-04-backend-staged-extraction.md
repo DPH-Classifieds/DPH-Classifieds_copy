@@ -694,3 +694,18 @@ legacy compatibility export.
 
 Focused suite: `41 passed`; full backend suite: `1252 passed, 11 skipped,
 57 warnings`.
+
+### Task 8aw: Extract dealer upgrade-request creation route
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/dealer/listing-upgrade-requests` into the runtime-bound
+upgrade-decision module, preserving dealer/verification guards, validator
+status mapping, duplicate-pending conflict handling, missing-table hints,
+request persistence, best-effort admin notification, and the compatibility
+export.
+
+Out of scope: the shared dealer policy, validator, notification provider, and
+database migration.
+Focused suite: `43 passed`; full backend suite: `1254 passed, 11 skipped,
+57 warnings`.
