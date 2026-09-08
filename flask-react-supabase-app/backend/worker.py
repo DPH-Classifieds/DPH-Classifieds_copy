@@ -7,6 +7,12 @@ import time
 import traceback
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+from worker_registry import (
+    WorkerSpec,
+    build_registry,
+    result_did_work as _result_did_work,
+)
+
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -22,6 +28,67 @@ logging.basicConfig(
 )
 logger = logging.getLogger("dph-worker")
 stop_event = threading.Event()
+
+
+_SCHEDULED_WORKER_DEFINITIONS = (
+    ("Listing expiry reminders", "listing-expiry-reminders", "LISTING_REMINDER_INTERVAL_SECONDS", 60 * 60 * 24),
+    ("Draft listing reminders", "listing-draft-reminders", "DRAFT_REMINDER_INTERVAL_SECONDS", 60 * 60),
+    ("Saved car reminders", "saved-car-reminders", "SAVED_CAR_REMINDER_INTERVAL_SECONDS", 60 * 60),
+    ("Saved search alerts", "saved-search-alerts", "SAVED_SEARCH_ALERT_INTERVAL_SECONDS", 60 * 60),
+    ("Listing lifecycle sweep", "listing-lifecycle-sweep", "LISTING_SWEEP_INTERVAL_SECONDS", 15 * 60),
+    ("Dealer document expiry reminders", "dealer-doc-expiry-reminders", "DEALER_DOC_EXPIRY_INTERVAL_SECONDS", 60 * 60 * 24),
+    ("dealer_lead_aggregator", "dealer-lead-agg", "DEALER_LEAD_AGG_INTERVAL_SECONDS", 30),
+    ("inventory_import_worker", "inventory-import", "INVENTORY_IMPORT_INTERVAL_SECONDS", 10),
+    ("dealer_api_source_poller", "dealer-api-poll", "DEALER_API_POLL_INTERVAL_SECONDS", 60),
+    ("reddit_import_worker", "reddit-import", "REDDIT_IMPORT_INTERVAL_SECONDS", 4 * 60 * 60),
+    ("reddit_daily_post_worker", "reddit-daily-post", "REDDIT_DAILY_POST_INTERVAL_SECONDS", 60 * 60),
+    ("reddit_roundup_bridge_worker", "reddit-roundup-bridge", "REDDIT_ROUNDUP_BRIDGE_INTERVAL_SECONDS", 60 * 60),
+    ("webhook_delivery_worker", "webhook-delivery", "WEBHOOK_DELIVERY_INTERVAL_SECONDS", 5),
+    ("auto_review_worker", "auto-review", "AUTO_REVIEW_INTERVAL_SECONDS", 15),
+    ("dealer_auto_approval_worker", "dealer-auto-approval", "DEALER_AUTO_APPROVAL_INTERVAL_SECONDS", 60),
+    ("price-drop-alerts", "price-drop-alerts", "PRICE_DROP_ALERT_INTERVAL_SECONDS", 300),
+    ("reddit_vin_dedup_sweep", "reddit-vin-dedup", "REDDIT_DEDUP_INTERVAL_SECONDS", 60 * 60),
+)
+
+
+def scheduled_worker_task_names():
+    return tuple(item[0] for item in _SCHEDULED_WORKER_DEFINITIONS)
+
+
+def build_scheduled_workers(tasks, *, getenv=os.getenv):
+    missing = [name for name in scheduled_worker_task_names() if name not in tasks]
+    if missing:
+        raise ValueError(f"missing scheduled worker tasks: {', '.join(missing)}")
+
+    specs = tuple(
+        WorkerSpec(
+            name=name,
+            lock_key=f"worker:{name}",
+            task=tasks[name],
+            interval_env=interval_env,
+            default_interval_seconds=default_interval,
+        )
+        for name, _thread_name, interval_env, default_interval in _SCHEDULED_WORKER_DEFINITIONS
+    )
+    return build_registry(specs, getenv=getenv)
+
+
+def start_scheduled_worker_threads(registry):
+    threads = []
+    thread_names = {
+        name: thread_name
+        for name, thread_name, _interval_env, _default_interval in _SCHEDULED_WORKER_DEFINITIONS
+    }
+    for worker in registry:
+        thread = threading.Thread(
+            target=scheduled_loop,
+            args=(worker.name, worker.task, worker.interval_seconds, worker.max_backoff_seconds),
+            name=thread_names[worker.name],
+            daemon=True,
+        )
+        thread.start()
+        threads.append(thread)
+    return threads
 
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -111,23 +178,6 @@ def cleanup_loop(cleanup_fn, interval, max_age_hours, dry_run):
         stop_event.wait(interval)
 
 
-def _result_did_work(result):
-    """Heuristic: did this tick actually process anything?
-
-    Workers return either an int (count processed) or a (count, *) tuple.
-    Anything truthy / >0 means real work happened; we should poll fast.
-    Anything zero / None / empty means the queue was idle; back off.
-    """
-    if result is None:
-        return False
-    if isinstance(result, tuple) and result:
-        head = result[0]
-        return bool(head) if not isinstance(head, (int, float)) else head > 0
-    if isinstance(result, (int, float)):
-        return result > 0
-    return bool(result)
-
-
 def scheduled_loop(label, task_fn, interval_seconds, max_backoff_seconds=300):
     """Adaptive polling: doubles the wait on idle ticks (capped), resets when
     work happens. Equivalent to a "long poll" when the queue is quiet — the
@@ -212,57 +262,26 @@ def main():
         "yes",
         "on",
     )
-    listing_reminder_interval_seconds = int(
-        os.getenv("LISTING_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
-    )
-    draft_reminder_interval_seconds = int(
-        os.getenv("DRAFT_REMINDER_INTERVAL_SECONDS", str(60 * 60))
-    )
-    saved_car_reminder_interval_seconds = int(
-        os.getenv("SAVED_CAR_REMINDER_INTERVAL_SECONDS", str(60 * 60))
-    )
-    saved_search_alert_interval_seconds = int(
-        os.getenv("SAVED_SEARCH_ALERT_INTERVAL_SECONDS", str(60 * 60))
-    )
-    listing_sweep_interval_seconds = int(
-        os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))
-    )
-    dealer_doc_expiry_interval_seconds = int(
-        os.getenv("DEALER_DOC_EXPIRY_INTERVAL_SECONDS", str(60 * 60 * 24))
-    )
-    dealer_lead_agg_interval_seconds = int(
-        os.getenv("DEALER_LEAD_AGG_INTERVAL_SECONDS", "30")
-    )
-    inventory_import_interval_seconds = int(
-        os.getenv("INVENTORY_IMPORT_INTERVAL_SECONDS", "10")
-    )
-    dealer_api_poll_interval_seconds = int(
-        os.getenv("DEALER_API_POLL_INTERVAL_SECONDS", "60")
-    )
-    reddit_import_interval_seconds = int(
-        os.getenv("REDDIT_IMPORT_INTERVAL_SECONDS", str(4 * 60 * 60))
-    )
-    reddit_daily_post_interval_seconds = int(
-        os.getenv("REDDIT_DAILY_POST_INTERVAL_SECONDS", str(60 * 60))
-    )
-    reddit_roundup_bridge_interval_seconds = int(
-        os.getenv("REDDIT_ROUNDUP_BRIDGE_INTERVAL_SECONDS", str(60 * 60))
-    )
-    webhook_delivery_interval_seconds = int(
-        os.getenv("WEBHOOK_DELIVERY_INTERVAL_SECONDS", "5")
-    )
-    auto_review_interval_seconds = int(
-        os.getenv("AUTO_REVIEW_INTERVAL_SECONDS", "15")
-    )
-    dealer_auto_approval_interval_seconds = int(
-        os.getenv("DEALER_AUTO_APPROVAL_INTERVAL_SECONDS", "60")
-    )
-    price_drop_alert_interval_seconds = int(
-        os.getenv("PRICE_DROP_ALERT_INTERVAL_SECONDS", "300")
-    )
-    reddit_dedup_interval_seconds = int(
-        os.getenv("REDDIT_DEDUP_INTERVAL_SECONDS", str(60 * 60))
-    )
+    scheduled_workers = build_scheduled_workers({
+        "Listing expiry reminders": _run_listing_expiry_reminders_once,
+        "Draft listing reminders": _run_listing_draft_reminders_once,
+        "Saved car reminders": _run_saved_car_reminders_once,
+        "Saved search alerts": _run_saved_search_alerts_once,
+        "Listing lifecycle sweep": _run_listing_lifecycle_sweep_once,
+        "Dealer document expiry reminders": _run_dealer_doc_expiry_reminders_once,
+        "dealer_lead_aggregator": _run_dealer_lead_aggregator_once,
+        "inventory_import_worker": _run_inventory_import_once,
+        "dealer_api_source_poller": _run_dealer_api_source_poller_once,
+        "reddit_import_worker": _run_reddit_import_once,
+        "reddit_daily_post_worker": _run_reddit_daily_post_once,
+        "reddit_roundup_bridge_worker": _run_reddit_roundup_bridge_once,
+        "webhook_delivery_worker": _run_webhook_delivery_once,
+        "auto_review_worker": _run_auto_review_once,
+        "dealer_auto_approval_worker": _run_dealer_auto_approval_once,
+        "price-drop-alerts": _run_price_drop_alerts_once,
+        "reddit_vin_dedup_sweep": _run_reddit_vin_dedup_sweep_once,
+    })
+    intervals = {worker.name: worker.interval_seconds for worker in scheduled_workers}
 
     try:
         ok, info = record_worker_heartbeat()
@@ -295,225 +314,40 @@ def main():
     monitor_thread.start()
     logger.info("Worker threads started (heartbeat + health monitor)")
 
-    reminder_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "Listing expiry reminders",
-            _run_listing_expiry_reminders_once,
-            listing_reminder_interval_seconds,
-        ),
-        name="listing-expiry-reminders",
-        daemon=True,
-    )
-    draft_reminder_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "Draft listing reminders",
-            _run_listing_draft_reminders_once,
-            draft_reminder_interval_seconds,
-        ),
-        name="listing-draft-reminders",
-        daemon=True,
-    )
-    saved_car_reminder_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "Saved car reminders",
-            _run_saved_car_reminders_once,
-            saved_car_reminder_interval_seconds,
-        ),
-        name="saved-car-reminders",
-        daemon=True,
-    )
-    saved_search_alert_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "Saved search alerts",
-            _run_saved_search_alerts_once,
-            saved_search_alert_interval_seconds,
-        ),
-        name="saved-search-alerts",
-        daemon=True,
-    )
-    sweep_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "Listing lifecycle sweep",
-            _run_listing_lifecycle_sweep_once,
-            listing_sweep_interval_seconds,
-        ),
-        name="listing-lifecycle-sweep",
-        daemon=True,
-    )
-    dealer_doc_expiry_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "Dealer document expiry reminders",
-            _run_dealer_doc_expiry_reminders_once,
-            dealer_doc_expiry_interval_seconds,
-        ),
-        name="dealer-doc-expiry-reminders",
-        daemon=True,
-    )
-    dealer_lead_agg_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "dealer_lead_aggregator",
-            _run_dealer_lead_aggregator_once,
-            dealer_lead_agg_interval_seconds,
-        ),
-        name="dealer-lead-agg",
-        daemon=True,
-    )
-    inventory_import_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "inventory_import_worker",
-            _run_inventory_import_once,
-            inventory_import_interval_seconds,
-        ),
-        name="inventory-import",
-        daemon=True,
-    )
-    dealer_api_poll_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "dealer_api_source_poller",
-            _run_dealer_api_source_poller_once,
-            dealer_api_poll_interval_seconds,
-        ),
-        name="dealer-api-poll",
-        daemon=True,
-    )
-    reddit_import_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "reddit_import_worker",
-            _run_reddit_import_once,
-            reddit_import_interval_seconds,
-        ),
-        name="reddit-import",
-        daemon=True,
-    )
-    reddit_daily_post_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "reddit_daily_post_worker",
-            _run_reddit_daily_post_once,
-            reddit_daily_post_interval_seconds,
-        ),
-        name="reddit-daily-post",
-        daemon=True,
-    )
-    reddit_roundup_bridge_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "reddit_roundup_bridge_worker",
-            _run_reddit_roundup_bridge_once,
-            reddit_roundup_bridge_interval_seconds,
-        ),
-        name="reddit-roundup-bridge",
-        daemon=True,
-    )
-    webhook_delivery_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "webhook_delivery_worker",
-            _run_webhook_delivery_once,
-            webhook_delivery_interval_seconds,
-        ),
-        name="webhook-delivery",
-        daemon=True,
-    )
-    auto_review_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "auto_review_worker",
-            _run_auto_review_once,
-            auto_review_interval_seconds,
-        ),
-        name="auto-review",
-        daemon=True,
-    )
-    dealer_auto_approval_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "dealer_auto_approval_worker",
-            _run_dealer_auto_approval_once,
-            dealer_auto_approval_interval_seconds,
-        ),
-        name="dealer-auto-approval",
-        daemon=True,
-    )
-    price_drop_alert_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "price-drop-alerts",
-            _run_price_drop_alerts_once,
-            price_drop_alert_interval_seconds,
-        ),
-        name="price-drop-alerts",
-        daemon=True,
-    )
-    reddit_dedup_thread = threading.Thread(
-        target=scheduled_loop,
-        args=(
-            "reddit_vin_dedup_sweep",
-            _run_reddit_vin_dedup_sweep_once,
-            reddit_dedup_interval_seconds,
-        ),
-        name="reddit-vin-dedup",
-        daemon=True,
-    )
-    reminder_thread.start()
-    draft_reminder_thread.start()
-    saved_car_reminder_thread.start()
-    saved_search_alert_thread.start()
-    sweep_thread.start()
-    dealer_doc_expiry_thread.start()
-    dealer_lead_agg_thread.start()
-    inventory_import_thread.start()
-    dealer_api_poll_thread.start()
-    reddit_import_thread.start()
-    reddit_daily_post_thread.start()
-    reddit_roundup_bridge_thread.start()
-    webhook_delivery_thread.start()
-    auto_review_thread.start()
-    dealer_auto_approval_thread.start()
-    price_drop_alert_thread.start()
-    reddit_dedup_thread.start()
+    scheduled_threads = start_scheduled_worker_threads(scheduled_workers)
+    logger.info("Scheduled worker threads started: %s", ", ".join(worker.name for worker in scheduled_workers))
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss draft_reminders=%ss saved_car_reminders=%ss saved_search_alerts=%ss sweep=%ss dealer_doc_expiry=%ss)",
-        listing_reminder_interval_seconds,
-        draft_reminder_interval_seconds,
-        saved_car_reminder_interval_seconds,
-        saved_search_alert_interval_seconds,
-        listing_sweep_interval_seconds,
-        dealer_doc_expiry_interval_seconds,
+        intervals["Listing expiry reminders"],
+        intervals["Draft listing reminders"],
+        intervals["Saved car reminders"],
+        intervals["Saved search alerts"],
+        intervals["Listing lifecycle sweep"],
+        intervals["Dealer document expiry reminders"],
     )
     logger.info(
         "Webhook delivery worker started (interval=%ss)",
-        webhook_delivery_interval_seconds,
+        intervals["webhook_delivery_worker"],
     )
     logger.info(
         "Reddit import worker registered (interval=%ss enabled=%s) — no fetch while disabled",
-        reddit_import_interval_seconds,
+        intervals["reddit_import_worker"],
         str(os.getenv("REDDIT_IMPORT_ENABLED", "false")),
     )
     logger.info(
         "Reddit daily post worker registered (interval=%ss enabled=%s hour=%s) — no post while disabled",
-        reddit_daily_post_interval_seconds,
+        intervals["reddit_daily_post_worker"],
         str(os.getenv("REDDIT_DAILY_POST_ENABLED", "false")),
         str(os.getenv("REDDIT_DAILY_POST_HOUR", "9")),
     )
     logger.info(
         "Reddit roundup GitHub bridge registered (interval=%ss enabled=%s) — prepares Devvit payload only",
-        reddit_roundup_bridge_interval_seconds,
+        intervals["reddit_roundup_bridge_worker"],
         str(os.getenv("REDDIT_ROUNDUP_BRIDGE_ENABLED", "false")),
     )
     logger.info(
         "Dealer auto-approval worker registered (interval=%ss enabled=%s threshold=%s delay=%ss)",
-        dealer_auto_approval_interval_seconds,
+        intervals["dealer_auto_approval_worker"],
         str(os.getenv("DEALER_AUTO_APPROVAL_ENABLED", "1")),
         os.getenv("DEALER_AUTO_APPROVAL_OCR_THRESHOLD", "0.90"),
         os.getenv("DEALER_AUTO_APPROVAL_DELAY_SECONDS", "300"),
@@ -554,20 +388,8 @@ def main():
         stop_event.set()
         heartbeat_thread.join(timeout=5)
         monitor_thread.join(timeout=5)
-        reminder_thread.join(timeout=5)
-        draft_reminder_thread.join(timeout=5)
-        saved_car_reminder_thread.join(timeout=5)
-        saved_search_alert_thread.join(timeout=5)
-        sweep_thread.join(timeout=5)
-        dealer_lead_agg_thread.join(timeout=5)
-        inventory_import_thread.join(timeout=5)
-        dealer_api_poll_thread.join(timeout=5)
-        reddit_import_thread.join(timeout=5)
-        reddit_daily_post_thread.join(timeout=5)
-        webhook_delivery_thread.join(timeout=5)
-        auto_review_thread.join(timeout=5)
-        price_drop_alert_thread.join(timeout=5)
-        reddit_dedup_thread.join(timeout=5)
+        for thread in scheduled_threads:
+            thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 

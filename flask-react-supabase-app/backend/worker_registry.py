@@ -120,6 +120,27 @@ def result_did_work(result: Any) -> bool:
     """Apply the existing worker result convention to one task result."""
     if result is None:
         return False
+    if isinstance(result, dict):
+        work_values = [
+            result[key]
+            for key in (
+                "processed",
+                "sent",
+                "deleted",
+                "updated",
+                "published",
+                "claimed",
+                "created",
+            )
+            if key in result
+        ]
+        if work_values:
+            return any(
+                value > 0
+                for value in work_values
+                if isinstance(value, (int, float)) and not isinstance(value, bool)
+            )
+        return bool(result)
     if isinstance(result, tuple) and result:
         head = result[0]
         if isinstance(head, (int, float)):
