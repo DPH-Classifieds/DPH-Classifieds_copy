@@ -548,3 +548,16 @@ Out of scope: `/api/admin/stats`, unified admin listing search, Cloudflare
 diagnostics, and lifecycle/reminder worker composition; those remain separate
 coupled stages. Focused suite: `6 passed`; full backend suite: `1204 passed,
 11 skipped, 56 warnings`.
+
+### Task 8al: Extract admin stats route
+
+Status: complete in commit `pending`.
+
+Scope: move `/api/admin/stats` into a runtime-bound route module while keeping
+the existing shared pagination, lifecycle summary, visitor identity, lead
+deduplication, Cloudflare override, cache, and admin authorization contracts.
+
+Out of scope: the shared lifecycle-summary helpers, unified admin listing
+search, Cloudflare diagnostics, and background lifecycle/reminder workers.
+Focused suite: `35 passed`; full backend suite: `1208 passed, 11 skipped,
+56 warnings`.

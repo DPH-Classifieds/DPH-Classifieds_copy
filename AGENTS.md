@@ -73,9 +73,9 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 16,610 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 16,282 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
-reports, overview-metrics, price-history, and manifest suites pass; the full backend suite is `1204 passed, 11 skipped, 56 warnings`; Docker API
+reports, overview-metrics, admin-stats, price-history, and manifest suites pass; the full backend suite is `1208 passed, 11 skipped, 56 warnings`; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
 `153 passed`, CRA production build passed, the main bundle is `102.0 KiB`, the
@@ -115,7 +115,8 @@ in `routes/car_detail.py`; and report create/list handling lives in
 Plate and car-part detail helpers used by the optional-auth GET dispatchers live
 in `routes/listing_details.py`; public price-history handling lives in
 `routes/price_history.py`; and the admin platform metrics overview route lives
-in `routes/admin_overview_metrics.py`.
+in `routes/admin_overview_metrics.py`; admin dashboard stats live in
+`routes/admin_stats.py`.
 Each module
 has focused route-contract coverage and independent review evidence.
 

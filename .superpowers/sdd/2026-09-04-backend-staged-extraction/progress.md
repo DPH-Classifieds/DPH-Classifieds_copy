@@ -196,7 +196,7 @@ Task 8aj: complete (commit `a9e1a922`; extracted public price-history handling i
 
 Ruling: Continue with admin overview/stats aggregation only after mapping its direct consumers and missing-table/error contracts; lifecycle/reminder workers remain a separate later stage.
 
-Task 8ak: complete (pending commit; extracted `/api/admin/metrics/overview` into
+Task 8ak: complete (commit `2c464a74`; extracted `/api/admin/metrics/overview` into
 `routes/admin_overview_metrics.py`, preserving admin auth, days clamping,
 paginated six-table reads, platform aggregation, live-user counts, Cloudflare
 override/fallback, cache coordination, runtime registration, and the legacy
@@ -207,3 +207,15 @@ Ruling: Continue with admin stats as a separate contract-tested slice. Keep
 listing-search/moderation actions, Cloudflare diagnostics, and lifecycle/
 reminder workers isolated until their direct consumers and failure contracts
 are mapped. Authenticated browser/provider flows remain credential-gated.
+
+Task 8al: complete (pending commit; extracted `/api/admin/stats` into
+`routes/admin_stats.py`, preserving admin auth, days clamping, cache, paginated
+analytics reads, lifecycle totals, visitor identity/lead deduplication,
+Cloudflare override/fallback, runtime registration, and compatibility export).
+Focused admin-stats/performance/draft/manifest suite `35 passed`; full backend
+`1208 passed, 11 skipped, 56 warnings`; `app.py` is now `16,282` lines.
+
+Ruling: The next practical reductions are unified admin listing search and
+remaining admin/dealer lifecycle helpers, followed by lifecycle/reminder worker
+composition. Shared analytics and lifecycle helpers stay root-owned until each
+consumer is moved and contract-tested.
