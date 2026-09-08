@@ -734,3 +734,28 @@ and compatibility exports.
 
 Focused action/index/lifecycle suite: `10 passed`; full backend suite:
 `1261 passed, 11 skipped, 57 warnings`; `app.py` is `15,008` lines.
+
+### Task 8az: Extract public contact and missing-model request routes
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `POST /api/contact` and `POST /api/car-model-request` into bounded
+runtime-proxy modules, preserving validation order, rate limiting, provider
+configuration/error mapping, escaped notification payloads, response envelopes,
+route methods, and compatibility exports.
+
+Focused contact/model-request suite: `10 passed`; full backend suite:
+`1266 passed, 11 skipped, 57 warnings` before the following upload slice.
+
+### Task 8ba: Extract signed storage-upload URL route
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `POST /api/storage/signed-upload-url` into
+`routes/storage_upload.py`, preserving authenticated bucket/path/MIME/size/
+extension validation, storage-bucket readiness, signed URL provider mapping,
+response/status contracts, and compatibility export.
+
+Focused storage/security suite: `7 passed`; full backend suite:
+`1274 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+`14,857` lines.

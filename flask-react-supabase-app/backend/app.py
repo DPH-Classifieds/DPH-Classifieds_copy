@@ -6414,66 +6414,6 @@ def update_car_options(car_id):
     return response
 
 
-# Update a car listing (authenticated)
-# Accept PUT/PATCH/POST for compatibility with method-restrictive proxies.
-@app.route("/api/storage/signed-upload-url", methods=["POST"])
-@token_required
-def create_storage_signed_upload_url(current_user):
-    try:
-        payload = request.get_json(silent=True) or {}
-        bucket_name = str(payload.get("bucket_name") or "").strip()
-        object_path = str(payload.get("object_path") or "").strip()
-        content_type = str(payload.get("content_type") or "").strip().lower()
-        try:
-            file_size = int(payload.get("file_size"))
-        except (TypeError, ValueError):
-            file_size = 0
-        upsert = bool(payload.get("upsert"))
-
-        if bucket_name not in {
-            "listing-images",
-            "profile-photos",
-            "dealer-documents",
-            "registration-documents",
-        }:
-            return jsonify({"error": "Unsupported bucket"}), 400
-
-        if not _safe_generated_object_path(object_path, current_user):
-            return jsonify(
-                {"error": "object_path must be a safe generated path scoped to the authenticated user"}
-            ), 400
-
-        if bucket_name in {"listing-images", "profile-photos"}:
-            allowed_types = set(LISTING_IMAGE_ALLOWED_MIME_TYPES)
-            max_size = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES if bucket_name == "profile-photos" else LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES
-        else:
-            allowed_types = set(DEALER_DOCUMENT_ALLOWED_MIME_TYPES if bucket_name == "dealer-documents" else REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES)
-            max_size = DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES if bucket_name == "dealer-documents" else REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES
-        if content_type not in allowed_types or file_size <= 0 or file_size > max_size:
-            return jsonify({"error": "Invalid upload type or size"}), 400
-        extension = object_path.rsplit(".", 1)[-1].lower() if "." in object_path else ""
-        if bucket_name in {"listing-images", "profile-photos"} and extension not in {"jpg", "jpeg", "png", "gif", "webp"}:
-            return jsonify({"error": "Image uploads require an image extension"}), 400
-        if bucket_name in {"dealer-documents", "registration-documents"} and extension not in {"jpg", "jpeg", "png", "pdf", "webp"}:
-            return jsonify({"error": "Document uploads require an allowed extension"}), 400
-
-        if not ensure_storage_bucket(bucket_name):
-            return jsonify({"error": "Storage bucket not available"}), 500
-
-        signed_upload, error = _create_signed_upload_url(
-            bucket_name=bucket_name,
-            object_path=object_path,
-            upsert=upsert,
-        )
-        if error:
-            return jsonify({"error": error}), 502
-
-        return jsonify(signed_upload), 200
-    except Exception as e:
-        logger.error(f"Error creating signed upload URL: {str(e)}", exc_info=True)
-        return jsonify({"error": "Failed to create signed upload URL"}), 500
-
-
 # Delete a car listing (authenticated)
 @app.route("/api/cars/<string:car_id>", methods=["DELETE"])
 @token_required
@@ -8080,127 +8020,6 @@ def _send_listing_deleted_email(
     else:
         logger.info(f"Deletion email sent to {user_email} for {item_type} {listing_id}")
     return result, error
-
-
-@app.route("/api/contact", methods=["POST"])
-def send_contact_message():
-    try:
-        data = request.json or {}
-        name = (data.get("name") or "").strip()
-        email = (data.get("email") or "").strip()
-        subject = (data.get("subject") or "").strip()
-        message = (data.get("message") or "").strip()
-
-        if not name or not email or not subject or not message:
-            return jsonify({"error": "Missing required fields"}), 400
-
-        if not EMAIL_REGEX.match(email):
-            return jsonify({"error": "Invalid email address"}), 400
-
-        if len(name) > 100 or len(subject) > 200 or len(message) > 5000:
-            return jsonify({"error": "Message is too long"}), 400
-
-        client_ip = _request_client_ip()
-        if _contact_rate_limited(client_ip):
-            return jsonify({"error": "Too many requests. Please try again later."}), 429
-
-        from_email = os.getenv("RESEND_FROM_EMAIL")
-        to_email = os.getenv("RESEND_TO_EMAIL")
-        if not from_email or not to_email:
-            return jsonify({"error": "Email service is not configured"}), 500
-
-        payload = {
-            "from": from_email,
-            "to": [to_email],
-            "subject": f"[Contact] {subject}",
-            "reply_to": email,
-            "text": f"From: {name} <{email}>\nSubject: {subject}\n\n{message}",
-        }
-
-        result, error = _send_resend_email(payload)
-        if error:
-            logger.error(f"Resend email failed: {error}")
-            return jsonify({"error": "Failed to send message"}), 502
-
-        return jsonify({"message": "Message sent successfully"}), 200
-    except Exception as e:
-        logger.error(f"Error sending contact message: {str(e)}")
-        return jsonify({"error": "Failed to send message"}), 500
-
-
-@app.route("/api/car-model-request", methods=["POST"])
-def send_car_model_request():
-    try:
-        data = request.json or {}
-        name = (data.get("name") or "").strip()
-        email = (data.get("email") or "").strip()
-        make = (data.get("make") or "").strip()
-        model = (data.get("model") or "").strip()
-        year = (data.get("year") or "").strip()
-        notes = (data.get("notes") or "").strip()
-        source = (data.get("source") or "").strip() or "post-car"
-
-        if not email or not make or not model:
-            return jsonify({"error": "Name, email, make, and model are required"}), 400
-
-        if not EMAIL_REGEX.match(email):
-            return jsonify({"error": "Invalid email address"}), 400
-
-        if any(len(value) > 2000 for value in [name, make, model, year, notes, source]):
-            return jsonify({"error": "Request is too long"}), 400
-
-        client_ip = _request_client_ip()
-        if _contact_rate_limited(client_ip):
-            return jsonify({"error": "Too many requests. Please try again later."}), 429
-
-        from_email = os.getenv("RESEND_FROM_EMAIL")
-        admin_email = os.getenv("PRIMARY_SUPER_ADMIN_EMAIL", "admin@dphclassifieds.com")
-        if not from_email:
-            return jsonify({"error": "Email service is not configured"}), 500
-
-        title = f"{make} {model}".strip()
-        html_content = f"""
-        <div style="font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
-          <h2 style="margin: 0 0 8px; font-size: 22px; color: #ffffff;">Car model request</h2>
-          <p style="margin: 0 0 20px; color: #94a3b8;">A user could not find a model in the listing form.</p>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="padding: 8px 0; color: #64748b; width: 28%;">Name</td><td style="padding: 8px 0; color: #f0fdf4;">{xml_escape(name or 'Unknown')}</td></tr>
-            <tr><td style="padding: 8px 0; color: #64748b;">Email</td><td style="padding: 8px 0; color: #f0fdf4;">{xml_escape(email)}</td></tr>
-            <tr><td style="padding: 8px 0; color: #64748b;">Make</td><td style="padding: 8px 0; color: #f0fdf4;">{xml_escape(make)}</td></tr>
-            <tr><td style="padding: 8px 0; color: #64748b;">Model</td><td style="padding: 8px 0; color: #f0fdf4;">{xml_escape(model)}</td></tr>
-            <tr><td style="padding: 8px 0; color: #64748b;">Year</td><td style="padding: 8px 0; color: #f0fdf4;">{xml_escape(year or 'Not provided')}</td></tr>
-            <tr><td style="padding: 8px 0; color: #64748b;">Source</td><td style="padding: 8px 0; color: #f0fdf4;">{xml_escape(source)}</td></tr>
-          </table>
-          <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; white-space: pre-wrap; line-height: 1.6; color:#e2e8f0;">{xml_escape(notes or 'No notes provided.')}</div>
-        </div>
-        """
-
-        payload = {
-            "from": from_email,
-            "to": [admin_email],
-            "subject": f"[Model Request] {title}",
-            "reply_to": email,
-            "html": html_content,
-            "text": (
-                f"Name: {name or 'Unknown'}\n"
-                f"Email: {email}\n"
-                f"Make: {make}\n"
-                f"Model: {model}\n"
-                f"Year: {year or 'Not provided'}\n"
-                f"Source: {source}\n\n"
-                f"Notes:\n{notes or 'No notes provided.'}"
-            ),
-        }
-
-        result, error = _send_resend_email(payload)
-        if error:
-            logger.error(f"Model request email failed: {error}")
-            return jsonify({"error": "Failed to send request"}), 502
-
-        return jsonify({"message": "Request sent successfully", "result": result}), 200
-    except Exception as e:
-        logger.error(f"Error sending car model request: {str(e)}")
-        return jsonify({"error": "Failed to send request"}), 500
 
 
 # Get license plates
@@ -14465,6 +14284,36 @@ try:
     logger.info("User listing action routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register user listing action routes: {e}")
+
+try:
+    from routes.contact import register_contact_routes, send_contact_message
+
+    register_contact_routes(app)
+    logger.info("Contact route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register contact route: {e}")
+
+try:
+    from routes.car_model_request import (
+        register_car_model_request_routes,
+        send_car_model_request,
+    )
+
+    register_car_model_request_routes(app)
+    logger.info("Car model request route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register car model request route: {e}")
+
+try:
+    from routes.storage_upload import (
+        create_storage_signed_upload_url,
+        register_storage_upload_routes,
+    )
+
+    register_storage_upload_routes(app)
+    logger.info("Storage signed-upload route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register storage signed-upload route: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details
