@@ -360,6 +360,24 @@ Ruling: Continue with the remaining listing/admin mutation routes and worker
 composition. Shared dealer policy/notification providers and live authenticated
 flows remain separate verification gates.
 
+Task 8ax: complete (current checkpoint; extracted authenticated user listing
+inventory reads into `routes/user_listing_index.py`: `/api/user/cars`, `/bikes`,
+`/plates`, `/parts`, and `/listings`, preserving category hydration, filtering,
+ordering, listing-limit metadata, auth, route methods, and compatibility
+exports). Focused inventory/lifecycle suite `10 passed`; full backend
+`1257 passed, 11 skipped, 57 warnings`; `app.py` is now `15,054` lines.
+
+Task 8ay: complete (current checkpoint; extracted authenticated terminal-listing
+dismissal into `routes/user_listing_actions.py`, preserving ownership and
+terminal-state policy, idempotency, scoped patching, auth, route methods, and
+compatibility export). Focused action/index/lifecycle suite `10 passed`; full
+backend `1261 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+now `15,008` lines.
+
+Ruling: Continue with bounded listing-management or worker slices only when
+their direct contracts are identified. Shared startup/auth/storage/lifecycle
+machinery and live authenticated/provider verification remain separate gates.
+
 Task 8aq: in progress (authenticated repost route mapped; implementation and
 contract tests pending). Shared image cloning and lifecycle helpers remain
 root-owned and will resolve through the runtime backend registry.
