@@ -71,14 +71,11 @@ function MainArea({ children }) {
 
 function BackToTop() {
   // { visible, target: null } — target null means window; otherwise the
-  // element whose scroll crossed the threshold. Most pages scroll the
-  // window, but Explore scrolls its own container (VirtuosoGrid's
-  // customScrollParent — see .explore-v2-results-scroll in ExplorePage.jsx).
-  // Scroll events don't bubble, so a plain window listener would miss that
-  // container entirely (and querySelector-at-mount races the lazy-loaded
-  // page's own mount). Listening in the capture phase on document catches
-  // scroll events from any scrollable descendant on their way down, with no
-  // race and no per-page wiring needed.
+  // element whose scroll crossed the threshold. Every page (Explore
+  // included) scrolls the window. Scroll events don't bubble, so the
+  // capture-phase document listener below still catches scrolls from any
+  // scrollable descendant (e.g. the filter drawer) on their way down, with
+  // no race and no per-page wiring needed.
   const [state, setState] = useState({ visible: false, target: null });
 
   useEffect(() => {
