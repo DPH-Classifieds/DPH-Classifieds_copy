@@ -378,6 +378,36 @@ Ruling: Continue with bounded listing-management or worker slices only when
 their direct contracts are identified. Shared startup/auth/storage/lifecycle
 machinery and live authenticated/provider verification remain separate gates.
 
+Task 8az: complete (current checkpoint; extracted public `POST /api/contact`
+and `POST /api/car-model-request` into bounded runtime-proxy modules,
+preserving validation order, rate limiting, provider configuration/error
+mapping, escaped notification payloads, response envelopes, and compatibility
+exports). Focused contact/model-request suite `10 passed`; full backend
+`1266 passed, 11 skipped, 57 warnings`; `app.py` is now `14,970` lines.
+
+Task 8ba: complete (current checkpoint; extracted authenticated `POST
+/api/storage/signed-upload-url` into `routes/storage_upload.py`, preserving
+bucket/path/MIME/size/extension validation, storage readiness, signed-provider
+mapping, response/status contracts, and compatibility export). Focused
+storage/security suite `7 passed`; full backend `1274 passed, 11 skipped, 57
+warnings`; compileall passed; `app.py` is now `14,857` lines.
+
+Ruling: Continue with bounded admin/public routes or worker composition only
+when direct contracts are identified; shared storage-provider helpers, startup
+machinery, and live authenticated/provider verification remain separate gates.
+
+Task 8bb: complete (current checkpoint; extracted featured-listing hydration,
+admin create/list/update/delete, public listing reads, and placement-pattern
+routes into `routes/featured_listings.py`, preserving admin gates, visibility
+filtering, upsert/refetch behavior, Redis fallback, response/status contracts,
+route methods, and compatibility exports). Focused featured/audit/manifest
+suite `51 passed`; full backend `1277 passed, 11 skipped, 57 warnings`;
+compileall passed; `app.py` is now `14,524` lines.
+
+Ruling: Continue with bounded admin/read-only routes or worker composition only
+when direct contracts are identified; live authenticated/provider verification
+and shared startup/storage lifecycle helpers remain separate gates.
+
 Task 8aq: in progress (authenticated repost route mapped; implementation and
 contract tests pending). Shared image cloning and lifecycle helpers remain
 root-owned and will resolve through the runtime backend registry.

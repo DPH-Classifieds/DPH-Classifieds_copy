@@ -73,7 +73,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 14,857 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 14,524 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
 reports, overview-metrics, admin-stats, admin-listing-search,
 admin-reddit-analytics, user-lead-metrics, lead-events, price-history, and
@@ -82,7 +82,7 @@ manifest suites pass; dealer document review is now also isolated in
 isolated in `routes/dealer_admin_actions.py`; admin dealer listing deletion is
 isolated in `routes/admin_listing_delete.py`; dealer listing-limit decisions are
 isolated in `routes/admin_upgrade_decisions.py`; the full backend suite is
-`1274 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
+`1277 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
 routes now live in their extracted boundary; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
@@ -99,15 +99,19 @@ The authenticated user listing inventory routes (`/api/user/cars`, `/bikes`,
 `routes/user_listing_index.py`. The terminal-listing owner dismissal route lives
 in `routes/user_listing_actions.py`; both preserve the legacy endpoint exports,
 runtime dependency boundary, and exact response/auth contracts. Focused extraction
-and lifecycle tests pass, and the current backend total is `1261 passed, 11
-skipped, 57 warnings`.
+and lifecycle tests pass.
 
 The public contact and missing-model fallback routes now live in
 `routes/contact.py` and `routes/car_model_request.py`. The authenticated signed
 storage-upload URL route now lives in `routes/storage_upload.py`; its bucket,
 path, MIME, size, and extension checks remain runtime-resolved and are covered by
-focused security contracts. The current backend total is `1274 passed, 11
-skipped, 57 warnings`, with `app.py` at `14,857` lines.
+focused security contracts.
+
+The featured-listing admin/public routes, hydration helpers, and placement
+pattern contract now live in `routes/featured_listings.py`. This preserves the
+admin-only gates, public visibility filtering, upsert behavior, Redis fallback,
+and compatibility exports. The current backend total is `1277 passed, 11
+skipped, 57 warnings`, with `app.py` at `14,524` lines.
 
 Dealer document listing, upload, deletion, profile-photo, and KYC application
 submission routes now live in `routes/dealer_verification.py`. It follows the

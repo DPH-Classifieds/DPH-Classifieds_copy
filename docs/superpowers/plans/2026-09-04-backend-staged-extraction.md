@@ -759,3 +759,17 @@ response/status contracts, and compatibility export.
 Focused storage/security suite: `7 passed`; full backend suite:
 `1274 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
 `14,857` lines.
+
+### Task 8bb: Extract featured-listing and placement routes
+
+Status: complete in the current staged checkpoint.
+
+Scope: move featured-listing hydration, admin create/list/update/delete,
+public listing reads, and admin/public placement-pattern routes into
+`routes/featured_listings.py`, preserving admin gates, public visibility
+filtering, upsert/refetch behavior, Redis fallback, response/status contracts,
+route methods, and compatibility exports.
+
+Focused featured/audit/manifest suite: `51 passed`; full backend suite:
+`1277 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+`14,524` lines.
