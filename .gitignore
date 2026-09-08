@@ -87,3 +87,5 @@ flask-react-supabase-app/supabase/supabase/
 *.pyc
 *.pyo
 *.pyd
+.vercel
+.env*
