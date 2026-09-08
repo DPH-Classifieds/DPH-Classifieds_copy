@@ -7907,51 +7907,6 @@ def _send_listing_deleted_email(
     return result, error
 
 
-# Get license plates
-@app.route("/api/license-plates", methods=["GET"])
-def get_license_plates():
-    try:
-        cache_key = _build_api_cache_key()
-        cached_payload = _api_cache_get(cache_key)
-        if cached_payload is not None:
-            return _cached_json_response(cached_payload)
-
-        # Optional query parameters
-        city = request.args.get("city")
-        code = request.args.get("code")
-        digits = request.args.get("digits")
-
-        # Build query — public endpoint, so mirror the other list endpoints:
-        # only approved rows, and is_approved=eq.true so the admin "hide reddit
-        # listings" toggle (bulk-sets is_approved=false on reddit rows) removes
-        # them here too. Without these predicates this endpoint leaked reddit
-        # (and unapproved) plates.
-        query = "/rest/v1/license_plates?select=*&status=eq.approved&is_approved=eq.true"
-
-        # Add filters if provided
-        if city and city != "All cities":
-            query += f"&city=eq.{city}"
-        if code and code != "All codes":
-            query += f"&code=eq.{code}"
-        if digits and digits != "Any digits":
-            query += f"&digits=eq.{digits}"
-
-        response, response_status = supabase_request("get", query)
-        if response_status >= 400:
-            return jsonify(response), response_status
-        try:
-            seller_map = _batch_fetch_seller_map([row.get("user_id") for row in (response or [])])
-            for row in response or []:
-                _apply_seller_to_listing(row, seller_map.get(row.get("user_id")))
-        except Exception as enrich_err:
-            logger.warning(f"license-plates seller enrichment failed: {enrich_err}")
-        _api_cache_set(cache_key, response)
-        return _cached_json_response(response)
-    except Exception as e:
-        logger.error(f"Error fetching license plates: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
 # Add a test endpoint that returns static data
 @app.route("/api/test", methods=["GET"])
 def test_data():
@@ -13757,6 +13712,17 @@ try:
     logger.info("Legacy user-list route registered successfully")
 except Exception as e:
     logger.error(f"Failed to register legacy user-list route: {e}")
+
+try:
+    from routes.license_plates_legacy import (
+        get_license_plates,
+        register_license_plate_legacy_routes,
+    )
+
+    register_license_plate_legacy_routes(app)
+    logger.info("Legacy license-plate route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register legacy license-plate route: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details

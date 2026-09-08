@@ -825,3 +825,16 @@ response/status contract, route methods, and compatibility export.
 Focused legacy-user suite: `5 passed`; full backend suite:
 `1292 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
 `14,302` lines.
+
+### Task 8bg: Extract legacy public license-plate read route
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `GET /api/license-plates` into
+`routes/license_plates_legacy.py`, preserving approved-only filters, query
+parameters, cache behavior, seller enrichment, response/status contract, route
+methods, and compatibility export.
+
+Focused plate-read suite: `19 passed`; full backend suite:
+`1295 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+`14,268` lines.

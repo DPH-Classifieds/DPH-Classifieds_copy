@@ -408,6 +408,17 @@ Ruling: Continue with bounded admin/read-only routes or worker composition only
 when direct contracts are identified; live authenticated/provider verification
 and shared startup/storage lifecycle helpers remain separate gates.
 
+Task 8bg: complete (current checkpoint; extracted legacy public `GET
+/api/license-plates` into `routes/license_plates_legacy.py`, preserving
+approved-only filters, query parameters, cache behavior, seller enrichment,
+response/status contract, route methods, and compatibility export). Focused
+plate-read suite `19 passed`; full backend `1295 passed, 11 skipped, 57
+warnings`; compileall passed; `app.py` is now `14,268` lines.
+
+Ruling: Continue only with bounded admin/read-only routes or worker composition
+when direct contracts are identified. Credentialed authenticated E2E and live
+provider verification remain required release gates.
+
 Task 8bf: complete (current checkpoint; extracted compatibility `GET /api/users`
 into `routes/users_legacy.py`, preserving its admin/super-admin gate,
 service-role fetch, 206 partial-content envelope, response/status contract,

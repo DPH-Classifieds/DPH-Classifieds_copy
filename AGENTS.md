@@ -73,7 +73,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 14,302 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 14,268 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
 reports, overview-metrics, admin-stats, admin-listing-search,
 admin-reddit-analytics, user-lead-metrics, lead-events, price-history, and
@@ -82,7 +82,7 @@ manifest suites pass; dealer document review is now also isolated in
 isolated in `routes/dealer_admin_actions.py`; admin dealer listing deletion is
 isolated in `routes/admin_listing_delete.py`; dealer listing-limit decisions are
 isolated in `routes/admin_upgrade_decisions.py`; the full backend suite is
-`1292 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
+`1295 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
 routes now live in their extracted boundary; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
@@ -134,7 +134,13 @@ with 11 credential-gated skips.
 The compatibility `/api/users` route now lives in `routes/users_legacy.py`,
 preserving its admin gate, service-role fetch, partial-content envelope, and
 legacy endpoint export. The current backend total is `1292 passed, 11 skipped,
-57 warnings`, with `app.py` at `14,302` lines.
+57 warnings`, with `app.py` at `14,302` lines at the prior checkpoint.
+
+The legacy public `/api/license-plates` read route now lives in
+`routes/license_plates_legacy.py`, preserving approved-only filtering, query
+parameters, seller enrichment, cache behavior, and its compatibility export.
+The current backend total is `1295 passed, 11 skipped, 57 warnings`, with
+`app.py` at `14,268` lines.
 
 Dealer document listing, upload, deletion, profile-photo, and KYC application
 submission routes now live in `routes/dealer_verification.py`. It follows the
