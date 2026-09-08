@@ -3,23 +3,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import ExplorePage from './ExplorePage';
 
-// VirtuosoGrid virtualizes based on real layout measurements (ResizeObserver,
-// offsetHeight/Width) that jsdom can't meaningfully provide — that's a
-// third-party-library rendering concern, verified separately in a real
-// browser, not something these unit tests should fight jsdom to reproduce.
-// Mocked here as a plain pass-through so ExplorePage's OWN data/filter/search
-// logic stays fully testable.
-jest.mock('react-virtuoso', () => {
-  const ReactForMock = require('react');
-  return {
-    VirtuosoGrid: ({ data, itemContent, listClassName, components }) => ReactForMock.createElement(
-      'div',
-      { className: listClassName },
-      data.map((item, index) => ReactForMock.cloneElement(itemContent(index, item), { key: index })),
-      components?.Footer ? ReactForMock.createElement(components.Footer) : null,
-    ),
-  };
-});
+// ExplorePage renders a plain responsive grid with an IntersectionObserver
+// sentinel for infinite loading — no virtualization library involved, so
+// these tests exercise the real render path directly.
 
 jest.mock('./MarketplaceListingCard', () => ({ item }) => (
   <article data-testid="listing-card">
@@ -96,7 +82,7 @@ const renderPage = () => render(
 );
 
 describe('ExplorePage feed rendering', () => {
-  it('feeds the full loaded+filtered dataset to the virtualized grid', async () => {
+  it('renders the full loaded+filtered dataset in the listing grid', async () => {
     renderPage();
 
     await waitFor(() => expect(screen.getAllByTestId('listing-card')).toHaveLength(TOTAL_ALL_MODE));

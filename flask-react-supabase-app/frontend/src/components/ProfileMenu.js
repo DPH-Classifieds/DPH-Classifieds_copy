@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import { LogOut, Settings, SquareUserRound, Shield, Heart, Store } from 'lucide-react';
 import { resolveMediaUrl } from '../utils/media';
 import apiClient from '../utils/apiClient';
+import useIsAdmin from '../hooks/useIsAdmin';
 import '../styles/ProfileMenu.css';
 import '../styles/shell-tokens.css';
 
 const ProfileMenu = ({ user, onLogout, closeMenu }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = useIsAdmin(user);
   const [isDealer, setIsDealer] = useState(false);
   const menuRef = useRef(null);
 
@@ -47,26 +48,6 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  // Check admin status
-  useEffect(() => {
-    const checkAdmin = async () => {
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
-      try {
-        const response = await apiClient.get('/api/auth/admin-check');
-        setIsAdmin(
-          response && (response.is_admin === true || response.is_super_admin === true)
-        );
-      } catch (error) {
-        setIsAdmin(false);
-      }
-    };
-
-    checkAdmin();
-  }, [user]);
 
   // Check dealer-panel access (verified dealer with an active dealership membership).
   useEffect(() => {

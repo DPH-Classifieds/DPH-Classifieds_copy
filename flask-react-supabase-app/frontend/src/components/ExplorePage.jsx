@@ -2,7 +2,6 @@ import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, SlidersHorizontal, X } from 'lucide-react';
-import { VirtuosoGrid } from 'react-virtuoso';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import ListingSkeleton from './ListingSkeleton';
 import SeoMeta from './SeoMeta';
@@ -23,9 +22,10 @@ import apiClient from '../utils/apiClient';
 import useListingCounts from '../hooks/useListingCounts';
 
 const PAGE_SIZE = 24;
-// Keep the client-side inventory buffer bounded as feeds grow. DOM node count
-// no longer scales with this (VirtuosoGrid virtualizes the render), but this
-// still caps how many parsed listing objects stay resident in memory.
+// Keep the client-side inventory buffer bounded as feeds grow. The results
+// render as a plain responsive grid (window scroll + IntersectionObserver
+// sentinel for infinite loading), so this also caps how many card DOM nodes
+// stay mounted, on top of capping parsed listing objects in memory.
 const MAX_LOADED_ITEMS_PER_CATEGORY = 240;
 const INVENTORY_CACHE_TTL_MS = 60 * 1000;
 const inflightInventoryRequests = new Map();
@@ -633,6 +633,16 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const isFetchingRef = useRef(false);
+  // Infinite scroll on the plain window-scroll grid below: an empty sentinel
+  // div after the grid fires loadMore via IntersectionObserver as it nears
+  // the viewport. Latest-values ref so the observer callback (registered
+  // once per grid mount) never calls a stale loadMore closure.
+  const sentinelRef = useRef(null);
+  const loadMoreStateRef = useRef({ loadMore: () => {}, hasMore: false });
+  // Stable display order for the "all" tab's default (non-search) sort — see
+  // the filteredItems useMemo below for why this exists.
+  const allStableOrderRef = useRef([]);
+  const prevAllSortByRef = useRef(null);
   // Last-loaded count per category. Used as the tab-count placeholder so the
   // user never sees an em-dash while /api/listings/counts is in flight, and
   // as the ONLY source for reddit/buying-requests (that endpoint has no total
@@ -954,6 +964,14 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     setLoadingMore(false);
   }, [activeMode, fetchPage, loading, pages]);
 
+  // Whether the active feed can still grow — mirrors the old VirtuosoGrid
+  // endReached guard so the sentinel below fires under the same conditions.
+  const activeApiKey = EXPLORE_MODE_TO_API_KEY[activeMode];
+  const resultsHaveMore = activeApiKey
+    ? pages[activeApiKey]?.hasMore === true
+    : Object.values(pages).some((p) => p?.hasMore === true);
+  loadMoreStateRef.current = { loadMore, hasMore: resultsHaveMore };
+
   // Escape closes the filter drawer regardless of where focus landed inside it.
   useEffect(() => {
     if (!filterDrawerOpen) return undefined;
@@ -1085,12 +1103,43 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         }))
         .filter((item) => !query || item.relevanceScore > 0);
 
-      return ranked.sort((left, right) => {
-        if (query && right.relevanceScore !== left.relevanceScore) {
-          return right.relevanceScore - left.relevanceScore;
-        }
-        return compareBySort(left, right, allSortBy);
-      });
+      if (query) {
+        // Active search: a full relevance re-rank on every keystroke/result
+        // is the point here, so this bypasses the stable-order path below.
+        allStableOrderRef.current = [];
+        return ranked.sort((left, right) => {
+          if (right.relevanceScore !== left.relevanceScore) {
+            return right.relevanceScore - left.relevanceScore;
+          }
+          return compareBySort(left, right, allSortBy);
+        });
+      }
+
+      // Default browse (no search query): cars/bikes/parts/plates paginate
+      // independently via loadMore, each with its own offset. Re-sorting the
+      // whole merged pool by date on every page load (the old behavior)
+      // meant a newly-fetched page from ANY one category could land
+      // anywhere in the combined chronological order — including the
+      // middle of items already on screen — reshuffling mounted cards and
+      // yanking the user's scroll position along with it (root cause of the
+      // scroll jump/glitch on the Explore "all" feed). Keeping already-placed
+      // items in their established order and only appending newly-arrived
+      // ones at the tail keeps every rendered card's position stable once
+      // it's on screen.
+      if (prevAllSortByRef.current !== allSortBy) {
+        allStableOrderRef.current = [];
+        prevAllSortByRef.current = allSortBy;
+      }
+      const byKey = new Map(ranked.map((item) => [`${item.categoryKey}-${item.id}`, item]));
+      const stillPresent = allStableOrderRef.current.filter((key) => byKey.has(key));
+      const seen = new Set(stillPresent);
+      const freshlyArrived = ranked
+        .filter((item) => !seen.has(`${item.categoryKey}-${item.id}`))
+        .sort((left, right) => compareBySort(left, right, allSortBy));
+
+      const nextOrder = [...stillPresent, ...freshlyArrived.map((item) => `${item.categoryKey}-${item.id}`)];
+      allStableOrderRef.current = nextOrder;
+      return nextOrder.map((key) => byKey.get(key));
     }
 
     if (activeMode === 'reddit') {
@@ -1314,6 +1363,27 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       : normalizedFeatured[EXPLORE_MODE_TO_API_KEY[activeMode]] || [];
     return applyFeaturedPlacement(filteredItems, featuredPool, featuredPattern, (item) => `${item.categoryKey}-${item.id}`);
   }, [filteredItems, normalizedFeatured, featuredPattern, isDefaultOrder, activeMode]);
+
+  // Window-scroll infinite loading: when the sentinel div after the grid
+  // nears the viewport, pull the next page. Re-registers whenever the grid
+  // content swaps (loading toggles, new items arrive) so the observer always
+  // watches the currently mounted sentinel node.
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || loading) return undefined;
+    if (typeof IntersectionObserver === 'undefined') return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          const { loadMore: load, hasMore } = loadMoreStateRef.current;
+          if (hasMore) load();
+        }
+      },
+      { rootMargin: '900px 0px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loading, filteredItems.length, displayedItems.length]);
 
   const activeTotalKey = activeMode === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[activeMode];
   const activeTotal = totalCounts && activeTotalKey && totalCounts[activeTotalKey] !== undefined
@@ -1701,37 +1771,20 @@ const ExplorePage = ({ forcedCategory } = {}) => {
               </button>
             </div>
           ) : (
-            <VirtuosoGrid
-              useWindowScroll
-              data={displayedItems}
-              listClassName="explore-v2-listing-grid"
-              computeItemKey={(_index, item) => `${item.categoryKey}-${item.id}`}
-              itemContent={(_index, item) => (
-                item.categoryKey === 'buying-requests'
-                  ? <BuyingRequestCard item={item} />
-                  : <MarketplaceListingCard item={item} />
-              )}
-              endReached={() => {
-                const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
-                const hasMore = modeKey
-                  ? pages[modeKey]?.hasMore
-                  : Object.values(pages).some((p) => p.hasMore);
-                if (hasMore) loadMore();
-              }}
-              components={{
-                Footer: () => {
-                  const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
-                  const hasMore = modeKey
-                    ? pages[modeKey]?.hasMore
-                    : Object.values(pages).some((p) => p.hasMore);
-                  if (loadingMore) return <ListingSkeleton variant="grid" count={4} />;
-                  if (!hasMore && filteredItems.length > 0) {
-                    return <p className="explore-v2-end-label">You've seen all listings.</p>;
-                  }
-                  return null;
-                },
-              }}
-            />
+            <>
+              <div className="explore-v2-listing-grid">
+                {displayedItems.map((item) => (
+                  item.categoryKey === 'buying-requests'
+                    ? <BuyingRequestCard key={`buying-requests-${item.id}`} item={item} />
+                    : <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
+                ))}
+              </div>
+              <div ref={sentinelRef} className="explore-v2-sentinel" aria-hidden="true" />
+              {loadingMore ? <ListingSkeleton variant="grid" count={4} /> : null}
+              {!resultsHaveMore && filteredItems.length > 0 ? (
+                <p className="explore-v2-end-label">You've seen all listings.</p>
+              ) : null}
+            </>
           )}
 
           {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}

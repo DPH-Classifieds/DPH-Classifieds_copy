@@ -85,6 +85,13 @@
   margin: 0 auto;
 }
 
+/* The results section (mode tabs through the listing grid and its footer
+   CTA) scrolls with the window like every other page — no nested
+   fixed-height scroller. A bounded inner scroll box trapped touch scrolling
+   on mobile, pinned the site footer mid-viewport right under the first
+   cards, and made the page feel cut off instead of whole. Infinite loading
+   is driven by an IntersectionObserver sentinel after the grid. */
+
 .explore-v2 h1,
 .explore-v2 h2,
 .explore-v2 h3,
@@ -829,8 +836,11 @@
 }
 
 .explore-v2-card-badge-reddit {
+  /* top offset clears the 44px saved-listing-button-card heart toggle,
+     which sits at the same top:12/right:12 corner (SavedListings.css) —
+     without it the two visibly collided. */
   position: absolute;
-  top: 10px;
+  top: 62px;
   right: 10px;
   padding: 5px 10px;
   border-radius: 999px;
@@ -843,8 +853,9 @@
 }
 
 .explore-v2-card-badge-dealer {
+  /* Same heart-toggle clearance as .explore-v2-card-badge-reddit above. */
   position: absolute;
-  top: 42px;
+  top: 62px;
   right: 10px;
   display: inline-flex;
   align-items: center;
@@ -899,6 +910,10 @@
   font-size: 0.92rem;
   font-weight: 700;
   line-height: 1.32;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .explore-v2-card-head a {
@@ -985,22 +1000,47 @@
 }
 
 @media (max-width: 640px) {
+  /* The fixed header already reserves its own height via .header-spacer
+     (App.css) — this used to ALSO carry 80px of its own on top of that,
+     pushing real content ~150px down before anything but blank page
+     showed. A browse page should read as one immediately, the way a
+     native app's search results do. */
   .explore-v2 {
-    padding-top: 80px;
+    padding-top: 18px;
+    padding-bottom: 48px;
   }
 
   .explore-v2-pageheader {
-    flex-direction: column;
-    align-items: flex-start;
     gap: 10px;
+    padding-top: 0;
   }
 
+  .explore-v2-pageheader p {
+    display: none;
+  }
+
+  /* Posting is a secondary action on a browse/search page — Property
+     Finder and Dubizzle both keep it small and out of the primary flow
+     here. Was a full-width bar stacked above search; now an inline pill
+     next to the title, the way "List your property" sits in their nav
+     rather than dominating results. */
   .explore-v2-postad {
-    width: 100%;
+    width: auto;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 0.82rem;
+  }
+
+  .explore-v2-searchrow {
+    margin-top: 14px;
   }
 
   .explore-v2-searchrow .search-bar {
     max-width: none;
+  }
+
+  .explore-v2-primary-controls {
+    margin-top: 10px;
   }
 
   .explore-v2-select,
@@ -1009,13 +1049,74 @@
     justify-content: center;
   }
 
+  .explore-v2-chips {
+    margin-top: 10px;
+  }
+
   .explore-v2-resultsbar {
     flex-direction: column;
     align-items: flex-start;
+    margin-top: 14px;
   }
 
   .explore-v2-resultsbar-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  /* Two-up compact grid on phones — two cars per row the way the
+     desktop site reads, instead of one full-width card per row. Cards
+     switch to a compact treatment below so titles, prices, and the CTA
+     fit a ~half-screen column without awkward wrapping. */
+  .explore-v2-listing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-copy {
+    padding: 10px 10px 12px;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-price {
+    font-size: 0.85rem;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-head h3 {
+    font-size: 0.78rem;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-meta {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Descriptions don't fit a half-screen card — the photo, price, title,
+     and meta already answer "is this the car" at browse time. */
+  .explore-v2-listing-grid .explore-v2-card-description {
+    display: none;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-actions {
+    padding-top: 10px;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-actions .explore-v2-button {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 0.72rem;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-photo-count {
+    bottom: 8px;
+    right: 8px;
+    font-size: 0.62rem;
+  }
+
+  .explore-v2-listing-grid .explore-v2-card-badge {
+    top: 8px;
+    left: 8px;
+    font-size: 0.58rem;
   }
 }

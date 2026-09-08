@@ -48,6 +48,23 @@ def test_hmac_signature_is_stable_and_excludes_refresh_timestamp(monkeypatch):
     assert _sign_payload(first, "other-secret")["signature"] != _sign_payload(first, "test-secret")["signature"]
 
 
+def test_build_payload_widens_window_when_recent_hours_are_empty(monkeypatch):
+    """A quiet 72h/7d/14d window should keep widening (up to 30d) instead of
+    producing an empty payload that makes Devvit skip the daily post."""
+    calls = []
+
+    def fake_fetch(since_iso, until_iso):
+        calls.append((since_iso, until_iso))
+        if len(calls) < 3:
+            return []
+        return [{"id": "a", "make_year": 2022, "car_manufacturer": "BMW", "car_model": "M3", "expected_selling_price": 1}]
+
+    monkeypatch.setattr('workers.reddit_roundup_bridge_worker._fetch_listings', fake_fetch)
+    payload = _build_payload(72, datetime(2026, 8, 18, 8, 0, tzinfo=timezone.utc))
+    assert len(calls) == 3           # widened past 72h and 168h before finding rows at 336h
+    assert payload['count'] == 1
+
+
 def test_hmac_signature_changes_when_signed_content_changes():
     payload = {"schema": "dph-reddit-roundup/v2", "cycle_id": "cycle", "content_hash": "hash"}
     signed = _sign_payload(payload, "test-secret")

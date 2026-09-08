@@ -11,9 +11,11 @@ services.reddit_import.get_user_access_token and scripts/reddit_get_refresh_toke
 
 Timing: the scheduler ticks hourly. We post at the first tick at/after
 REDDIT_DAILY_POST_HOUR (Asia/Dubai, UTC+4, no DST) and record the day in
-`reddit_daily_posts`, so exactly one post goes out per day. A quiet day (no new
-cars) records a skipped_empty row and posts nothing. A failed submit records
-nothing, so it retries on the next hourly tick.
+`reddit_daily_posts`, so exactly one post goes out per day. A quiet window
+widens its lookback (1 → 7 → 14 → 30 days) until it finds cars, so the bot
+still posts daily in the same format; only a genuinely empty 30-day window
+records a skipped_empty row. A failed submit records nothing, so it retries
+on the next hourly tick.
 
 Self-contained (no `app` import) to match the reddit_import_worker pattern.
 Cars only for now; extend LISTING_QUERIES to add bikes/parts/plates.
@@ -163,10 +165,12 @@ def build_posts(rows, first_day, last_day, site_url=SITE_URL, max_body_chars=390
     if not rows:
         return []
     n = len(rows)
+    span_days = (last_day - first_day).days + 1
+    span_label = f"{span_days} day" if span_days == 1 else f"{span_days} days"
     date_label = _format_date_label(first_day, last_day)
     heading = (
         f"**{n} car{'' if n == 1 else 's'} listed on {date_label}**\n\n"
-        "Here are the cars listed across r/DubaiPetrolHeads in the last 3 days:\n\n"
+        f"Here are the cars listed across r/DubaiPetrolHeads in the last {span_label}:\n\n"
     )
     header = "\n".join(["| " + " | ".join(_HEADERS) + " |", _ALIGN])
     chunks = []
@@ -184,7 +188,7 @@ def build_posts(rows, first_day, last_day, site_url=SITE_URL, max_body_chars=390
         chunks.append(current_rows)
 
     total = len(chunks)
-    title = f"[{_format_roundup_title_date(first_day, last_day)}] Cars listed in the last 3 days"
+    title = f"[{_format_roundup_title_date(first_day, last_day)}] Cars listed in the last {span_label}"
     posts = []
     for index, lines in enumerate(chunks, start=1):
         suffix = f" — Part {index} of {total}" if total > 1 else ""
@@ -316,17 +320,23 @@ def run():
         return {"status": "failed", "error": "missing configuration"}
 
     # Window = the previous `every_days` full Dubai days (new additions since the
-    # last post): [today 00:00 - every_days, today 00:00).
-    since_iso, until_iso, first_day, last_day, window_label = _window(every_days)
-    try:
-        rows = _fetch_listings(since_iso, until_iso)
-    except Exception as exc:
-        logger.exception("reddit_daily_post: fetch failed")
-        return {"status": "failed", "error": str(exc)[:200]}
+    # last post): [today 00:00 - every_days, today 00:00). If that's empty, widen
+    # the lookback so a quiet stretch still produces a post instead of skipping —
+    # a still-empty 30-day window means something upstream is actually broken.
+    rows, window_label = [], None
+    for days in sorted({d for d in (every_days, 7, 14, 30) if d >= every_days}):
+        since_iso, until_iso, first_day, last_day, window_label = _window(days)
+        try:
+            rows = _fetch_listings(since_iso, until_iso)
+        except Exception as exc:
+            logger.exception("reddit_daily_post: fetch failed")
+            return {"status": "failed", "error": str(exc)[:200]}
+        if rows:
+            break
 
     if not rows:
         _record(post_date, subreddit, "skipped_empty", count=0)
-        logger.info("reddit_daily_post: no listings for %s — skipped", window_label)
+        logger.info("reddit_daily_post: no listings even after widening to 30 days — skipped")
         return {"status": "skipped_empty", "date": post_date}
 
     try:

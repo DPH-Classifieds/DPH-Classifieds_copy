@@ -86,9 +86,18 @@ def _rolling_window(hours=72, now=None):
     return since.isoformat(), until.isoformat(), first_day, last_day, label
 
 
+_WIDEN_FALLBACK_HOURS = (168, 336, 720)  # 7d, 14d, 30d — widen until we find cars instead
+                                          # of Devvit skipping a quiet cycle; a still-empty
+                                          # 30-day window means something is actually broken.
+
+
 def _build_payload(hours=72, now=None):
-    since_iso, until_iso, first_day, last_day, label = _rolling_window(hours, now)
-    rows = _fetch_listings(since_iso, until_iso)
+    rows, first_day, last_day, label = [], None, None, None
+    for step in sorted({h for h in (hours,) + _WIDEN_FALLBACK_HOURS if h >= hours}):
+        since_iso, until_iso, first_day, last_day, label = _rolling_window(step, now)
+        rows = _fetch_listings(since_iso, until_iso)
+        if rows:
+            break
     posts = build_posts(rows, first_day, last_day, SITE_URL)
     # The daily Dubai date is stable across hourly bridge refreshes. Devvit
     # uses it as its exactly-once key while the payload remains a rolling 72h

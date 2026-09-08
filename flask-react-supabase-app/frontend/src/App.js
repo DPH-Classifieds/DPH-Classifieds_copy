@@ -70,19 +70,29 @@ function MainArea({ children }) {
 }
 
 function BackToTop() {
-  const [visible, setVisible] = useState(false);
+  // { visible, target: null } — target null means window; otherwise the
+  // element whose scroll crossed the threshold. Every page (Explore
+  // included) scrolls the window. Scroll events don't bubble, so the
+  // capture-phase document listener below still catches scrolls from any
+  // scrollable descendant (e.g. the filter drawer) on their way down, with
+  // no race and no per-page wiring needed.
+  const [state, setState] = useState({ visible: false, target: null });
 
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 400);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const onScroll = (e) => {
+      const el = e.target === document ? window : e.target;
+      const y = el === window ? window.scrollY : el.scrollTop;
+      setState({ visible: y > 400, target: el === window ? null : el });
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
   }, []);
 
-  if (!visible) return null;
+  if (!state.visible) return null;
 
   return (
     <button
-      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      onClick={() => (state.target || window).scrollTo({ top: 0, behavior: 'smooth' })}
       style={{
         position: 'fixed',
         bottom: '24px',
