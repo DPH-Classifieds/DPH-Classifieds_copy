@@ -8647,88 +8647,6 @@ def admin_list_listing_upgrade_requests(current_user):
     return jsonify(rows or []), 200
 
 
-@app.route("/api/admin/dealer/listing-upgrade-requests/<request_id>/decision", methods=["POST"])
-@token_required
-def admin_decide_listing_upgrade_request(current_user, request_id):
-    """Admin-only approve/reject decision on a pending upgrade request.
-
-    On approve: updates the request, patches users.dealer_listing_limit, writes
-    a dealer_listing_limit_history row, and emails the dealer. On reject: just
-    updates the request and (best-effort) emails the dealer.
-    """
-    if not _require_admin_api_user(current_user):
-        return jsonify({"error": "Admin only"}), 403
-    body = request.get_json(silent=True) or {}
-    existing, code = supabase_request(
-        "get", f"/rest/v1/dealer_listing_upgrade_requests?id=eq.{request_id}&limit=1",
-        use_service_role=True,
-    )
-    if code >= 400 or not existing:
-        return jsonify({"error": "Upgrade request not found"}), 404
-    req = existing[0]
-    if req["status"] != "pending":
-        return jsonify({"error": "Request already resolved", "status": req["status"]}), 409
-    nl, history, err = decide_upgrade_request(
-        req["current_limit"], req["requested_limit"], body.get("decision"),
-        body.get("new_limit"), current_user,
-    )
-    if err:
-        status = 400 if err["code"] in ("new_limit_required", "invalid_decision", "invalid_new_limit") else 500
-        return jsonify(err), status
-    now = _utc_now().isoformat()
-    patch_resp, patch_code = supabase_request(
-        "patch", f"/rest/v1/dealer_listing_upgrade_requests?id=eq.{request_id}",
-        data={
-            "status": "approved" if nl else "rejected",
-            "resolved_by": current_user,
-            "resolved_at": now,
-            "resolution_note": (body.get("note") or "").strip() or None,
-        },
-        use_service_role=True,
-    )
-    if patch_code >= 400:
-        return jsonify({"error": "Failed to update upgrade request"}), 500
-    if nl is not None:
-        _, ucode = supabase_request(
-            "patch", f"/rest/v1/users?id=eq.{req['dealer_id']}",
-            data={"dealer_listing_limit": nl}, use_service_role=True,
-        )
-        if ucode >= 400:
-            return jsonify({"error": "Failed to update dealer limit"}), 500
-        history["reason"] = (body.get("note") or "").strip() or f"Approved upgrade request {request_id}"
-        history["request_id"] = request_id
-        supabase_request(
-            "post", "/rest/v1/dealer_listing_limit_history",
-            data={"dealer_id": req["dealer_id"], **history},
-            use_service_role=True,
-        )
-        # Best-effort dealer notification email
-        try:
-            drow, _ = supabase_request(
-                "get",
-                f"/rest/v1/users?id=eq.{req['dealer_id']}&select=email,first_name",
-                use_service_role=True,
-            )
-            if drow and drow[0].get("email"):
-                from_email = os.getenv("RESEND_FROM_EMAIL")
-                if from_email:
-                    _send_resend_email({
-                        "from": from_email,
-                        "to": [drow[0]["email"]],
-                        "subject": f"Your DPH Classifieds listing limit has been updated to {nl}",
-                        "html": (
-                            f"<p>Hi {drow[0].get('first_name') or 'there'},</p>"
-                            f"<p>Your listing limit has been updated to <strong>{nl}</strong> active ads.</p>"
-                            f"<p>You can now post more listings in your "
-                            f"<a href='{SITE_URL}/dealer/inventory'>Dealer Inventory</a>.</p>"
-                        ),
-                    }, email_type="dealer_listing_limit_updated")
-        except Exception as exc:
-            logger.warning("Dealer limit update email failed: %s", exc)
-    return jsonify({"new_limit": nl, "request": req,
-                    "status": "approved" if nl else "rejected"}), 200
-
-
 # --- Featured listings (admin-curated) ---------------------------------------
 
 def _resolve_featured_listing_meta(rows_by_type, listing_type, listing_id):
@@ -13960,125 +13878,6 @@ def update_report(current_user, report_id):
         return jsonify({"error": "An error occurred while updating the report"}), 500
 
 
-@app.route("/api/<item_type>/<item_id>/delete", methods=["DELETE"])
-@token_required
-def delete_listing(current_user, item_type, item_id):
-    """Delete a listing (admin only)"""
-    try:
-        # Check if user is admin
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
-            return jsonify({"error": "Admin access required"}), 403
-
-        # Validate item_type
-        valid_types = {"car", "bike", "car-part", "part", "plate"}
-        if item_type not in valid_types:
-            return jsonify({"error": "Invalid item type"}), 400
-
-        # Map item_type to table name
-        table_mapping = {
-            "car": "cars",
-            "bike": "bikes",
-            "car-part": "car_parts",
-            "part": "car_parts",
-            "plate": "license_plates",
-        }
-
-        table_name = table_mapping[item_type]
-        delete_reason = "Removed by admin"
-        if request.is_json and request.json:
-            delete_reason = (
-                request.json.get("reason")
-                or request.json.get("deletion_reason")
-                or delete_reason
-            )
-
-        # Delete the listing using service role
-        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-        headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-            "Content-Type": "application/json",
-        }
-
-        # Fetch listing data BEFORE deletion for email notification
-        owner_email = None
-        listing_title = f"{item_type.title()} listing"
-        try:
-            fetch_url = f"{app.config['SUPABASE_URL']}/rest/v1/{table_name}?id=eq.{item_id}&select=user_id,user_email,contact_email,car_manufacturer,car_model,car_trim,bike_brand,bike_model,part_name,title,plate_code,plate_number"
-            fetch_resp = requests.get(fetch_url, headers=headers)
-            if fetch_resp.status_code == 200:
-                fetch_data = fetch_resp.json()
-                if isinstance(fetch_data, list) and fetch_data:
-                    ld = fetch_data[0]
-                    owner_email = ld.get("user_email") or ld.get("contact_email")
-                    if not owner_email and ld.get("user_id"):
-                        owner_email = get_user_email(ld["user_id"])
-                    # Build human-readable title
-                    if item_type in ("car", "car-part", "part"):
-                        mfr = ld.get("car_manufacturer", "")
-                        model = ld.get("car_model", "")
-                        trim = ld.get("car_trim", "")
-                        pn = ld.get("part_name") or ld.get("title", "")
-                        if mfr or model:
-                            listing_title = f"{mfr} {model} {trim}".strip()
-                        elif pn:
-                            listing_title = pn
-                    elif item_type == "bike":
-                        brand = ld.get("bike_brand", "")
-                        model = ld.get("bike_model", "")
-                        if brand or model:
-                            listing_title = f"{brand} {model}".strip()
-                    elif item_type == "plate":
-                        code = ld.get("plate_code", "")
-                        num = ld.get("plate_number", "")
-                        if code or num:
-                            listing_title = f"{code} {num}".strip()
-        except Exception as fetch_err:
-            logger.warning(f"Could not fetch listing data before delete: {fetch_err}")
-
-        delete_response, delete_status = _soft_delete_listing(
-            table_name,
-            item_id,
-            deleted_by_role="admin",
-            deleted_by=current_user,
-            reason=delete_reason,
-            metadata={"endpoint": "admin_delete"},
-        )
-
-        if delete_status < 400:
-            normalized_type = "part" if item_type == "car-part" else item_type
-
-            # Send email notification to listing owner
-            if owner_email and owner_email != "unknown@example.com":
-                try:
-                    _send_listing_deleted_email(
-                        user_email=owner_email,
-                        item_type=normalized_type,
-                        listing_title=listing_title,
-                        listing_id=item_id,
-                        reason=delete_reason,
-                    )
-                except Exception as email_err:
-                    logger.warning(
-                        f"Failed to send deletion email for {item_id}: {email_err}"
-                    )
-
-            logger.info(f"Admin {current_user} deleted {item_type} {item_id}")
-            return jsonify(
-                {"message": f"{item_type.title()} deleted successfully"}
-            ), 200
-        else:
-            logger.error(
-                f"Failed to delete {item_type} {item_id}: {delete_status}"
-            )
-            return jsonify({"error": "Failed to delete listing"}), delete_status
-
-    except Exception as e:
-        logger.error(f"Error deleting {item_type} {item_id}: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
 @app.route("/api/admin/deleted-listings", methods=["GET"])
 @token_required
 def get_deleted_listings(current_user):
@@ -15085,6 +14884,28 @@ try:
     logger.info("Dealer admin action routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register dealer admin action routes: {e}")
+
+try:
+    from routes.admin_listing_delete import (
+        delete_listing,
+        register_admin_listing_delete_routes,
+    )
+
+    register_admin_listing_delete_routes(app)
+    logger.info("Admin listing delete route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin listing delete route: {e}")
+
+try:
+    from routes.admin_upgrade_decisions import (
+        admin_decide_listing_upgrade_request,
+        register_admin_upgrade_decision_routes,
+    )
+
+    register_admin_upgrade_decision_routes(app)
+    logger.info("Admin upgrade decision route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin upgrade decision route: {e}")
 
 # Live-user metrics are registered after the runtime dependency table exists;
 # broader overview/stats analytics remain root-owned.

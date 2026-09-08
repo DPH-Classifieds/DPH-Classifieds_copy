@@ -668,3 +668,17 @@ compatibility export.
 
 Focused suite: `105 passed`; full backend suite: `1241 passed, 11 skipped,
 57 warnings`.
+
+### Task 8au: Extract admin dealer listing-limit decision route
+
+Status: complete in commit `pending`.
+
+Scope: move `POST /api/admin/dealer/listing-upgrade-requests/<request_id>/decision`
+into a runtime-bound module, preserving admin authorization, pending/resolved
+guards, pure decision validation, user-limit/history writes, notification
+behavior, response envelopes, and the compatibility export.
+
+Out of scope: the dealer upgrade-request creation/list routes and the shared
+decision validator.
+Focused suite: `40 passed`; full backend suite: `1251 passed, 11 skipped,
+57 warnings`.

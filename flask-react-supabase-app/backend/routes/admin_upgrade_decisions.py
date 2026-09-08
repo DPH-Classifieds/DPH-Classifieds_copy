@@ -1,0 +1,139 @@
+"""Admin decisions for dealer listing-limit upgrade requests."""
+
+import os
+from functools import wraps
+
+from flask import Flask, current_app, jsonify, request
+
+
+class _BackendProxy:
+    def __getattr__(self, name):
+        return current_app.extensions["dph_user_backend"][name]
+
+
+_BACKEND = _BackendProxy()
+
+
+def _backend():
+    return _BACKEND
+
+
+def _token_required(function):
+    @wraps(function)
+    def decorated(*args, **kwargs):
+        return _backend().token_required(function)(*args, **kwargs)
+
+    return decorated
+
+
+@_token_required
+def admin_decide_listing_upgrade_request(current_user, request_id):
+    """Approve or reject one pending dealer listing-limit request."""
+    backend = _backend()
+    if not backend._require_admin_api_user(current_user):
+        return jsonify({"error": "Admin only"}), 403
+
+    body = request.get_json(silent=True) or {}
+    existing, code = backend.supabase_request(
+        "get",
+        f"/rest/v1/dealer_listing_upgrade_requests?id=eq.{request_id}&limit=1",
+        use_service_role=True,
+    )
+    if code >= 400 or not existing:
+        return jsonify({"error": "Upgrade request not found"}), 404
+    req = existing[0]
+    if req["status"] != "pending":
+        return jsonify({"error": "Request already resolved", "status": req["status"]}), 409
+
+    new_limit, history, error = backend.decide_upgrade_request(
+        req["current_limit"],
+        req["requested_limit"],
+        body.get("decision"),
+        body.get("new_limit"),
+        current_user,
+    )
+    if error:
+        status = (
+            400
+            if error["code"] in ("new_limit_required", "invalid_decision", "invalid_new_limit")
+            else 500
+        )
+        return jsonify(error), status
+
+    now = backend._utc_now().isoformat()
+    _, patch_code = backend.supabase_request(
+        "patch",
+        f"/rest/v1/dealer_listing_upgrade_requests?id=eq.{request_id}",
+        data={
+            "status": "approved" if new_limit else "rejected",
+            "resolved_by": current_user,
+            "resolved_at": now,
+            "resolution_note": (body.get("note") or "").strip() or None,
+        },
+        use_service_role=True,
+    )
+    if patch_code >= 400:
+        return jsonify({"error": "Failed to update upgrade request"}), 500
+
+    if new_limit is not None:
+        _, user_code = backend.supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{req['dealer_id']}",
+            data={"dealer_listing_limit": new_limit},
+            use_service_role=True,
+        )
+        if user_code >= 400:
+            return jsonify({"error": "Failed to update dealer limit"}), 500
+
+        history["reason"] = (
+            (body.get("note") or "").strip()
+            or f"Approved upgrade request {request_id}"
+        )
+        history["request_id"] = request_id
+        backend.supabase_request(
+            "post",
+            "/rest/v1/dealer_listing_limit_history",
+            data={"dealer_id": req["dealer_id"], **history},
+            use_service_role=True,
+        )
+        try:
+            dealer_rows, _ = backend.supabase_request(
+                "get",
+                f"/rest/v1/users?id=eq.{req['dealer_id']}&select=email,first_name",
+                use_service_role=True,
+            )
+            if dealer_rows and dealer_rows[0].get("email"):
+                from_email = os.getenv("RESEND_FROM_EMAIL")
+                if from_email:
+                    backend._send_resend_email(
+                        {
+                            "from": from_email,
+                            "to": [dealer_rows[0]["email"]],
+                            "subject": f"Your DPH Classifieds listing limit has been updated to {new_limit}",
+                            "html": (
+                                f"<p>Hi {dealer_rows[0].get('first_name') or 'there'},</p>"
+                                f"<p>Your listing limit has been updated to <strong>{new_limit}</strong> active ads.</p>"
+                                f"<p>You can now post more listings in your "
+                                f"<a href='{backend.SITE_URL}/dealer/inventory'>Dealer Inventory</a>.</p>"
+                            ),
+                        },
+                        email_type="dealer_listing_limit_updated",
+                    )
+        except Exception as exc:
+            backend.logger.warning("Dealer limit update email failed: %s", exc)
+
+    return jsonify({
+        "new_limit": new_limit,
+        "request": req,
+        "status": "approved" if new_limit else "rejected",
+    }), 200
+
+
+def register_admin_upgrade_decision_routes(app: Flask) -> None:
+    app.add_url_rule(
+        "/api/admin/dealer/listing-upgrade-requests/<request_id>/decision",
+        endpoint="admin_decide_listing_upgrade_request",
+        view_func=admin_decide_listing_upgrade_request,
+        methods=["POST"],
+    )
+
