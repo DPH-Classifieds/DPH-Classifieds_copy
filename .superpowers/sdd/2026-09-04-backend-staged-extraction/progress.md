@@ -453,7 +453,7 @@ handlers into `routes/legacy_cors.py`, preserved headers and exports, and moved
 registration before canonical car routes so configured origins use the explicit
 response. Focused CORS/manifest suite 13 passed; compileall passed).
 
-Task 8bm: complete (commit pending; extracted `POST /api/webhooks/resend` into
+Task 8bm: complete (commit 9dada2bc; extracted `POST /api/webhooks/resend` into
 `routes/resend_webhook.py`, preserving signature validation, event mapping,
 service-role update behavior, and compatibility export. Focused webhook/manifest
 suite 14 passed; compileall passed).

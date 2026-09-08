@@ -599,7 +599,7 @@ Focused suite: `14 passed`; full backend suite: `1219 passed, 11 skipped,
 
 ### Task 8ap: Extract public listing lead-event route
 
-Status: complete in commit `pending`.
+Status: complete in commit `9dada2bc`.
 
 Scope: move `POST /api/listings/<item_type>/<item_id>/lead-events` into a
 runtime-bound module, preserving listing-type validation, rate limiting,
