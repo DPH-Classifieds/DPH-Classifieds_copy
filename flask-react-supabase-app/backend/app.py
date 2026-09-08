@@ -6312,22 +6312,6 @@ def track_part_view(part_id):
     return _legacy_listing_view_response("part", part_id)
 
 
-# Get user's own cars (authenticated)
-@app.route("/api/user/cars", methods=["GET"])
-@token_required
-def get_user_cars(current_user):
-    data, status_code = _collect_user_listing_records(current_user, "car")
-    if status_code >= 400:
-        return jsonify(data), status_code
-
-    for car in data:
-        for image in car.get("images", []):
-            if "url" in image and "image_url" not in image:
-                image["image_url"] = image["url"]
-
-    return jsonify(data), 200
-
-
 # Handle OPTIONS preflight for /api/cars
 @app.route("/api/cars", methods=["OPTIONS"])
 def cars_options():
@@ -10967,91 +10951,6 @@ get_bikes, get_bike_by_id = register_bike_read_routes(
 )
 
 
-@app.route("/api/user/bikes", methods=["GET"])
-@token_required
-def get_user_bikes(current_user):
-    data, status_code = _collect_user_listing_records(current_user, "bike")
-    if status_code >= 400:
-        return jsonify(data), status_code
-
-    for bike in data:
-        _normalize_bike_record(bike)
-
-    return jsonify(data), 200
-
-
-@app.route("/api/user/plates", methods=["GET"])
-@token_required
-def get_user_plates(current_user):
-    data, status_code = _collect_user_listing_records(current_user, "plate")
-    if status_code >= 400:
-        return jsonify(data), status_code
-    return jsonify(data), 200
-
-
-@app.route("/api/user/parts", methods=["GET"])
-@token_required
-def get_user_parts(current_user):
-    data, status_code = _collect_user_listing_records(current_user, "part")
-    if status_code >= 400:
-        return jsonify(data), status_code
-    return jsonify(data), 200
-
-
-@app.route("/api/user/listings", methods=["GET"])
-@token_required
-def get_all_user_listings(current_user):
-    status_filter = (request.args.get("status") or "").strip().lower()
-    categories = {}
-    flattened = []
-
-    for item_type in ["car", "bike", "part", "plate"]:
-        try:
-            category_items, status_code = _collect_user_listing_records(
-                current_user, item_type
-            )
-            if status_code >= 400:
-                logger.warning(
-                    "[user/listings] %s query failed (%s): %s",
-                    item_type,
-                    status_code,
-                    category_items,
-                )
-                category_items = []
-        except Exception as exc:
-            logger.error(
-                "[user/listings] unhandled exception collecting %s records: %s",
-                item_type,
-                exc,
-                exc_info=True,
-            )
-            category_items = []
-
-        for item in category_items:
-            item["listing_type"] = item_type
-        filtered_items = _filter_user_listing_records(category_items, status_filter)
-        categories[f"{item_type}s" if item_type != "part" else "parts"] = filtered_items
-        flattened.extend(filtered_items)
-
-    flattened.sort(
-        key=lambda item: _parse_datetime(item.get("created_at")) or _utc_now(),
-        reverse=True,
-    )
-
-    # Total count across cars + bikes + plates + parts.
-    listing_count, count_error = _get_user_listing_count(current_user)
-    if count_error is not None:
-        listing_count = 0
-
-    return jsonify(
-        {
-            "listings": flattened,
-            **categories,
-            "listing_limit": _user_listing_limit_info(current_user, listing_count),
-        }
-    ), 200
-
-
 def _log_admin_action_direct(admin_user_id, action, **kwargs):
     """Best-effort admin audit log insert from app.py. Kept here (rather than imported
     from routes/admin.py) to avoid a circular import. Mirrors the helper in admin.py."""
@@ -11178,63 +11077,6 @@ def _clone_listing_images(images_table, fk_field, new_listing_id, original_image
         data=new_rows,
         use_service_role=True,
     )
-
-
-@app.route(
-    "/api/user/listings/<item_type>/<item_id>/dismiss", methods=["POST"]
-)
-@token_required
-def dismiss_user_listing(current_user, item_type, item_id):
-    config = LISTING_TABLE_CONFIG.get(item_type)
-    if not config:
-        return jsonify({"error": "Invalid listing type"}), 400
-
-    listing_data, listing_status = supabase_request(
-        "get",
-        f"/rest/v1/{config['table']}",
-        params={
-            "select": "id,user_id,status,deleted_at,is_archived,user_dismissed_at",
-            "id": f"eq.{item_id}",
-            "limit": 1,
-        },
-        user_id=current_user,
-    )
-    if listing_status >= 400:
-        return jsonify(listing_data), listing_status
-    if not listing_data:
-        return jsonify({"error": "Listing not found"}), 404
-
-    original = listing_data[0]
-    if original.get("user_id") != current_user:
-        return jsonify(
-            {"error": "You do not have permission to dismiss this listing"}
-        ), 403
-
-    status_value = str(original.get("status") or "").lower()
-    if (
-        status_value not in {"deleted", "rejected", "sold"}
-        and not original.get("deleted_at")
-        and not original.get("is_archived")
-    ):
-        return jsonify(
-            {"error": "Only deleted, expired, or sold listings can be removed from your list"}
-        ), 400
-
-    # Idempotent: if already dismissed, return success.
-    if original.get("user_dismissed_at"):
-        return jsonify({"message": "Listing already removed from your list"}), 200
-
-    patch_response, patch_status = supabase_request(
-        "patch",
-        f"/rest/v1/{config['table']}",
-        params={"id": f"eq.{item_id}", "user_id": f"eq.{current_user}"},
-        data={"user_dismissed_at": _isoformat_utc(_utc_now())},
-        use_service_role=True,
-    )
-    if patch_status >= 400:
-        return jsonify({"error": "Failed to remove listing from your list"}), 500
-
-    return jsonify({"message": "Listing removed from your list"}), 200
 
 
 def _bike_create_dependencies():
@@ -14597,6 +14439,32 @@ except Exception as e:
 # registry on the Flask app avoids circular imports from the compatibility
 # root while allowing tests to patch the original functions in place.
 app.extensions["dph_user_backend"] = globals()
+
+try:
+    from routes.user_listing_index import (
+        get_all_user_listings,
+        get_user_bikes,
+        get_user_cars,
+        get_user_parts,
+        get_user_plates,
+        register_user_listing_index_routes,
+    )
+
+    register_user_listing_index_routes(app)
+    logger.info("User listing inventory routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register user listing inventory routes: {e}")
+
+try:
+    from routes.user_listing_actions import (
+        dismiss_user_listing,
+        register_user_listing_action_routes,
+    )
+
+    register_user_listing_action_routes(app)
+    logger.info("User listing action routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register user listing action routes: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details

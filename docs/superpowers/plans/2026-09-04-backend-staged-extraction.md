@@ -709,3 +709,28 @@ Out of scope: the shared dealer policy, validator, notification provider, and
 database migration.
 Focused suite: `43 passed`; full backend suite: `1254 passed, 11 skipped,
 57 warnings`.
+
+### Task 8ax: Extract authenticated user listing inventory reads
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `GET /api/user/cars`, `/api/user/bikes`, `/api/user/plates`,
+`/api/user/parts`, and `/api/user/listings` into
+`routes/user_listing_index.py`, preserving category hydration, bike
+normalization, status filtering, newest-first ordering, listing-limit metadata,
+auth behavior, route methods, and compatibility exports.
+
+Focused extraction/lifecycle suite: `10 passed`; full backend suite:
+`1257 passed, 11 skipped, 57 warnings` before the following action slice.
+
+### Task 8ay: Extract authenticated terminal-listing dismissal
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `POST /api/user/listings/<item_type>/<item_id>/dismiss` into
+`routes/user_listing_actions.py`, preserving ownership checks, terminal-state
+policy, idempotency, scoped service-role patching, auth behavior, route methods,
+and compatibility exports.
+
+Focused action/index/lifecycle suite: `10 passed`; full backend suite:
+`1261 passed, 11 skipped, 57 warnings`; `app.py` is `15,008` lines.

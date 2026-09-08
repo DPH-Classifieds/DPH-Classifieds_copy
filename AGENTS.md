@@ -62,7 +62,7 @@ browser artifacts.
 ## Current staged-extraction baseline
 
 The current staged branch has completed the bounded admin route cleanup and the
-authenticated identity/listing extraction through commit `56445c34`. The canonical
+authenticated identity/listing extraction through the current staged checkpoint. The canonical
 saved-listings, saved-searches, push-token, auth, profile, dealer-verification,
 moderation, analytics, diagnostics, sitemap, and recommendations boundaries live
 in dedicated route modules and resolve services through
@@ -73,7 +73,7 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 15,140 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 15,008 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
 reports, overview-metrics, admin-stats, admin-listing-search,
 admin-reddit-analytics, user-lead-metrics, lead-events, price-history, and
@@ -82,7 +82,7 @@ manifest suites pass; dealer document review is now also isolated in
 isolated in `routes/dealer_admin_actions.py`; admin dealer listing deletion is
 isolated in `routes/admin_listing_delete.py`; dealer listing-limit decisions are
 isolated in `routes/admin_upgrade_decisions.py`; the full backend suite is
-`1254 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
+`1261 passed, 11 skipped, 57 warnings`; the dealer upgrade create/list/decision
 routes now live in their extracted boundary; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
@@ -93,6 +93,14 @@ TypeScript passed and Jest is `261 passed`; public Playwright is `48 passed, 27 
 skips` across desktop/tablet/mobile. Protected browser flows remain
 credential-gated and must not be reported as passed when their disposable
 credentials and target environment are absent.
+
+The authenticated user listing inventory routes (`/api/user/cars`, `/bikes`,
+`/plates`, `/parts`, and `/listings`) now live in
+`routes/user_listing_index.py`. The terminal-listing owner dismissal route lives
+in `routes/user_listing_actions.py`; both preserve the legacy endpoint exports,
+runtime dependency boundary, and exact response/auth contracts. Focused extraction
+and lifecycle tests pass, and the current backend total is `1261 passed, 11
+skipped, 57 warnings`.
 
 Dealer document listing, upload, deletion, profile-photo, and KYC application
 submission routes now live in `routes/dealer_verification.py`. It follows the
