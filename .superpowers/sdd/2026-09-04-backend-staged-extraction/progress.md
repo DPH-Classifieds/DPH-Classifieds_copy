@@ -220,7 +220,7 @@ remaining admin/dealer lifecycle helpers, followed by lifecycle/reminder worker
 composition. Shared analytics and lifecycle helpers stay root-owned until each
 consumer is moved and contract-tested.
 
-Task 8am: complete (pending commit; extracted `/api/admin/listings-search` into
+Task 8am: complete (commit `7cf717ed`; extracted `/api/admin/listings-search` into
 `routes/admin_listing_search.py`, preserving type/source/status filters, draft
 handling, limit clamping, image normalization, verification enrichment, admin
 guard, metadata counts, runtime registration, and compatibility export).
@@ -231,3 +231,19 @@ Ruling: Continue with the remaining high-value admin/dealer mutation helpers
 and then background lifecycle/reminder composition. Keep each destructive or
 worker change independently contract-tested; live authenticated/provider flows
 remain credential-gated.
+
+Task 8an: complete (pending commit; extracted `/api/admin/reddit-import-analytics`
+into `routes/admin_reddit_analytics.py`, preserving aggregate-only privacy,
+days clamping, Reddit category rollups, event windowing, top-listing shaping,
+latest import-run health, admin auth, cache, runtime registration, and the
+legacy compatibility export). Focused Reddit/route-boundary suite `60 passed`;
+full backend `1215 passed, 11 skipped, 56 warnings`; `app.py` is now `15,987`
+lines.
+
+Ruling: Continue with the remaining admin/dealer mutation and public lead
+analytics helpers, then background lifecycle/reminder composition. Do not
+combine worker extraction with destructive route moves.
+
+Task 8an: in progress (Reddit-import analytics route mapped; implementation and
+contract tests pending). The route remains aggregate-only and is being kept
+separate from Reddit verification and background import workers.

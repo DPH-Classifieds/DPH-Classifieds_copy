@@ -73,10 +73,11 @@ of static `app.py` imports and resolve runtime services through
 `current_app.extensions["dph_user_backend"]`.
 
 The verified local baseline for the current staged extraction is:
-`app.py` 16,086 lines; focused moderation, analytics, diagnostics, sitemap,
+`app.py` 15,987 lines; focused moderation, analytics, diagnostics, sitemap,
 recommendation, phone, metrics, live-user, dealer-info, public-info, upload,
-reports, overview-metrics, admin-stats, admin-listing-search, price-history,
-and manifest suites pass; the full backend suite is `1212 passed, 11 skipped,
+reports, overview-metrics, admin-stats, admin-listing-search,
+admin-reddit-analytics, price-history, and manifest suites pass; the full
+backend suite is `1215 passed, 11 skipped,
 56 warnings`; Docker API
 liveness/readiness/404/auth-gate
 smoke and worker health plus Redis heartbeat smoke passed. Frontend Jest is
@@ -119,7 +120,8 @@ in `routes/listing_details.py`; public price-history handling lives in
 `routes/price_history.py`; and the admin platform metrics overview route lives
 in `routes/admin_overview_metrics.py`; admin dashboard stats live in
 `routes/admin_stats.py`; unified admin listing search lives in
-`routes/admin_listing_search.py`.
+`routes/admin_listing_search.py`; aggregate Reddit-import analytics live in
+`routes/admin_reddit_analytics.py`.
 Each module
 has focused route-contract coverage and independent review evidence.
 

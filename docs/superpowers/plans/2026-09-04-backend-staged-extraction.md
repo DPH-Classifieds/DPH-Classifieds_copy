@@ -575,3 +575,14 @@ Out of scope: shared preview/normalization helpers and admin mutation routes;
 they remain root-owned until their own consumer contracts are mapped.
 Focused suite: `76 passed`; full backend suite: `1212 passed, 11 skipped,
 56 warnings`.
+
+### Task 8an: Extract Reddit-import analytics route
+
+Status: complete in commit `pending`.
+
+Scope: move `/api/admin/reddit-import-analytics` into a runtime-bound module,
+preserving aggregate-only privacy, import-category rollups, event windowing,
+top-listing shaping, latest-run health, admin auth, cache, and compatibility
+exports.
+Focused suite: `60 passed`; full backend suite: `1215 passed, 11 skipped,
+56 warnings`.
