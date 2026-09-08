@@ -408,6 +408,18 @@ Ruling: Continue with bounded admin/read-only routes or worker composition only
 when direct contracts are identified; live authenticated/provider verification
 and shared startup/storage lifecycle helpers remain separate gates.
 
+Task 8bd: complete (current checkpoint; extracted authenticated `GET
+/api/auth/admin-check` into `routes/admin_check.py`, preserving token
+enforcement, service-role lookup, super-admin resolution, fail-closed
+missing-user/provider handling, response/status contract, route methods, and
+compatibility export). Focused admin-check/guard suite `18 passed`; full
+backend `1284 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+now `14,428` lines.
+
+Ruling: Continue with bounded admin/read-only routes or worker composition only
+when direct contracts are identified; live authenticated/provider verification
+and shared startup/storage lifecycle helpers remain separate gates.
+
 Task 8bc: complete (current checkpoint; extracted `GET
 /api/admin/saved-searches` into `routes/admin_saved_searches.py`, preserving the
 admin gate, date/limit clamping, service-role reads, owner enrichment, category

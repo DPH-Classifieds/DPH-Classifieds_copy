@@ -5649,62 +5649,6 @@ def _protect_super_admin_target(user_id, action_label="perform this action on"):
     return None
 
 
-@app.route("/api/auth/admin-check", methods=["GET"])
-@token_required
-def admin_check(current_user):
-    """Check if current user is an admin - used by frontend AdminRoute component"""
-    try:
-        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-        headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-            "Content-Type": "application/json",
-        }
-
-        response = requests.get(
-            f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=id,email,username,is_admin",
-            headers=headers,
-            timeout=10,
-        )
-
-        logger.info(
-            f"[admin-check] User {current_user} - Supabase response status: {response.status_code}"
-        )
-
-        if response.status_code == 200:
-            users = response.json()
-            logger.info(f"[admin-check] Users data: {users}")
-            if users and len(users) > 0:
-                user_data = users[0]
-                is_admin = bool(
-                    user_data.get("is_admin", False)
-                    or _is_super_admin_record(user_data, user_id=current_user)
-                )
-                logger.info(
-                    f"[admin-check] User {current_user} - is_admin: {is_admin}, super_admin: {bool(user_data.get('is_super_admin'))}"
-                )
-                return (
-                    jsonify(
-                        {
-                            "is_admin": is_admin,
-                            "is_super_admin": bool(
-                                user_data.get("is_super_admin")
-                                or _is_super_admin_record(
-                                    user_data, user_id=current_user
-                                )
-                            ),
-                        }
-                    ),
-                    200,
-                )
-
-        logger.warning(f"[admin-check] User {current_user} not found in users table")
-        return jsonify({"is_admin": False}), 200
-    except Exception as e:
-        logger.error(f"Error checking admin status: {str(e)}")
-        return jsonify({"is_admin": False, "error": str(e)}), 200
-
-
 # Supabase REST API Helper
 def _supabase_count(table: str, params: dict | None = None) -> int:
     """Return row count via Content-Range header. Cheaper than SELECT *.
@@ -13933,6 +13877,14 @@ try:
     logger.info("Admin saved-search route registered successfully")
 except Exception as e:
     logger.error(f"Failed to register admin saved-search route: {e}")
+
+try:
+    from routes.admin_check import admin_check, register_admin_check_routes
+
+    register_admin_check_routes(app)
+    logger.info("Admin status route registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin status route: {e}")
 
 try:
     from routes.listing_details import get_part_details, get_plate_details

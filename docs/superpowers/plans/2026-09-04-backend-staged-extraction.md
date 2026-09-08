@@ -787,3 +787,16 @@ compatibility export.
 Focused saved-search suite: `5 passed`; full backend suite:
 `1280 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
 `14,476` lines.
+
+### Task 8bd: Extract authenticated admin-status check
+
+Status: complete in the current staged checkpoint.
+
+Scope: move `GET /api/auth/admin-check` into `routes/admin_check.py`, preserving
+token enforcement, service-role lookup, super-admin resolution, fail-closed
+missing-user/provider handling, response/status contract, route methods, and
+compatibility export.
+
+Focused admin-check/guard suite: `18 passed`; full backend suite:
+`1284 passed, 11 skipped, 57 warnings`; compileall passed; `app.py` is
+`14,428` lines.
