@@ -697,7 +697,7 @@ Focused suite: `41 passed`; full backend suite: `1252 passed, 11 skipped,
 
 ### Task 8aw: Extract dealer upgrade-request creation route
 
-Status: complete in commit `pending`.
+Status: complete in commit `65c162a5`.
 
 Scope: move `POST /api/dealer/listing-upgrade-requests` into the runtime-bound
 upgrade-decision module, preserving dealer/verification guards, validator

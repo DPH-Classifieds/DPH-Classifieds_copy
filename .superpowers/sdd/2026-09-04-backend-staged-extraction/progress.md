@@ -347,7 +347,7 @@ Ruling: Continue with the remaining listing/admin mutation routes and worker
 composition. Shared dealer upgrade-request creation and provider helpers remain
 separate boundaries; live provider and authenticated browser flows remain gated.
 
-Task 8aw: complete (commit pending; extracted `POST
+Task 8aw: complete (commit `65c162a5`; extracted `POST
 /api/dealer/listing-upgrade-requests` into
 `routes/admin_upgrade_decisions.py`, preserving dealer/verification guards,
 validator status mapping, duplicate-pending conflicts, missing-table hints,
