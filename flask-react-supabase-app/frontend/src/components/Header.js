@@ -166,7 +166,10 @@ const Header = () => {
               Explore
             </Link>
 
-            <div className="site-header__desktop-menu-anchor">
+            <div
+              className="site-header__desktop-menu-anchor"
+              onMouseEnter={() => setDesktopMenu('browse')}
+            >
               <button
                 ref={browseTriggerRef}
                 type="button"
@@ -188,7 +191,10 @@ const Header = () => {
               )}
             </div>
 
-            <div className="site-header__desktop-menu-anchor">
+            <div
+              className="site-header__desktop-menu-anchor"
+              onMouseEnter={() => setDesktopMenu('sell')}
+            >
               <button
                 ref={sellTriggerRef}
                 type="button"

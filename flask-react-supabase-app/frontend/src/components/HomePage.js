@@ -74,11 +74,7 @@ const marketplaceInsights = [
   },
 ];
 
-// Keep the above-the-fold hero asset small and composition-friendly. The old
-// warehouse photograph was 4032x2880 and introduced unrelated signage and a
-// pallet behind the headline; this transparent cutout lets the CSS backdrop
-// carry the brand mood without competing with the message.
-const heroImage = '/images/About-page-removebg-preview.png';
+const heroImage = '/hero.avif';
 const ctaImage = '/images/bottom-landing.avif';
 const primaryHeroButtonClass =
   'group border-0 bg-gradient-to-r from-[color:var(--ex-primary)] via-[color:var(--ex-primary-strong)] to-[color:var(--ex-primary-strong)] text-[color:var(--ex-shell-on-accent)] shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[color:var(--ex-primary-strong)] hover:via-[color:var(--ex-primary)] hover:to-[color:var(--ex-primary-strong)]';
