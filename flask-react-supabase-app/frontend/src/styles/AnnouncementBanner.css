@@ -1,7 +1,9 @@
 .announcement-banner {
   position: sticky;
   top: 0;
-  z-index: 60;
+  /* Must stay below the fixed header (z-50), otherwise this banner paints
+     over the Browse/Sell dropdown panels, which live inside the header. */
+  z-index: 40;
   width: 100%;
   background: color-mix(in srgb, var(--ex-shell-bg) 92%, transparent);
   backdrop-filter: blur(14px);

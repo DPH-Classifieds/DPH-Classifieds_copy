@@ -1,7 +1,18 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- Set the theme class before first paint. The app defaults to light
+         (see ThemeContext), so hardcoding class="dark" here made every page
+         load dark and flash to light once the bundle mounted. Keep the
+         storage key in sync with ThemeContext's STORAGE_KEY. -->
+    <script>
+      try {
+        if (localStorage.getItem('dph-theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg?v=4" />
     <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon.png?v=4" sizes="32x32" />
     <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon-48.png?v=4" sizes="48x48" />
