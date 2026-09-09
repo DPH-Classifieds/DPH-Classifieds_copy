@@ -74,7 +74,11 @@ const marketplaceInsights = [
   },
 ];
 
-const heroImage = '/hero.avif';
+// Keep the above-the-fold hero asset small and composition-friendly. The old
+// warehouse photograph was 4032x2880 and introduced unrelated signage and a
+// pallet behind the headline; this transparent cutout lets the CSS backdrop
+// carry the brand mood without competing with the message.
+const heroImage = '/images/About-page-removebg-preview.png';
 const ctaImage = '/images/bottom-landing.avif';
 const primaryHeroButtonClass =
   'group border-0 bg-gradient-to-r from-[color:var(--ex-primary)] via-[color:var(--ex-primary-strong)] to-[color:var(--ex-primary-strong)] text-[color:var(--ex-shell-on-accent)] shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[color:var(--ex-primary-strong)] hover:via-[color:var(--ex-primary)] hover:to-[color:var(--ex-primary-strong)]';
@@ -264,13 +268,14 @@ const HomePage = () => {
     <div className="cn-home">
       <section className="cn-hero">
         <div className="cn-hero-media">
-          <img 
-            src={heroImage} 
-            alt="Luxury performance car in a dark studio" 
-            className="cn-hero-image"
-            width="1600"
-            height="1143"
-            fetchPriority="high"
+          <img
+            src={heroImage}
+            alt="Performance car"
+            className="cn-hero-car"
+            width="666"
+            height="374"
+            loading="eager"
+            fetchpriority="high"
             decoding="async"
           />
           <DeferredHeroBackground />

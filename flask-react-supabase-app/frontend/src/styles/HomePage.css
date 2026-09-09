@@ -107,8 +107,23 @@
 }
 
 .cn-hero-media {
-  background: var(--cn-bg);
+  background:
+    radial-gradient(circle at 78% 46%, rgba(139, 214, 180, 0.16), transparent 27%),
+    radial-gradient(circle at 22% 84%, rgba(25, 94, 67, 0.18), transparent 32%),
+    linear-gradient(135deg, #071812 0%, #04110c 48%, #020806 100%);
   overflow: hidden;
+}
+
+.cn-hero-media::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.34;
+  background:
+    linear-gradient(115deg, transparent 0 57%, rgba(139, 214, 180, 0.11) 57.1%, transparent 57.35%),
+    linear-gradient(180deg, transparent 0 76%, rgba(139, 214, 180, 0.08) 76.1%, transparent 76.35%);
+  pointer-events: none;
 }
 
 .cn-hero-3d {
@@ -144,6 +159,21 @@
   aspect-ratio: auto;
 }
 
+.cn-hero-car {
+  position: absolute;
+  z-index: 1;
+  right: clamp(-4rem, 3vw, 3rem);
+  bottom: clamp(1rem, 6vh, 5rem);
+  display: block;
+  width: min(54vw, 760px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 28px 34px rgba(0, 0, 0, 0.48));
+  opacity: 0.96;
+  user-select: none;
+  pointer-events: none;
+}
+
 .cn-cta-image {
   /* No aspect-ratio: the parent .cn-cta-media is absolutely positioned
      to fill the section, so we want the image to cover the entire
@@ -157,9 +187,10 @@
 .cn-hero-vignette {
   position: absolute;
   inset: 0;
+  z-index: 2;
   background:
-    linear-gradient(180deg, rgba(2, 8, 5, 0.42) 0%, rgba(2, 8, 5, 0.08) 34%, rgba(2, 8, 5, 0.9) 100%),
-    linear-gradient(90deg, rgba(4, 14, 9, 0.74) 10%, rgba(4, 14, 9, 0.1) 58%, rgba(4, 14, 9, 0.76) 100%);
+    linear-gradient(180deg, rgba(2, 8, 5, 0.14) 0%, rgba(2, 8, 5, 0.18) 46%, rgba(2, 8, 5, 0.82) 100%),
+    linear-gradient(90deg, rgba(4, 14, 9, 0.72) 0%, rgba(4, 14, 9, 0.12) 56%, rgba(4, 14, 9, 0.34) 100%);
 }
 
 .cn-hero-glow {
@@ -887,6 +918,13 @@
     opacity: 0.54;
   }
 
+  .cn-hero-car {
+    right: -12vw;
+    bottom: 1rem;
+    width: 92vw;
+    opacity: 0.58;
+  }
+
   .cn-section-heading {
     flex-direction: column;
     align-items: flex-start;
@@ -908,6 +946,13 @@
 
   .cn-hero-3d {
     opacity: 0.36;
+  }
+
+  .cn-hero-car {
+    right: -18vw;
+    bottom: 0.5rem;
+    width: 118vw;
+    opacity: 0.42;
   }
 
   .cn-search-panel {

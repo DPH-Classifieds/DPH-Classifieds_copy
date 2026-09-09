@@ -35,3 +35,20 @@ test('hero CTA primary button uses --ex-primary token, not hardcoded #0b6b4c', a
   expect(allClasses).not.toMatch(/from-\[#0b6b4c\]/);
   expect(allClasses).toMatch(/from-\[color:var\(--ex-primary\)\]/);
 });
+
+test('hero uses the lightweight intentional car cutout above the fold', async () => {
+  let container;
+  await act(async () => {
+    ({ container } = render(
+      <MemoryRouter initialEntries={['/']}>
+        <HomePage />
+      </MemoryRouter>
+    ));
+  });
+
+  const heroCar = container.querySelector('.cn-hero-car');
+  expect(heroCar).toHaveAttribute('src', '/images/About-page-removebg-preview.png');
+  expect(heroCar).toHaveAttribute('loading', 'eager');
+  expect(heroCar).toHaveAttribute('fetchpriority', 'high');
+  expect(container.querySelector('.cn-hero-image')).toBeNull();
+});
