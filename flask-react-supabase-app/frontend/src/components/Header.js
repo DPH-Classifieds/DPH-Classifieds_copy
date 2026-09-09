@@ -16,6 +16,8 @@ import { useTheme } from '../context/ThemeContext';
 import useIsAdmin from '../hooks/useIsAdmin';
 import { accentText, line } from '../lib/themeClasses';
 import './ExplorePage.css';
+import '../styles/shell-tokens.css';
+import '../styles/Header.css';
 import ProfileMenu from './ProfileMenu';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Button } from './ui/button';
@@ -153,7 +155,7 @@ const Header = () => {
   // required because Tailwind's arbitrary-value syntax does not accept
   // color-mix() function expressions in the bg-[...] shorthand.
   const headerSurfaceStyle = {
-    backgroundColor: 'color-mix(in srgb, var(--ex-surface) 85%, transparent)',
+    backgroundColor: 'color-mix(in srgb, var(--dph-header-surface) 94%, transparent)',
   };
 
   const headerTone = scrolled
@@ -165,24 +167,24 @@ const Header = () => {
       // backdrop-blur forces the browser to continuously sample+blur whatever
       // scrolls beneath this fixed header — a real per-frame cost on weaker
       // devices. Lighter on mobile, full blur restored from md: up.
-      className={`fixed inset-x-0 top-0 z-50 backdrop-blur-sm md:backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
+      className={`site-header fixed inset-x-0 top-0 z-50 backdrop-blur-sm md:backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
       style={headerSurfaceStyle}
     >
       <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
         {/* Logo */}
         <Link to="/" onClick={handleHomeNavigation} className="flex items-center text-[color:var(--ex-text)] transition-opacity hover:opacity-80">
           <span className="text-[1.3rem] font-bold tracking-[-0.03em] text-[color:var(--ex-text)]">
-            DPH<span className={accentText}>Classifieds</span>
+            DPH<span className={`site-header__brand-accent ${accentText}`}>Classifieds</span>
           </span>
         </Link>
 
         {/* Desktop Navigation - Centered */}
-        <NavigationMenu className="hidden lg:flex lg:absolute lg:left-1/2 lg:-translate-x-1/2">
+        <NavigationMenu className="site-header__navigation hidden lg:flex lg:absolute lg:left-1/2 lg:-translate-x-1/2">
           <NavigationMenuList className="gap-0.5">
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isExploreActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                className={`${isExploreActive ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
               >
                 <Link to="/explore">Explore</Link>
               </NavigationMenuLink>
@@ -190,12 +192,12 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isBrowseActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                className={`${isBrowseActive ? 'is-active' : ''} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
               >
                 Browse
               </NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <div className="grid w-[640px] grid-cols-2 gap-2 p-3">
+              <NavigationMenuContent className="site-header__menu-content">
+                <div className="site-header__menu-grid grid w-[640px] grid-cols-2 gap-2 p-3">
                   {browseLinks.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -206,14 +208,14 @@ const Header = () => {
                       >
                         <Link
                           to={item.href}
-                          className="flex rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-surface)] p-4 transition-all duration-200 hover:border-[color:var(--ex-brand-accent)]/40 hover:bg-[color:var(--ex-surface-high)]"
+                          className="site-header__menu-card flex rounded-xl p-4 transition-all duration-200"
                         >
-                          <div className="mr-3.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-brand-accent)]">
+                          <div className="site-header__menu-icon mr-3.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg">
                             <Icon className="h-4 w-4" />
                           </div>
                           <div>
-                            <p className="mb-0.5 text-[14px] font-semibold text-[color:var(--ex-text)]">{item.title}</p>
-                            <p className="text-[13px] leading-5 text-[color:var(--ex-text-muted)]">{item.description}</p>
+                            <p className="site-header__menu-title mb-0.5 text-[14px] font-semibold">{item.title}</p>
+                            <p className="site-header__menu-description text-[13px] leading-5">{item.description}</p>
                           </div>
                         </Link>
                       </NavigationMenuLink>
@@ -225,12 +227,12 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isPostActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                className={`${isPostActive ? 'is-active' : ''} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
               >
                 Sell
               </NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <div className="grid w-[420px] gap-1.5 p-3">
+              <NavigationMenuContent className="site-header__menu-content">
+                <div className="site-header__menu-grid site-header__menu-grid--sell grid w-[420px] gap-1.5 p-3">
                   {user && !dealerCanPost && (
                     <div className="mb-1 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-700 dark:text-amber-200">
                       Admin verification required before you can post.{' '}
@@ -241,10 +243,10 @@ const Header = () => {
                     <NavigationMenuLink key={item.href} asChild className="rounded-xl p-0">
                       <Link
                         to={item.href}
-                        className={`flex items-center justify-between rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-surface)] px-4 py-3 transition-all duration-200 ${
+                        className={`site-header__menu-card site-header__menu-card--compact flex items-center justify-between rounded-xl px-4 py-3 transition-all duration-200 ${
                           item.disabled
-                            ? 'cursor-not-allowed text-[color:var(--ex-text-muted)] hover:border-[color:var(--ex-line)] hover:bg-[color:var(--ex-surface)]'
-                            : 'text-[color:var(--ex-text-muted)] hover:border-[color:var(--ex-brand-accent)]/40 hover:bg-[color:var(--ex-surface-high)] hover:text-[color:var(--ex-text)]'
+                            ? 'is-disabled cursor-not-allowed'
+                            : ''
                         }`}
                       >
                         <span className="text-[14px] font-medium">{item.title}</span>
@@ -259,7 +261,7 @@ const Header = () => {
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isResourcesActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                    className={`${isResourcesActive ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
               >
                 <Link to="/about">About</Link>
               </NavigationMenuLink>
@@ -270,14 +272,14 @@ const Header = () => {
                 {user?.is_dealer && user?.dealer_verified ? (
                   <NavigationMenuLink
                     asChild
-                    className={`${location.pathname.startsWith('/dealer') ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                    className={`${location.pathname.startsWith('/dealer') ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
                   >
                     <Link to="/dealer/dashboard">Dealer Panel</Link>
                   </NavigationMenuLink>
                 ) : (
                   <NavigationMenuLink
                     asChild
-                    className={`${location.pathname === '/my-listings' ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
+                    className={`${location.pathname === '/my-listings' ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
                   >
                     <Link to="/my-listings">My Listings</Link>
                   </NavigationMenuLink>
@@ -293,7 +295,7 @@ const Header = () => {
             type="button"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="flex size-9 items-center justify-center rounded-full border border-[color:var(--ex-line)] bg-transparent text-[color:var(--ex-text-muted)] transition-all duration-200 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
+            className="site-header__icon-button flex size-9 items-center justify-center rounded-full bg-transparent transition-all duration-200"
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
@@ -313,7 +315,7 @@ const Header = () => {
               </Button>
               <Button
                 asChild
-                className="rounded-full bg-gradient-to-r from-[color:var(--ex-brand-accent)] to-[color:var(--ex-primary-strong)] px-5 py-2 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] transition-all duration-200 hover:from-[color:var(--ex-brand-accent)]/90 hover:to-[color:var(--ex-primary-strong)]/95 hover:shadow-[0_6px_24px_rgba(139,214,180,0.3)]"
+                className="site-header__primary-button rounded-full px-5 py-2 text-[14px] font-semibold transition-all duration-200"
               >
                 <Link to="/signup">Sign Up</Link>
               </Button>
@@ -328,14 +330,14 @@ const Header = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full border border-[color:var(--ex-line)] bg-transparent text-[color:var(--ex-text)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
+            className="site-header__icon-button rounded-full bg-transparent"
             >
               <MenuIcon className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent
             side="top"
-            className="max-h-screen overflow-auto border-b border-[color:var(--ex-line)] text-[color:var(--ex-text)]"
+            className="site-header__mobile-panel max-h-screen overflow-auto border-b text-[color:var(--ex-text)]"
             // bg-[color:var(--ex-page-bg)]/98 compiled to nothing (same
             // opacity-modifier-on-CSS-var limitation as headerSurfaceStyle
             // above) leaving the mobile menu fully transparent over the
@@ -344,13 +346,13 @@ const Header = () => {
             // (that only accepts single colors) — plain `background`
             // shorthand is the one form that accepts both the light theme's
             // solid color and the dark theme's gradient.
-            style={{ background: 'var(--ex-page-bg)' }}
+            style={{ background: 'var(--dph-header-mobile-surface)' }}
           >
             <SheetHeader>
               <SheetTitle>
                 <Link to="/" onClick={handleHomeNavigation} className="flex items-center gap-3 text-left text-[color:var(--ex-text)]">
                   <span className="text-[1.2rem] font-bold tracking-[-0.03em] text-[color:var(--ex-text)]">
-            DPH<span className={accentText}>Classifieds</span>
+            DPH<span className={`site-header__brand-accent ${accentText}`}>Classifieds</span>
                   </span>
                 </Link>
               </SheetTitle>
@@ -370,14 +372,14 @@ const Header = () => {
                           <Link
                             key={item.href}
                             to={item.href}
-                            className="flex items-start gap-3 rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-brand-accent)]/10 px-4 py-3 transition-colors hover:bg-[color:var(--ex-brand-accent)]/10"
+                            className="site-header__mobile-card flex items-start gap-3 rounded-xl px-4 py-3 transition-colors"
                           >
-                            <div className="mt-0.5 rounded-lg bg-[color:var(--ex-brand-accent)]/15 p-2 text-[color:var(--ex-brand-accent)]">
+                            <div className="site-header__menu-icon mt-0.5 rounded-lg p-2">
                               <Icon className="h-4 w-4" />
                             </div>
                             <div>
-                              <p className="font-medium text-[color:var(--ex-text)]">{item.title}</p>
-                              <p className="text-sm text-[color:var(--ex-text-muted)]">{item.description}</p>
+                              <p className="site-header__menu-title font-medium">{item.title}</p>
+                              <p className="site-header__menu-description text-sm">{item.description}</p>
                             </div>
                           </Link>
                         );
@@ -481,7 +483,7 @@ const Header = () => {
                     </Button>
                     <Button
                       asChild
-                      className="w-full justify-center rounded-full bg-gradient-to-r from-[color:var(--ex-brand-accent)] to-[color:var(--ex-primary-strong)] py-3 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] hover:from-[color:var(--ex-brand-accent)]/90 hover:to-[color:var(--ex-primary-strong)]/95"
+                      className="site-header__primary-button w-full justify-center rounded-full py-3 text-[14px] font-semibold"
                     >
                       <Link to="/signup">
                         <Plus className="mr-2 h-4 w-4" />

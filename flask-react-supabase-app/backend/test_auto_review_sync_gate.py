@@ -153,10 +153,45 @@ class PartSyncGateTests(unittest.TestCase):
         )
         self.assertTrue(result.ok, msg=result.missing)
 
-    def test_bad_condition(self):
+    def test_one_part_photo_matches_posting_api_contract(self):
+        result = validate_required_fields(
+            "part", VALID_PART, photo_count=1, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertTrue(result.ok, msg=result.missing)
+
+    def test_frontend_refurbished_condition_is_allowed(self):
         listing = {**VALID_PART, "condition": "Refurbished"}
         result = validate_required_fields(
             "part", listing, photo_count=2, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertTrue(result.ok, msg=result.missing)
+
+    def test_frontend_optional_description_is_allowed(self):
+        listing = {key: value for key, value in VALID_PART.items() if key != "description"}
+        result = validate_required_fields(
+            "part", listing, photo_count=2, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertTrue(result.ok, msg=result.missing)
+
+    def test_all_frontend_part_conditions_are_allowed(self):
+        for condition in ("New", "Like New", "Used", "Refurbished"):
+            with self.subTest(condition=condition):
+                result = validate_required_fields(
+                    "part",
+                    {**VALID_PART, "condition": condition},
+                    photo_count=2,
+                    min_year=MIN_YEAR,
+                    max_year=MAX_YEAR,
+                )
+                self.assertTrue(result.ok, msg=result.missing)
+
+    def test_unknown_condition_is_rejected(self):
+        result = validate_required_fields(
+            "part",
+            {**VALID_PART, "condition": "Damaged"},
+            photo_count=2,
+            min_year=MIN_YEAR,
+            max_year=MAX_YEAR,
         )
         self.assertIn("condition", result.missing)
 

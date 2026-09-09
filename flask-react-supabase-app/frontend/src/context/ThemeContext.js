@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useLayoutEffect, useState } from 'react';
 
 const STORAGE_KEY = 'dph-theme';
 const ThemeContext = createContext({ theme: 'dark', toggleTheme: () => {} });
@@ -17,8 +17,10 @@ const getInitialTheme = () => {
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(getInitialTheme);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    root.style.colorScheme = theme;
   }, [theme]);
 
   const toggleTheme = () => {

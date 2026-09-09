@@ -16,6 +16,7 @@
     radial-gradient(circle at top center, color-mix(in srgb, var(--ex-shell-accent) 14%, transparent), transparent 34%),
     linear-gradient(180deg, #06130b 0%, #030806 100%);
   color: var(--cn-text);
+  min-height: 100%;
 }
 
 .cn-shell {
@@ -88,18 +89,26 @@
 
 .cn-hero {
   position: relative;
-  min-height: calc(100vh - 60px);
+  /* Match the shared fixed-header spacer so the hero has no viewport seam
+     or extra blank band between the header and the next section. */
+  min-height: calc(100vh - var(--dph-header-height, 68px));
+  min-height: calc(100svh - var(--dph-header-height, 68px));
   display: flex;
   flex-direction: column;
   justify-content: center;
   overflow: hidden;
-  padding: 72px 0 96px;
+  padding: 56px 0 72px;
 }
 
 .cn-hero-media,
 .cn-cta-media {
   position: absolute;
   inset: 0;
+}
+
+.cn-hero-media {
+  background: var(--cn-bg);
+  overflow: hidden;
 }
 
 .cn-hero-3d {
@@ -125,10 +134,14 @@
 }
 
 .cn-hero-image {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
+  max-width: none;
   object-fit: cover;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: auto;
 }
 
 .cn-cta-image {
@@ -865,8 +878,9 @@
   }
 
   .cn-hero {
-    min-height: auto;
-    padding: 52px 0 72px;
+  min-height: calc(100vh - var(--dph-header-height, 68px));
+  min-height: calc(100svh - var(--dph-header-height, 68px));
+    padding: 40px 0 56px;
   }
 
   .cn-hero-3d {
@@ -885,7 +899,7 @@
 
 @media (max-width: 640px) {
   .cn-hero {
-    padding-bottom: 64px;
+    padding: 32px 0 48px;
   }
 
   .cn-display-title {

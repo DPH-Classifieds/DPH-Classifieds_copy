@@ -1,0 +1,90 @@
+.shell-status-banner {
+  width: 100%;
+  border-bottom: 1px solid color-mix(in srgb, var(--ex-primary, #0b6b4c) 24%, var(--ex-border, #d8e2dc));
+  background: color-mix(in srgb, var(--ex-primary, #0b6b4c) 9%, var(--ex-surface, #ffffff));
+}
+
+.shell-status-banner__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 10px 20px;
+}
+
+.shell-status-banner__copy {
+  color: color-mix(in srgb, var(--ex-text, #122019) 84%, var(--ex-primary, #0b6b4c));
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.shell-status-banner--dealer {
+  border-bottom-color: color-mix(in srgb, #0284c7 28%, var(--ex-border, #d8e2dc));
+  background: color-mix(in srgb, #0284c7 8%, var(--ex-surface, #ffffff));
+}
+
+.shell-status-banner--dealer .shell-status-banner__copy {
+  color: color-mix(in srgb, var(--ex-text, #122019) 80%, #0284c7);
+}
+
+.shell-status-banner__action {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--ex-primary, #0b6b4c) 32%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ex-primary, #0b6b4c) 10%, transparent);
+  color: var(--ex-primary, #0b6b4c);
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 650;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.shell-status-banner__action:hover {
+  border-color: color-mix(in srgb, var(--ex-primary, #0b6b4c) 52%, transparent);
+  background: color-mix(in srgb, var(--ex-primary, #0b6b4c) 18%, transparent);
+}
+
+.shell-status-banner--dealer .shell-status-banner__action {
+  border-color: color-mix(in srgb, #0284c7 34%, transparent);
+  background: color-mix(in srgb, #0284c7 10%, transparent);
+  color: color-mix(in srgb, var(--ex-text, #122019) 74%, #0284c7);
+}
+
+@media (min-width: 640px) {
+  .shell-status-banner__inner {
+    padding-right: 32px;
+    padding-left: 32px;
+  }
+}
+
+html.dark .shell-status-banner {
+  border-bottom-color: color-mix(in srgb, var(--ex-primary, #79c99f) 24%, transparent);
+  background: color-mix(in srgb, var(--ex-primary, #79c99f) 10%, var(--ex-surface, #101615));
+}
+
+html.dark .shell-status-banner__copy {
+  color: color-mix(in srgb, var(--ex-text, #f2f7f3) 86%, var(--ex-primary, #79c99f));
+}
+
+html.dark .shell-status-banner--dealer {
+  border-bottom-color: color-mix(in srgb, #38bdf8 26%, transparent);
+  background: color-mix(in srgb, #38bdf8 10%, var(--ex-surface, #101615));
+}
+
+html.dark .shell-status-banner--dealer .shell-status-banner__copy,
+html.dark .shell-status-banner--dealer .shell-status-banner__action {
+  color: color-mix(in srgb, var(--ex-text, #f2f7f3) 84%, #38bdf8);
+}
+
+@media (max-width: 639px) {
+  .shell-status-banner__inner {
+    align-items: flex-start;
+    padding: 10px 20px;
+  }
+
+  .shell-status-banner__copy {
+    line-height: 1.35;
+  }
+}

@@ -1205,7 +1205,7 @@ const AccountSettings = () => {
 
                 <div className="form-group">
                   <label>Required Documents</label>
-                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                  <p className="dealer-documents-help">
                     Upload all three documents to activate your dealer account. Accepted: JPG, PNG, PDF (max 10MB each).
                   </p>
 
@@ -1216,34 +1216,22 @@ const AccountSettings = () => {
                   ].map(({ type, label, icon }) => {
                     const doc = dealerDocuments.find(d => d.document_type === type);
                     const statusColors = {
-                      pending: { bg: '#fbbf24', text: '#000', label: 'Pending Review' },
-                      approved: { bg: '#22c55e', text: '#000', label: 'Approved' },
-                      denied: { bg: '#ef4444', text: '#fff', label: 'Denied' },
+                      pending: { label: 'Pending Review' },
+                      approved: { label: 'Approved' },
+                      denied: { label: 'Denied' },
                     };
                     const status = doc ? statusColors[doc.status] : null;
 
                     return (
-                      <div
-                        key={type}
-                        style={{
-                          marginBottom: 12,
-                          padding: '12px 14px',
-                          borderRadius: 10,
-                          border: `1px solid ${status ? (doc.status === 'approved' ? 'rgba(34,197,94,0.3)' : doc.status === 'denied' ? 'rgba(239,68,68,0.3)' : 'rgba(251,191,36,0.3)') : 'rgba(255,255,255,0.1)'}`,
-                          background: 'rgba(255,255,255,0.03)',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: doc ? 8 : 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 18 }}>{icon}</span>
-                            <span style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>{label}</span>
+                      <div key={type} className={`dealer-document-card ${doc ? `is-${doc.status}` : ''}`}>
+                        <div className={`dealer-document-head ${doc ? 'has-document' : ''}`}>
+                          <div className="dealer-document-label">
+                            <span className="dealer-document-icon" aria-hidden="true">{icon}</span>
+                            <span>{label}</span>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div className="dealer-document-actions">
                             {status && (
-                              <span style={{
-                                fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 12,
-                                background: status.bg, color: status.text,
-                              }}>
+                              <span className={`dealer-document-status is-${doc.status}`}>
                                 {status.label}
                               </span>
                             )}
@@ -1258,11 +1246,7 @@ const AccountSettings = () => {
                               type="button"
                               onClick={() => docInputRefs[type].current?.click()}
                               disabled={uploadingDocType === type}
-                              style={{
-                                background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
-                                color: '#a5b4fc', padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
-                                fontSize: 12, fontWeight: 500,
-                              }}
+                              className="dealer-document-upload"
                             >
                               {uploadingDocType === type ? 'Uploading...' : doc ? 'Replace' : 'Upload'}
                             </button>
@@ -1270,24 +1254,24 @@ const AccountSettings = () => {
                         </div>
 
                         {doc && (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ minWidth: 0 }}>
+                          <div className="dealer-document-file">
+                            <div className="dealer-document-file-meta">
                               <a
                                 href={doc.download_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ fontSize: 12, color: '#8bd6b4', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+                                className="dealer-document-link"
                               >
                                 {doc.filename}
                               </a>
-                              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                              <span className="dealer-document-meta">
                                 Uploaded {new Date(doc.uploaded_at).toLocaleDateString()}
                               </span>
                             </div>
                             <button
                               type="button"
                               onClick={() => handleDocumentDelete(doc.id)}
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4, fontSize: 13 }}
+                              className="dealer-document-remove"
                             >
                               Remove
                             </button>
@@ -1295,10 +1279,10 @@ const AccountSettings = () => {
                         )}
 
                         {doc?.status === 'denied' && doc.denial_reason && (
-                          <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                            <p style={{ margin: 0, fontSize: 12, color: '#fca5a5' }}><strong>Reason:</strong> {doc.denial_reason}</p>
+                          <div className="dealer-document-denial">
+                            <p><strong>Reason:</strong> {doc.denial_reason}</p>
                             {doc.denial_fix && (
-                              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#fbbf24' }}><strong>How to fix:</strong> {doc.denial_fix}</p>
+                              <p className="dealer-document-fix"><strong>How to fix:</strong> {doc.denial_fix}</p>
                             )}
                           </div>
                         )}

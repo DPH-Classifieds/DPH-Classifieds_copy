@@ -666,4 +666,157 @@
     padding: 0.75rem 1rem;
     min-height: 48px;
   }
-} 
+}
+
+/* -------------------------------------------------------------------------
+   Public navigation shell
+
+   Header.js now uses these explicit shell classes for the Radix viewport and
+   menu cards. Keeping the panel surfaces here prevents the generic shadcn
+   popover colors from turning into low-contrast white-on-white menus in light
+   mode, while the dark palette stays charcoal instead of mint-washed.
+   ------------------------------------------------------------------------- */
+
+.site-header {
+  min-height: var(--dph-header-height);
+  color: var(--dph-header-text);
+  border-bottom-color: var(--dph-header-line) !important;
+  box-shadow: 0 10px 32px color-mix(in srgb, var(--dph-header-shadow) 12%, transparent);
+}
+
+.site-header__navigation {
+  color: var(--dph-header-text);
+}
+
+.site-header__brand-accent {
+  color: var(--dph-header-accent) !important;
+}
+
+.site-header__primary-button {
+  color: var(--dph-header-on-accent) !important;
+  background: linear-gradient(135deg, var(--dph-header-accent) 0%, var(--dph-header-accent-deep) 100%) !important;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--dph-header-shadow) 48%, transparent);
+}
+
+.site-header__primary-button:hover,
+.site-header__primary-button:focus-visible {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dph-header-shadow) 64%, transparent);
+}
+
+.site-header__nav-link,
+.site-header__navigation [data-radix-navigation-menu-trigger] {
+  color: var(--dph-header-text-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent;
+}
+
+.site-header__nav-link:hover,
+.site-header__nav-link:focus-visible,
+.site-header__navigation [data-radix-navigation-menu-trigger]:hover,
+.site-header__navigation [data-radix-navigation-menu-trigger]:focus-visible,
+.site-header__navigation [data-state='open'] {
+  color: var(--dph-header-text) !important;
+  background: var(--dph-header-accent-soft) !important;
+  border-color: var(--dph-header-line);
+}
+
+.site-header__nav-link.is-active {
+  color: var(--dph-header-text) !important;
+  background: var(--dph-header-accent-soft) !important;
+  border-color: var(--dph-header-line);
+}
+
+.site-header__nav-link svg,
+.site-header__navigation [data-radix-navigation-menu-trigger] svg {
+  color: var(--dph-header-accent);
+}
+
+.site-header [data-radix-navigation-menu-viewport] {
+  background: var(--dph-header-panel) !important;
+  color: var(--dph-header-text) !important;
+  border: 1px solid var(--dph-header-line-strong) !important;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--dph-header-shadow) 80%, transparent) !important;
+}
+
+.site-header__menu-content {
+  color: var(--dph-header-text);
+}
+
+.site-header__menu-card {
+  color: var(--dph-header-text) !important;
+  background: var(--dph-header-panel-raised) !important;
+  border: 1px solid var(--dph-header-line) !important;
+}
+
+.site-header__menu-card:hover,
+.site-header__menu-card:focus-visible {
+  background: var(--dph-header-accent-soft) !important;
+  border-color: color-mix(in srgb, var(--dph-header-accent) 42%, var(--dph-header-line-strong)) !important;
+  outline: none;
+}
+
+.site-header__menu-card.is-disabled {
+  color: var(--dph-header-text-muted) !important;
+  opacity: 0.72;
+}
+
+.site-header__menu-icon {
+  background: var(--dph-header-accent-soft);
+  color: var(--dph-header-accent);
+}
+
+.site-header__menu-title {
+  color: var(--dph-header-text);
+}
+
+.site-header__menu-description {
+  color: var(--dph-header-text-muted);
+}
+
+.site-header__icon-button {
+  color: var(--dph-header-text-muted) !important;
+  border: 1px solid var(--dph-header-line) !important;
+}
+
+.site-header__icon-button:hover,
+.site-header__icon-button:focus-visible {
+  color: var(--dph-header-text) !important;
+  background: var(--dph-header-accent-soft) !important;
+  border-color: var(--dph-header-line-strong) !important;
+}
+
+.site-header__mobile-panel {
+  color: var(--dph-header-text) !important;
+  border-color: var(--dph-header-line-strong) !important;
+}
+
+.site-header__mobile-panel [data-radix-accordion-item] {
+  border-color: var(--dph-header-line) !important;
+}
+
+.site-header__mobile-card {
+  color: var(--dph-header-text) !important;
+  background: var(--dph-header-panel-raised) !important;
+  border: 1px solid var(--dph-header-line) !important;
+}
+
+.site-header__mobile-card:hover,
+.site-header__mobile-card:focus-visible {
+  background: var(--dph-header-accent-soft) !important;
+  border-color: color-mix(in srgb, var(--dph-header-accent) 42%, var(--dph-header-line-strong)) !important;
+}
+
+@media (max-width: 1023px) {
+  .site-header {
+    min-height: var(--dph-header-height);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header,
+  .site-header * {
+    transition-duration: 0.01ms !important;
+  }
+}

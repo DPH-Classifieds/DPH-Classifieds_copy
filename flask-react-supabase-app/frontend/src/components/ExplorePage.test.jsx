@@ -82,6 +82,16 @@ const renderPage = () => render(
 );
 
 describe('ExplorePage feed rendering', () => {
+  it('keeps the feed in document flow with a window-scroll sentinel', async () => {
+    const { container } = renderPage();
+
+    await waitFor(() => expect(screen.getAllByTestId('listing-card')).toHaveLength(TOTAL_ALL_MODE));
+
+    expect(container.querySelector('.explore-v2-results-scroll')).not.toBeInTheDocument();
+    expect(container.querySelector('.explore-v2-listing-grid')).toBeInTheDocument();
+    expect(container.querySelector('.explore-v2-sentinel')).toBeInTheDocument();
+  });
+
   it('renders the full loaded+filtered dataset in the listing grid', async () => {
     renderPage();
 

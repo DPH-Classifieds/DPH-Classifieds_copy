@@ -19,7 +19,6 @@ import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import PostHogPageview from './components/PostHogPageview';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
-import AnnouncementBanner from './components/AnnouncementBanner';
 import { ChunkLoadErrorBoundary, ChunkLoadRecovery } from './components/ChunkLoadGuard';
 import './App.css';
 import './styles/UAELicensePlate.css';
@@ -282,7 +281,6 @@ function App() {
             <SiteChrome>
               <Header />
               <div className="header-spacer" />
-              <AnnouncementBanner />
               <DealerPendingBanner />
               <UsernameRequiredBanner />
               <SavedListingsNotice />

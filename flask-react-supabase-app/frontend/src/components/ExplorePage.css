@@ -72,15 +72,14 @@
 }
 
 .explore-v2 {
-  min-height: 100vh;
-  /* The fixed header already reserves its own height via .header-spacer
-     (App.css) — the old 96px top padding stacked on top of it and pushed the
-     first listing photos ~half a viewport down. Keep a small breathing gap
-     so the page reads as one continuous surface from navbar to grid. */
-  padding: 20px 0 96px;
+  min-height: 100%;
+  /* MainArea already follows the fixed header's .header-spacer. Keep this
+     page in normal document flow so the window owns vertical scrolling. */
+  padding: 16px 0 72px;
   background: var(--ex-page-bg);
   color: var(--ex-text);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: visible;
   transition: background-color 180ms ease, color 180ms ease;
 }
 
@@ -115,7 +114,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding-top: 8px;
+  min-height: 44px;
 }
 
 .explore-v2-pageheader h1 {
@@ -348,10 +347,10 @@
 /* ── Listing grid (Explore's own — do not confuse with the legacy
    .explore-v2-grid rule below, which CarList.jsx depends on directly) ──── */
 .explore-v2-listing-grid {
-  margin-top: 14px;
+  margin-top: 18px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 @media (min-width: 700px) {
@@ -988,6 +987,10 @@
   margin-top: 8px;
 }
 
+.explore-v2-page-tabs {
+  margin-top: 16px;
+}
+
 .explore-v2-show-more {
   margin: 24px auto 0;
   display: flex;
@@ -1010,13 +1013,12 @@
      showed. A browse page should read as one immediately, the way a
      native app's search results do. */
   .explore-v2 {
-    padding-top: 18px;
-    padding-bottom: 48px;
+    padding-top: 12px;
+    padding-bottom: 40px;
   }
 
   .explore-v2-pageheader {
-    gap: 10px;
-    padding-top: 0;
+    gap: 8px;
   }
 
   .explore-v2-pageheader p {
@@ -1036,7 +1038,7 @@
   }
 
   .explore-v2-searchrow {
-    margin-top: 14px;
+    margin-top: 12px;
   }
 
   .explore-v2-searchrow .search-bar {
@@ -1074,7 +1076,12 @@
      fit a ~half-screen column without awkward wrapping. */
   .explore-v2-listing-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .explore-v2-page-tabs {
+    margin-top: 12px;
   }
 
   .explore-v2-listing-grid .explore-v2-card-copy {

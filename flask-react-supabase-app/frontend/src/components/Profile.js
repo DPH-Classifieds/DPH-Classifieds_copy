@@ -234,9 +234,9 @@ const Profile = () => {
                 </div>
 
                 {userData?.is_dealer && !userData?.dealer_verified && (
-                  <div className="profile-verification-callout" style={{ borderColor: 'rgba(56,189,248,0.3)', background: 'rgba(56,189,248,0.08)' }}>
-                    <p style={{ color: '#38bdf8' }}>Verifying your documents…</p>
-                    <p style={{ fontSize: '13px', opacity: 0.7, marginTop: 4 }}>
+                  <div className="profile-verification-callout is-document-verifying">
+                    <p className="verification-callout-title">Verifying your documents…</p>
+                    <p className="verification-callout-copy">
                       This usually takes under a minute. No action needed from you.
                     </p>
                     {userData?.dealer_verification_requested_at && (

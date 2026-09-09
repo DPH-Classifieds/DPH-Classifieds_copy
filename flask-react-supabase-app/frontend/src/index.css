@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
   /* shadcn/ui CSS variables — light values are the default. The site theme
      is toggle-driven (ThemeContext flips .dark on <html>), so dark values
      live in the .dark block below and never leak into light mode. */
@@ -65,6 +66,7 @@
    Same specificity as :root and placed later, so these win whenever the
    toggle is dark — and light mode never sees dark surfaces. */
 .dark {
+  color-scheme: dark;
   --background: 0 0% 7%;
   --foreground: 0 0% 98%;
 
@@ -108,7 +110,7 @@ html {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
-  background-color: var(--ex-page-bg);
+  background: var(--ex-page-bg);
   color: var(--ex-text);
   line-height: 1.47;
   letter-spacing: -0.374px;

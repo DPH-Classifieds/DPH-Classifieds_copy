@@ -1229,3 +1229,136 @@
 .crop-modal-actions .btn-primary:hover {
   background: #02572f;
 }
+
+/* Consumer account theme contract. Keep these values on the consumer tokens;
+   portal tokens are intentionally dark and must never style this surface. */
+.account-settings-container {
+  --settings-card: var(--ex-surface);
+  --settings-soft: var(--ex-surface-high);
+  --settings-low: var(--ex-surface-low);
+  --settings-text: var(--ex-text);
+  --settings-muted: var(--ex-text-muted);
+  --settings-line: var(--ex-line);
+  --settings-line-strong: var(--ex-line-strong);
+  --settings-accent: var(--ex-brand-accent);
+  width: min(1180px, calc(100% - 32px));
+  max-width: none;
+  margin: 0 auto;
+  padding: 28px 0 96px;
+  background: var(--ex-page-bg);
+  color: var(--settings-text);
+}
+
+.account-settings-container .settings-header,
+.account-settings-container .settings-tabs,
+.account-settings-container .settings-content,
+.account-settings-container .form-section,
+.account-settings-container .profile-photo-section,
+.account-settings-container .account-details,
+.account-settings-container .completion-indicator,
+.account-settings-container .verification-notice {
+  background: var(--settings-card);
+  border: 1px solid var(--settings-line);
+  color: var(--settings-text);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--ex-overlay-scrim) 7%, transparent);
+}
+
+.account-settings-container .settings-header { padding: 26px; border-radius: 24px; text-align: left; }
+.account-settings-container .settings-header h1,
+.account-settings-container .tab-content h2,
+.account-settings-container .form-section h3,
+.account-settings-container .account-info-section h3,
+.account-settings-container .danger-zone h3,
+.account-settings-container .danger-content h4 { color: var(--settings-text); }
+.account-settings-container .settings-header p,
+.account-settings-container .completion-indicator-note,
+.account-settings-container .photo-help-text,
+.account-settings-container .form-text,
+.account-settings-container .danger-content p { color: var(--settings-muted); }
+
+.account-settings-container .settings-tabs { padding: 8px; gap: 8px; border-radius: 20px; }
+.account-settings-container .tab-button { border: 0; border-radius: 14px; background: transparent; color: var(--settings-muted); }
+.account-settings-container .tab-button:hover { background: color-mix(in srgb, var(--settings-accent) 10%, var(--settings-soft)); color: var(--settings-text); }
+.account-settings-container .tab-button.active { background: var(--settings-accent); color: #fff; border: 0; }
+.account-settings-container .settings-content { padding: 26px; border-radius: 24px; }
+.account-settings-container .tab-content h2 { margin-top: 0; border-color: var(--settings-line); }
+.account-settings-container .form-section { padding: 22px; border-radius: 18px; }
+
+.account-settings-container .profile-photo-section,
+.account-settings-container .account-details,
+.account-settings-container .verification-notice { background: var(--settings-soft); border-radius: 16px; }
+.account-settings-container .profile-photo-section { border-style: dashed; }
+.account-settings-container .no-photo-placeholder { background: var(--settings-low); color: var(--settings-muted); }
+.account-settings-container .form-group label,
+.account-settings-container .info-label,
+.account-settings-container .checkbox-label strong { color: var(--settings-text); }
+.account-settings-container .form-group input,
+.account-settings-container .form-group select,
+.account-settings-container .form-group textarea,
+.account-settings-container .country-code-select,
+.account-settings-container .phone-number-input { color-scheme: light; background: var(--settings-soft); color: var(--settings-text); border: 1px solid var(--settings-line-strong); }
+.dark .account-settings-container .form-group input,
+.dark .account-settings-container .form-group select,
+.dark .account-settings-container .form-group textarea,
+.dark .account-settings-container .country-code-select,
+.dark .account-settings-container .phone-number-input { color-scheme: dark; }
+.account-settings-container .form-group input::placeholder,
+.account-settings-container .form-group textarea::placeholder { color: var(--settings-muted); opacity: 0.82; }
+.account-settings-container .form-group input:focus-visible,
+.account-settings-container .form-group select:focus-visible,
+.account-settings-container .form-group textarea:focus-visible,
+.account-settings-container .country-code-select:focus-visible,
+.account-settings-container .phone-number-input:focus-visible { outline: 2px solid var(--settings-accent); outline-offset: 2px; border-color: var(--settings-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--settings-accent) 16%, transparent); }
+.account-settings-container .form-group select option { background: var(--settings-card); color: var(--settings-text); }
+.account-settings-container .info-row { border-color: var(--settings-line); }
+.account-settings-container .info-value { color: var(--settings-text); }
+.account-settings-container .phone-status-pill.is-verified { background: color-mix(in srgb, #16a34a 12%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #15803d 18%); }
+.account-settings-container .phone-status-pill.needs-verification { background: color-mix(in srgb, #d97706 10%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #b45309 18%); }
+
+.account-settings-container .checkbox-label { background: var(--settings-soft); border-color: var(--settings-line); color: var(--settings-text); }
+.account-settings-container .btn-primary { background: linear-gradient(135deg, var(--settings-accent), var(--ex-primary-strong)); color: #fff; }
+.account-settings-container .btn-secondary,
+.account-settings-container .btn-outline { background: color-mix(in srgb, var(--settings-accent) 9%, var(--settings-soft)); color: var(--settings-text); border: 1px solid color-mix(in srgb, var(--settings-accent) 26%, var(--settings-line)); }
+.account-settings-container .btn-danger { background: color-mix(in srgb, #dc2626 12%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #b91c1c 18%); border: 1px solid color-mix(in srgb, #dc2626 25%, var(--settings-line)); }
+.account-settings-container .alert-success { background: color-mix(in srgb, #16a34a 10%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #15803d 18%); border-color: color-mix(in srgb, #16a34a 24%, var(--settings-line)); }
+.account-settings-container .alert-danger { background: color-mix(in srgb, #dc2626 9%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #b91c1c 18%); border-color: color-mix(in srgb, #dc2626 24%, var(--settings-line)); }
+.account-settings-container .alert-warning { background: color-mix(in srgb, #d97706 10%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #b45309 18%); border-color: color-mix(in srgb, #d97706 24%, var(--settings-line)); }
+.account-settings-container .danger-zone { background: color-mix(in srgb, #dc2626 5%, var(--settings-card)); border-color: color-mix(in srgb, #dc2626 28%, var(--settings-line)); }
+
+.dealer-documents-help { margin: 0 0 8px; color: var(--settings-muted); font-size: 0.82rem; line-height: 1.55; }
+.dealer-document-card { margin-bottom: 12px; padding: 12px 14px; border: 1px solid var(--settings-line); border-radius: 12px; background: var(--settings-soft); }
+.dealer-document-card.is-pending { border-color: color-mix(in srgb, #d97706 30%, var(--settings-line)); }
+.dealer-document-card.is-approved { border-color: color-mix(in srgb, #16a34a 30%, var(--settings-line)); }
+.dealer-document-card.is-denied { border-color: color-mix(in srgb, #dc2626 30%, var(--settings-line)); }
+.dealer-document-head, .dealer-document-file { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dealer-document-head.has-document { margin-bottom: 8px; }
+.dealer-document-label, .dealer-document-actions { display: flex; align-items: center; gap: 8px; }
+.dealer-document-label { min-width: 0; color: var(--settings-text); font-size: 0.88rem; font-weight: 600; }
+.dealer-document-icon { font-size: 1.1rem; }
+.dealer-document-status { padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+.dealer-document-status.is-pending { background: color-mix(in srgb, #d97706 18%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #b45309 18%); }
+.dealer-document-status.is-approved { background: color-mix(in srgb, #16a34a 18%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #15803d 18%); }
+.dealer-document-status.is-denied { background: color-mix(in srgb, #dc2626 16%, var(--settings-card)); color: color-mix(in srgb, var(--settings-text) 82%, #b91c1c 18%); }
+.dealer-document-upload { padding: 5px 10px; border: 1px solid color-mix(in srgb, var(--settings-accent) 30%, var(--settings-line)); border-radius: 7px; background: color-mix(in srgb, var(--settings-accent) 12%, var(--settings-soft)); color: var(--settings-text); font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.dealer-document-upload:hover { background: color-mix(in srgb, var(--settings-accent) 20%, var(--settings-soft)); }
+.dealer-document-file-meta { min-width: 0; }
+.dealer-document-link { display: block; overflow: hidden; color: var(--settings-accent); font-size: 0.78rem; text-decoration: underline; text-overflow: ellipsis; white-space: nowrap; }
+.dealer-document-meta { color: var(--settings-muted); font-size: 0.7rem; }
+.dealer-document-remove { padding: 4px; border: 0; background: transparent; color: color-mix(in srgb, var(--settings-text) 82%, #b91c1c 18%); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.dealer-document-denial { margin-top: 8px; padding: 8px 10px; border: 1px solid color-mix(in srgb, #dc2626 24%, var(--settings-line)); border-radius: 8px; background: color-mix(in srgb, #dc2626 8%, var(--settings-card)); }
+.dealer-document-denial p { margin: 0; color: color-mix(in srgb, var(--settings-text) 82%, #b91c1c 18%); font-size: 0.75rem; }
+.dealer-document-denial .dealer-document-fix { margin-top: 4px; color: color-mix(in srgb, var(--settings-text) 82%, #b45309 18%); }
+
+.crop-modal { background: var(--settings-card); border-color: var(--settings-line-strong); }
+.crop-modal-header h3, .crop-modal-header p, .crop-zoom-label { color: var(--settings-text); }
+.crop-modal-header p, .crop-zoom-label { color: var(--settings-muted); }
+.crop-container { background: var(--settings-low); }
+.crop-modal-actions .btn-secondary { background: var(--settings-soft); color: var(--settings-text); border-color: var(--settings-line); }
+.crop-modal-actions .btn-primary { background: var(--settings-accent); color: #fff; border-color: var(--settings-accent); }
+
+@media (max-width: 768px) {
+  .account-settings-container { width: min(100% - 24px, 1180px); padding: 22px 0 80px; }
+  .account-settings-container .settings-header, .account-settings-container .settings-content { padding: 18px; }
+  .dealer-document-head, .dealer-document-file { align-items: flex-start; flex-direction: column; }
+  .dealer-document-actions { width: 100%; justify-content: flex-end; }
+}

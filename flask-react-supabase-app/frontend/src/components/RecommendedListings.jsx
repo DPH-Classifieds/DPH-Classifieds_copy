@@ -3,11 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { getBehaviorProfile, getPreferenceProfile } from '../utils/userBehavior';
 import MarketplaceListingCard from './MarketplaceListingCard';
-// The cn-* classes below live in HomePage.css, and HomePage is lazy()-loaded,
-// so its CSS chunk is absent on a direct detail-page visit — the grid then
-// collapsed to full-width stacked cards. Import it here, where every detail
-// page that renders this component picks it up.
-import '../styles/HomePage.css';
+// MarketplaceListingCard uses the shared Explore card classes. A direct detail
+// visit does not load ExplorePage, so import its stylesheet at this boundary.
+import './ExplorePage.css';
 
 
 // Two modes: pass listingType + listingId for "similar to this listing"
@@ -61,7 +59,7 @@ const RecommendedListings = ({ limit = 8, className = '', listingType, listingId
   if (loading || recommendations.length === 0) return null;
 
   return (
-    <section className={`cn-recommended ${className}`}>
+    <section className={`cd-recommended cn-recommended ${className}`}>
       <div className="cn-shell">
         <div className="cn-section-heading cn-section-heading-dark">
           <div>

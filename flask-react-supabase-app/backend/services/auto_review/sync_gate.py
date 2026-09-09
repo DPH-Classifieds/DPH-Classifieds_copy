@@ -6,9 +6,14 @@ from dataclasses import dataclass, field
 VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 CAR_TRANSMISSIONS = {"Automatic", "Manual"}
 CAR_FUEL_TYPES = {"Petrol", "Diesel", "Hybrid", "Electric"}
-PART_CONDITIONS = {"New", "Used"}
+# Keep this in sync with the public part-posting form.  These values are also
+# persisted on car_parts and are validated before the auto-review worker runs.
+PART_CONDITIONS = {"New", "Like New", "Used", "Refurbished"}
 
-PHOTO_MIN = {"car": 3, "bike": 3, "part": 2, "plate": 1}
+# The part-posting API and form both accept one or more uploaded images. Cars
+# and bikes retain their stronger photo minimums; parts do not require a
+# second angle before the listing can enter the review lifecycle.
+PHOTO_MIN = {"car": 3, "bike": 3, "part": 1, "plate": 1}
 
 
 def normalize_vin(value):
@@ -196,7 +201,10 @@ def _validate_bike(listing, photo_count, min_year, max_year, missing):
 
 
 def _validate_part(listing, photo_count, missing):
-    for field in ("name", "part_type", "area", "contact_number", "description"):
+    # Description is optional in the posting form; the detail view already
+    # handles listings without one.  Validate it when supplied, but do not
+    # turn an omitted/blank optional field into a 400 at submission time.
+    for field in ("name", "part_type", "area", "contact_number"):
         _check_text_required(listing, field, missing)
     if not _int_in_range(listing.get("price"), 0):
         missing.append("price")

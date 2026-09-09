@@ -67,7 +67,7 @@ export default function BuyingRequestsPage() {
             </Link>
           </div>
 
-          <div className="explore-v2-chips" role="tablist" aria-label="Item type" style={{ marginTop: 16 }}>
+          <div className="explore-v2-chips explore-v2-page-tabs" role="tablist" aria-label="Item type">
             {ITEM_TYPES.map((type) => (
               <button
                 key={type.value}

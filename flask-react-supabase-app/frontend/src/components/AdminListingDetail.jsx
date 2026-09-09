@@ -91,19 +91,35 @@ const Badge = ({ children, className = '' }) => (
   </span>
 );
 
-/* ── auto-review reason map ──────────────────────────────────────────────── */
-const AUTO_REVIEW_REASONS = {
+/* ── auto-review explanation helpers ─────────────────────────────────────── */
+export const AUTO_REVIEW_REASONS = {
   no_trust_tier: {
     label: 'Account not yet verified',
     detail: 'Seller must have both email and phone number verified to be auto-approved. Verify manually or ask the seller to complete verification.',
+  },
+  missing_required_fields: {
+    label: 'Required listing fields are missing',
+    detail: 'The automated check found one or more required fields missing. Complete the missing information or verify it manually before approving.',
   },
   vin_missing: {
     label: 'No VIN provided',
     detail: 'The seller did not enter a VIN. Confirm this is a real vehicle and request the VIN if possible.',
   },
+  vin_format_invalid: {
+    label: 'VIN format invalid',
+    detail: 'The submitted VIN did not match the expected format. Compare it with the registration document and ask the seller to correct it before approving.',
+  },
   vin_invalid: {
     label: 'VIN failed checksum',
     detail: 'The VIN number did not pass validation. Check the VIN against the mulkiya or a VIN-check service.',
+  },
+  vin_checksum_invalid: {
+    label: 'VIN checksum failed',
+    detail: 'The VIN checksum did not validate. Compare every character with the registration document; do not treat this as an automatic rejection by itself.',
+  },
+  vin_decoded_mismatch: {
+    label: 'VIN decoded mismatch',
+    detail: 'The VIN decoder returned vehicle details that conflict with one or more submitted fields. A mismatch is a review signal, not proof of fraud.',
   },
   vin_make_mismatch: {
     label: 'VIN make mismatch',
@@ -121,6 +137,14 @@ const AUTO_REVIEW_REASONS = {
     label: 'VIN decoder unavailable',
     detail: 'The VIN could not be checked automatically. Verify it manually using the mulkiya or a VIN lookup tool.',
   },
+  vision_unavailable: {
+    label: 'Image safety check unavailable',
+    detail: 'The image safety service did not return a result. Inspect the photos manually before approving.',
+  },
+  face_detected_in_image: {
+    label: 'Possible face in a photo',
+    detail: 'A photo may contain an identifiable face. Review the image and remove or crop it if it exposes personal information.',
+  },
   face_detected: {
     label: 'Face detected in photos',
     detail: 'One or more photos may contain an identifiable face. Review the images before approving.',
@@ -133,52 +157,250 @@ const AUTO_REVIEW_REASONS = {
     label: 'Profanity in description',
     detail: 'The listing description contains flagged language. Review and edit the description before approving.',
   },
+  contact_info_in_image: {
+    label: 'Contact information in a photo',
+    detail: 'A photo contains possible contact information. Review the image and remove it if it bypasses the platform contact flow.',
+  },
+  nsfw_image: {
+    label: 'Explicit content in a photo',
+    detail: 'A safety check found explicit content. Review the flagged image and keep the listing rejected unless the result is demonstrably incorrect.',
+  },
+  duplicate_listing: {
+    label: 'Possible duplicate listing',
+    detail: 'The listing appears to duplicate another inventory item. Compare the records and ownership before approving.',
+  },
+  duplicate_vin: {
+    label: 'VIN appears on another listing',
+    detail: 'The VIN may already be associated with another listing. Compare ownership and listing history before approving.',
+  },
+  price_outlier: {
+    label: 'Price is outside the expected range',
+    detail: 'The submitted price is an outlier against comparable listings. Verify the vehicle details and price with the seller.',
+  },
   user_under_review: {
     label: 'Seller account flagged',
     detail: 'This seller account is under review. Resolve the account issue before approving their listings.',
   },
 };
 
-const AutoReviewPanel = ({ listing, onRun, runLoading, runFeedback }) => {
-  const state = listing?.auto_review_state;
-  const listingStatus = listing?.status || listing?._table_status;
-  const reasons = listing?.auto_review_reasons;
+const AUTO_REVIEW_STATUS = {
+  awaiting: {
+    title: 'Awaiting auto-review',
+    badge: 'Queued',
+    summary: 'The listing is waiting for the auto-review worker; no automated decision has been recorded yet.',
+    nextAction: 'Run auto-review now or wait for the worker. Do not treat the queue state as approval.',
+    tone: 'amber',
+    canRun: true,
+  },
+  needs_review: {
+    title: 'Needs manual review',
+    badge: 'Auto-review queued',
+    summary: 'Auto-review ran but could not approve this listing. It remains pending for a human reviewer.',
+    nextAction: 'Review each finding below, verify the listing evidence, then use the moderation controls to approve or reject.',
+    tone: 'amber',
+    canRun: true,
+  },
+  auto_approved: {
+    title: 'Auto-approved',
+    badge: 'Automated decision',
+    summary: 'The automated checks passed and the listing was approved. This is an automated approval, not a manual reviewer decision.',
+    nextAction: 'No manual action is required unless you want to audit the listing or its history.',
+    tone: 'emerald',
+    canRun: false,
+  },
+  auto_rejected: {
+    title: 'Auto-rejected',
+    badge: 'Automated decision',
+    summary: 'A safety gate rejected this listing automatically. This is distinct from a rejection made by an admin.',
+    nextAction: 'Review the flagged evidence and rejection note before considering any restore; restoring remains a manual moderation decision.',
+    tone: 'rose',
+    canRun: false,
+  },
+  manual_review: {
+    title: 'Manual review pending',
+    badge: 'Manual queue',
+    summary: 'This listing is pending for a human reviewer. No auto-review decision is recorded for it.',
+    nextAction: 'Complete the manual evidence review, then use the moderation controls to approve or reject.',
+    tone: 'sky',
+    canRun: false,
+  },
+  manual_approved: {
+    title: 'Approved manually',
+    badge: 'Manual decision',
+    summary: 'This listing was approved without an auto-review state being recorded.',
+    nextAction: 'No auto-review action is pending. Review the history if you need to confirm who approved it.',
+    tone: 'sky',
+    canRun: false,
+  },
+  manual_rejected: {
+    title: 'Rejected manually',
+    badge: 'Manual decision',
+    summary: 'This listing was rejected by an admin, not by the auto-review worker.',
+    nextAction: 'Keep the rejection unless you have reviewed the seller evidence and intentionally choose to restore it.',
+    tone: 'sky',
+    canRun: false,
+  },
+};
+
+const normalizedReviewValue = (value) => String(value ?? '').trim();
+
+const reviewFieldValue = (value) => {
+  const normalized = normalizedReviewValue(value);
+  return normalized || 'Not available';
+};
+
+const reviewFieldValues = (listing) => ({
+  make: listing?.car_manufacturer || listing?.make || listing?.bike_brand || listing?.manufacturer,
+  model: listing?.car_model || listing?.model || listing?.bike_model,
+  year: listing?.make_year || listing?.model_year || listing?.year,
+});
+
+const decodedFieldValues = (listing, verificationScan) => {
+  const candidates = [
+    listing?.auto_review_signals?.raw?.vin?.decoded,
+    listing?.auto_review_signals?.vin?.decoded,
+    listing?.auto_review_decision?.signals?.raw?.vin?.decoded,
+    listing?.vin_validation?.decoded,
+    verificationScan?.vin_validation?.decoded,
+    verificationScan?.decoded,
+  ];
+  return candidates.find((candidate) => candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0) || {};
+};
+
+const mismatchDetails = (listing) => {
+  const reasonDetails = listing?.auto_review_reason_details || listing?.auto_review_details;
+  return reasonDetails?.vin_decoded_mismatch || reasonDetails?.vinDecodedMismatch || {};
+};
+
+const valuesConflict = (field, submitted, decoded) => {
+  if (!normalizedReviewValue(submitted) || !normalizedReviewValue(decoded)) return false;
+  if (field === 'year') {
+    const submittedYear = Number(submitted);
+    const decodedYear = Number(decoded);
+    return Number.isFinite(submittedYear) && Number.isFinite(decodedYear)
+      && Math.abs(submittedYear - decodedYear) > 1;
+  }
+  const submittedText = normalizedReviewValue(submitted).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const decodedText = normalizedReviewValue(decoded).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return Boolean(submittedText && decodedText)
+    && !submittedText.includes(decodedText)
+    && !decodedText.includes(submittedText);
+};
+
+const mismatchFieldsFrom = (listing, verificationScan) => {
+  const submitted = reviewFieldValues(listing);
+  const decoded = decodedFieldValues(listing, verificationScan);
+  const details = mismatchDetails(listing);
+  const scanMismatches = verificationScan?.vin_validation?.mismatches;
+  const mismatchNames = Array.isArray(scanMismatches)
+    ? scanMismatches.map((field) => String(field).toLowerCase())
+    : [];
+
+  return ['make', 'model', 'year'].reduce((fields, field) => {
+    const fieldDetails = details?.[field] || {};
+    const decodedValue = fieldDetails.decoded ?? decoded[field] ?? (field === 'year' ? decoded.model_year : undefined);
+    const submittedValue = fieldDetails.submitted ?? submitted[field];
+    const hasExplicitMismatch = Object.keys(fieldDetails).length > 0 || mismatchNames.includes(field);
+    if (hasExplicitMismatch || valuesConflict(field, submittedValue, decodedValue)) {
+      fields.push({
+        key: field,
+        label: field === 'make' ? 'Make' : field === 'model' ? 'Model' : 'Year',
+        submitted: reviewFieldValue(submittedValue),
+        decoded: reviewFieldValue(decodedValue),
+      });
+    }
+    return fields;
+  }, []);
+};
+
+export const getAutoReviewStatusKey = (listing) => {
+  const state = normalizedReviewValue(listing?.auto_review_state).toLowerCase();
+  const status = normalizedReviewValue(listing?.status || listing?._table_status).toLowerCase();
+  if (state === 'auto_approved') return 'auto_approved';
+  if (state === 'auto_queued') return 'needs_review';
+  if (state === 'auto_rejected') return 'auto_rejected';
+  if (status === 'pending_auto_review') return 'awaiting';
+  if (status === 'pending') return 'manual_review';
+  if (status === 'approved' || status === 'active') return 'manual_approved';
+  if (status === 'rejected') return 'manual_rejected';
+  return null;
+};
+
+export const getAutoReviewViewModel = (listing, verificationScan) => {
+  const statusKey = getAutoReviewStatusKey(listing);
+  if (!statusKey) return null;
+
+  const status = AUTO_REVIEW_STATUS[statusKey];
+  const rawReasons = Array.isArray(listing?.auto_review_reasons) ? listing.auto_review_reasons : [];
+  const reasons = rawReasons
+    .map((reason) => (typeof reason === 'string' ? reason : reason?.label || reason?.reason))
+    .filter(Boolean);
+
+  return {
+    statusKey,
+    ...status,
+    reasons,
+    mismatchFields: reasons.includes('vin_decoded_mismatch') ? mismatchFieldsFrom(listing, verificationScan) : [],
+  };
+};
+
+const toneClasses = {
+  amber: 'border-amber-500/25 bg-amber-500/[0.05] text-amber-300',
+  emerald: 'border-emerald-500/25 bg-emerald-500/[0.05] text-emerald-300',
+  rose: 'border-rose-500/25 bg-rose-500/[0.05] text-rose-300',
+  sky: 'border-sky-500/25 bg-sky-500/[0.05] text-sky-300',
+};
+
+const AutoReviewPanel = ({ listing, verificationScan, onRun, runLoading, runFeedback }) => {
+  const model = getAutoReviewViewModel(listing, verificationScan);
+  if (!model) return null;
+
+  const reasonList = model.reasons;
   const decidedAt = listing?.auto_review_decided_at;
-
-  // Show panel for: unprocessed pending_auto_review OR worker decided manual review needed
-  const isAwaitingWorker = listingStatus === 'pending_auto_review' && !state;
-  const isQueued = state === 'auto_queued';
-  if (!isAwaitingWorker && !isQueued) return null;
-
-  const reasonList = Array.isArray(reasons) && reasons.length > 0 ? reasons : [];
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.08 }}>
-      <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.05] p-5 space-y-3">
+      <div className={`rounded-2xl border p-5 space-y-3 ${toneClasses[model.tone]}`} data-testid="auto-review-panel">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-          <p className="text-sm font-semibold text-amber-300">
-            {isAwaitingWorker ? 'Awaiting Auto-Review' : 'Auto-Review: Manual Review Required'}
-          </p>
+          <div className="w-2 h-2 rounded-full bg-current shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">{model.title}</p>
+            <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-1">{model.summary}</p>
+          </div>
+          <Badge className="ml-auto text-current bg-current/10 border-current/20">{model.badge}</Badge>
           {decidedAt && (
-            <span className="ml-auto text-[11px] text-[color:var(--ex-shell-text-muted)]">{new Date(decidedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="ml-2 text-[11px] text-[color:var(--ex-shell-text-muted)]">{new Date(decidedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
           )}
         </div>
 
-        {isAwaitingWorker ? (
-          <p className="text-xs text-[color:var(--ex-shell-text-muted)]">The auto-review worker has not yet processed this listing.</p>
-        ) : reasonList.length === 0 ? (
-          <p className="text-xs text-[color:var(--ex-shell-text-muted)]">Queued for manual review (no specific reasons recorded).</p>
-        ) : (
+        {reasonList.length > 0 && (
           <div className="space-y-2">
             {reasonList.map((reason) => {
               const info = AUTO_REVIEW_REASONS[reason] || { label: reason, detail: 'Review this item manually.' };
               return (
                 <div key={reason} className="flex gap-3 bg-[color:var(--ex-shell-surface)] rounded-xl px-3 py-2.5 border border-[color:var(--ex-shell-line)]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400/70 mt-1.5 shrink-0" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-current/70 mt-1.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-amber-200">{info.label}</p>
+                    <p className="text-xs font-semibold">{info.label}</p>
                     <p className="text-[11px] text-[color:var(--ex-shell-text-muted)] mt-0.5">{info.detail}</p>
+                    {reason === 'vin_decoded_mismatch' && (
+                      <div className="mt-2 rounded-lg border border-[color:var(--ex-shell-line)] overflow-hidden" aria-label="VIN mismatch details">
+                        <div className="grid grid-cols-3 gap-2 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em] text-[color:var(--ex-shell-text-muted)] bg-[color:var(--ex-shell-surface-strong)]">
+                          <span>Field</span><span>Submitted</span><span>VIN decoded</span>
+                        </div>
+                        {model.mismatchFields.length > 0 ? model.mismatchFields.map((field) => (
+                          <div key={field.key} className="grid grid-cols-3 gap-2 px-2.5 py-1.5 text-[11px] border-t border-[color:var(--ex-shell-line)]">
+                            <span className="font-medium">{field.label}</span>
+                            <span className="break-words">{field.submitted}</span>
+                            <span className="break-words">{field.decoded}</span>
+                          </div>
+                        )) : (
+                          <p className="px-2.5 py-2 text-[11px] text-[color:var(--ex-shell-text-muted)] border-t border-[color:var(--ex-shell-line)]">
+                            Field-level decoded values were not included in this response. Compare the submitted make, model, and year with the VIN and registration document.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -186,7 +408,9 @@ const AutoReviewPanel = ({ listing, onRun, runLoading, runFeedback }) => {
           </div>
         )}
 
-        {onRun && (
+        <p className="text-xs text-[color:var(--ex-shell-text-muted)]"><span className="font-semibold text-[color:var(--ex-shell-text)]">Next action:</span> {model.nextAction}</p>
+
+        {onRun && model.canRun && (
           <div className="flex items-center gap-3 pt-1">
             <button
               type="button"
@@ -196,7 +420,7 @@ const AutoReviewPanel = ({ listing, onRun, runLoading, runFeedback }) => {
             >
               {runLoading ? 'Running…' : 'Run Auto-Review Now'}
             </button>
-            {runFeedback && <span className="text-xs text-amber-300">{runFeedback}</span>}
+            {runFeedback && <span className="text-xs text-[color:var(--ex-shell-text-muted)]">{runFeedback}</span>}
           </div>
         )}
       </div>
@@ -711,7 +935,13 @@ const AdminListingDetail = () => {
       </motion.div>
 
       {/* Auto-review failure panel */}
-      <AutoReviewPanel listing={listing} onRun={handleRunAutoReview} runLoading={arRunning} runFeedback={arFeedback} />
+      <AutoReviewPanel
+        listing={listing}
+        verificationScan={latestVerificationScan}
+        onRun={handleRunAutoReview}
+        runLoading={arRunning}
+        runFeedback={arFeedback}
+      />
 
       {/* Hero card: gallery + meta */}
       <motion.div

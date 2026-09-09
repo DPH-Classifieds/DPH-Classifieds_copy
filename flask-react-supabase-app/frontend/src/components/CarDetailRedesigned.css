@@ -1,17 +1,17 @@
 :root {
   --cd-color-background-primary: #ffffff;
-  --cd-color-background-secondary: #f5f5f5;
-  --cd-color-text-primary: #111111;
-  --cd-color-text-secondary: #000000;
-  --cd-color-border-tertiary: #e5e5e5;
-  --cd-color-border-secondary: #cccccc;
-  --cd-color-info: #0066cc;
-  --cd-color-info-bg: #e6f0ff;
-  --cd-color-success: #008000;
-  --cd-color-success-bg: #e6ffe6;
-  --cd-color-warning: #ff9900;
-  --cd-color-warning-bg: #fff5e6;
-  --cd-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --cd-color-background-secondary: #f1f3f1;
+  --cd-color-text-primary: #101613;
+  --cd-color-text-secondary: #5a6560;
+  --cd-color-border-tertiary: rgba(15, 23, 20, 0.1);
+  --cd-color-border-secondary: rgba(15, 23, 20, 0.18);
+  --cd-color-info: #1769aa;
+  --cd-color-info-bg: #e8f2fb;
+  --cd-color-success: #0b6b4c;
+  --cd-color-success-bg: #e4f2e8;
+  --cd-color-warning: #9a5b00;
+  --cd-color-warning-bg: #fff0d8;
+  --cd-font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --cd-font-mono: 'SF Mono', Monaco, 'Courier New', monospace;
   --cd-border-radius-lg: 12px;
   --cd-border-radius-md: 8px;
@@ -25,11 +25,11 @@
    latter can never match: :root IS <html>, so it cannot descend from .dark). */
 .dark {
   --cd-color-background-primary: #0a0a0a;
-  --cd-color-background-secondary: #1a1a1a;
+  --cd-color-background-secondary: #1a1d1d;
   --cd-color-text-primary: #ffffff;
-  --cd-color-text-secondary: #999999;
-  --cd-color-border-tertiary: #2a2a2a;
-  --cd-color-border-secondary: #3a3a3a;
+  --cd-color-text-secondary: #bfc9c4;
+  --cd-color-border-tertiary: rgba(168, 180, 172, 0.12);
+  --cd-color-border-secondary: rgba(168, 180, 172, 0.18);
   --cd-color-info: #4da3ff;
   --cd-color-info-bg: #1a2a3a;
   --cd-color-success: #4dff4d;
@@ -40,12 +40,15 @@
 
 .cd-container {
   min-height: 100vh;
-  padding: 0 1.5rem 3rem;
-  background-color: var(--cd-color-background-primary);
+  width: 100%;
+  padding: 22px clamp(16px, 3vw, 40px) 80px;
+  background: var(--ex-page-bg, var(--cd-color-background-primary));
+  color: var(--ex-text, var(--cd-color-text-primary));
+  font-family: var(--cd-font-sans);
 }
 
 .cd-max-width {
-  max-width: 1100px;
+  width: min(1400px, 100%);
   margin: 0 auto;
 }
 
@@ -131,6 +134,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
+  min-height: clamp(240px, 32vw, 560px);
   background:
     radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.1) 0%, transparent 45%),
     var(--cd-color-background-secondary);
@@ -144,11 +148,14 @@
 }
 
 .cd-main-image img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  max-width: none;
+  object-fit: contain;
   object-position: center center;
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--cd-color-background-secondary);
+  cursor: zoom-in;
 }
 
 .cd-plate-hero {
@@ -333,7 +340,7 @@
 
 .cd-price-card,
 .cd-seller-card {
-  background-color: var(--cd-color-background-primary);
+  background-color: var(--ex-surface, var(--cd-color-background-primary));
   border: 0.5px solid var(--cd-color-border-tertiary);
   border-radius: var(--cd-border-radius-lg);
   padding: 1.25rem;
@@ -448,7 +455,8 @@
   text-decoration: none;
   border: none;
   border-radius: var(--cd-border-radius-md);
-  padding: 10px 16px;
+  min-height: 46px;
+  padding: 11px 16px;
   cursor: pointer;
   transition: background-color 0.15s ease;
   display: inline-block;
@@ -566,7 +574,7 @@
 }
 
 .cd-card {
-  background-color: var(--cd-color-background-primary);
+  background-color: var(--ex-surface, var(--cd-color-background-primary));
   border: 0.5px solid var(--cd-color-border-tertiary);
   border-radius: var(--cd-border-radius-lg);
   padding: 1.25rem;
@@ -774,7 +782,7 @@
   padding: 8px 10px;
   border: 0.5px solid var(--cd-color-border-secondary);
   border-radius: var(--cd-border-radius-md);
-  background-color: var(--cd-color-background-primary);
+  background-color: var(--ex-input-bg, var(--cd-color-background-primary));
   color: var(--cd-color-text-primary);
   width: 100%;
 }
@@ -854,12 +862,12 @@
 .cd-compatibility-label {
   font-size: 14px;
   font-weight: 600;
-  color: var(--cd-text-muted);
+  color: var(--cd-color-text-secondary);
 }
 
 .cd-compatibility-value {
   font-size: 16px;
-  color: var(--cd-text-primary);
+  color: var(--cd-color-text-primary);
 }
 
 @media (max-width: 1024px) {
@@ -903,8 +911,275 @@
   }
 
   .cd-meta-strip {
-    flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.5rem 1rem;
+    align-items: center;
+  }
+}
+
+/* Detail-page finishing layer. Keep this scoped to cd-* so the shared shell
+   and Explore surface remain untouched while all four detail variants get the
+   same responsive geometry. */
+.cd-breadcrumb {
+  color: var(--ex-text-muted, var(--cd-color-text-secondary));
+  min-height: 20px;
+}
+
+.cd-breadcrumb a,
+.cd-breadcrumb span {
+  color: var(--ex-text-muted, var(--cd-color-text-secondary));
+}
+
+.cd-breadcrumb a:hover,
+.cd-breadcrumb-current {
+  color: var(--ex-text, var(--cd-color-text-primary)) !important;
+}
+
+.cd-title-block {
+  max-width: 960px;
+}
+
+.cd-title {
+  color: var(--ex-text, var(--cd-color-text-primary));
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+}
+
+.cd-meta-strip {
+  color: var(--ex-text-muted, var(--cd-color-text-secondary));
+}
+
+.cd-meta-item {
+  min-height: 28px;
+  color: inherit;
+}
+
+.cd-hero-grid,
+.cd-content-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.cd-hero-right {
+  position: sticky;
+  top: 104px;
+  min-width: 0;
+}
+
+.cd-price-card,
+.cd-seller-card,
+.cd-card {
+  box-shadow: var(--ex-card-shadow, 0 1px 2px rgba(15, 23, 20, 0.05));
+}
+
+.cd-price-card {
+  border-top: 3px solid var(--ex-brand-accent, var(--cd-color-success));
+}
+
+.cd-price-value {
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+}
+
+.cd-cta-buttons > * {
+  width: 100%;
+}
+
+.cd-cta-buttons .saved-listing-button-detail {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+}
+
+.cd-section-title {
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.cd-section-header {
+  border-bottom-color: var(--ex-line, var(--cd-color-border-tertiary));
+}
+
+.cd-main-image {
+  box-shadow: 0 16px 42px color-mix(in srgb, var(--ex-text) 9%, transparent);
+}
+
+.cd-main-image img {
+  transition: opacity 180ms ease;
+}
+
+.cd-main-image img:hover {
+  opacity: 0.96;
+}
+
+.cd-gallery-strip {
+  padding: 2px 2px 8px;
+}
+
+.cd-thumbnail {
+  flex-basis: 104px;
+  height: 68px;
+  border-color: var(--ex-line, var(--cd-color-border-tertiary));
+  background: var(--ex-surface-low, var(--cd-color-background-secondary));
+}
+
+.cd-thumbnail-active {
+  border-color: var(--ex-brand-accent, var(--cd-color-text-primary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ex-brand-accent) 18%, transparent);
+}
+
+.cd-map-placeholder {
+  overflow: hidden;
+  border: 1px solid var(--ex-line, var(--cd-color-border-tertiary));
+}
+
+.cd-error-container {
+  width: min(680px, calc(100% - 32px));
+  min-height: 45vh;
+  margin: 0 auto;
+  padding: 64px 0;
+  color: var(--ex-text, var(--cd-color-text-primary));
+  text-align: center;
+}
+
+.cd-error-container h2 {
+  margin-bottom: 10px;
+  font-size: 1.6rem;
+}
+
+.cd-error-container p {
+  margin-bottom: 24px;
+  color: var(--ex-text-muted, var(--cd-color-text-secondary));
+}
+
+.cd-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: var(--ex-brand-accent, var(--cd-color-success));
+  color: var(--ex-shell-on-accent, #ffffff);
+  font-weight: 700;
+}
+
+.cd-recommended {
+  margin-top: 72px;
+  padding: 0;
+}
+
+.cd-recommended .cn-shell {
+  width: 100%;
+  max-width: none;
+}
+
+.cd-recommended .cn-section-heading {
+  margin-bottom: 20px;
+}
+
+.cd-recommended .cn-section-heading h2 {
+  color: var(--ex-text, var(--cd-color-text-primary));
+  font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+}
+
+.cd-recommended .cn-kicker {
+  color: var(--ex-brand-accent, var(--cd-color-success));
+}
+
+.cd-recommended .cn-market-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+@media (min-width: 961px) {
+  .cd-hero-grid,
+  .cd-content-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  }
+
+  .cd-hero-right,
+  .cd-content-right {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 960px) {
+  .cd-hero-grid,
+  .cd-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cd-hero-right,
+  .cd-content-right {
+    position: static;
+    grid-row: auto;
+  }
+
+  .cd-recommended .cn-market-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .cd-container {
+    padding: 16px 16px 56px;
+  }
+
+  .cd-title {
+    font-size: clamp(1.55rem, 7vw, 2rem);
+  }
+
+  .cd-main-image {
+    aspect-ratio: 4 / 3;
+    min-height: 240px;
+  }
+
+  .cd-main-image img {
+    object-fit: contain;
+  }
+
+  .cd-card,
+  .cd-price-card,
+  .cd-seller-card {
+    padding: 1rem;
+    border-radius: 14px;
+  }
+
+  .cd-spec-row {
     align-items: flex-start;
+    padding: 11px 0;
+  }
+
+  .cd-spec-label {
+    flex: 0 0 42%;
+  }
+
+  .cd-spec-value {
+    max-width: 58%;
+    overflow-wrap: anywhere;
+  }
+
+  .cd-extras-grid,
+  .cd-loan-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .cd-thumbnail {
+    flex-basis: 88px;
+    height: 58px;
+  }
+
+  .cd-recommended {
+    margin-top: 52px;
+  }
+
+  .cd-recommended .cn-market-grid {
+    grid-template-columns: 1fr;
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    overflow: visible;
+    padding-bottom: 0;
   }
 }
