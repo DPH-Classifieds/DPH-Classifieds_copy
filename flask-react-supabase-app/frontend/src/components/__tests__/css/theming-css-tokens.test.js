@@ -50,6 +50,16 @@ describe('CSS files use --ex-* theme tokens (Item 3 web theming)', () => {
   });
 });
 
+describe('public account pages use public theme tokens', () => {
+  test('MyListings.css does not inherit the dark shell palette', () => {
+    const full = path.join(__dirname, '..', '..', '..', 'styles', 'MyListings.css');
+    const src = fs.readFileSync(full, 'utf8');
+
+    expect(src).toMatch(/var\(--ex-(page-bg|surface|text)/);
+    expect(src).not.toMatch(/var\(--ex-shell-/);
+  });
+});
+
 // UAELicensePlate.css renders a real UAE license plate — the colors (#000/#fff
 // for plate chrome, the Ajman-flag gradient #e91e63/#ff9800/#2196f3/#795548,
 // and the SOLD watermark #f00) are the visual content of the plate, not the

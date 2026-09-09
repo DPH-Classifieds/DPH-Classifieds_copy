@@ -3,18 +3,17 @@
   margin: 0 auto;
   padding: 40px 20px 72px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top, rgba(17, 66, 43, 0.24), transparent 34%),
-    linear-gradient(180deg, #07110c 0%, #09160f 44%, #0c1811 100%);
+  background: var(--ex-page-bg);
+  color: var(--ex-text);
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 .my-listings-header,
 .empty-state,
 .my-listing-card {
-  border: 1px solid color-mix(in srgb, var(--ex-shell-text) 8%, transparent);
-  background: color-mix(in srgb, var(--ex-shell-bg) 82%, transparent);
-  box-shadow: 0 20px 60px color-mix(in srgb, var(--ex-overlay-scrim) 24%, transparent);
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--ex-line-strong);
+  background: var(--ex-surface);
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--ex-overlay-scrim) 8%, transparent);
 }
 
 .my-listings-header {
@@ -30,14 +29,14 @@
 .my-listings-container .section-title {
   font-size: 2rem;
   font-weight: 700;
-  color: var(--ex-shell-text);
+  color: var(--ex-text);
   margin: 0 0 8px;
 }
 
 .my-listings-subtitle {
   margin: 0;
   max-width: 720px;
-  color: rgba(225, 238, 230, 0.72);
+  color: var(--ex-text-muted);
   line-height: 1.6;
 }
 
@@ -54,9 +53,9 @@
   min-height: 30px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 25%, transparent);
-  background: rgba(18, 52, 35, 0.6);
-  color: rgba(225, 238, 230, 0.88);
+  border: 1px solid var(--ex-line-strong);
+  background: var(--ex-brand-subtle-bg);
+  color: var(--ex-text);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -88,7 +87,7 @@
 
 .my-listings-container .btn-primary {
   background: var(--ex-primary-strong);
-  color: var(--ex-shell-text);
+  color: #fff;
   border-color: var(--ex-primary-strong);
 }
 
@@ -98,18 +97,18 @@
 }
 
 .my-listings-container .btn-secondary {
-  background: color-mix(in srgb, var(--ex-shell-text) 4%, transparent);
-  color: var(--ex-shell-text);
-  border-color: color-mix(in srgb, var(--ex-shell-text) 12%, transparent);
+  background: var(--ex-surface);
+  color: var(--ex-text);
+  border-color: var(--ex-line-strong);
 }
 
 .my-listings-container .btn-secondary:hover {
-  background: color-mix(in srgb, var(--ex-shell-text) 8%, transparent);
+  background: var(--ex-brand-subtle-bg);
 }
 
 .my-listings-container .btn-danger {
-  background: rgba(151, 37, 49, 0.16);
-  color: #ffd6db;
+  background: color-mix(in srgb, #dc3545 8%, var(--ex-surface));
+  color: #991b1b;
   border-color: rgba(220, 53, 69, 0.36);
 }
 
@@ -138,7 +137,7 @@
 .listing-section h2 {
   margin: 0;
   font-size: 1.35rem;
-  color: #f3faf5;
+  color: var(--ex-text);
 }
 
 .listing-section-head span {
@@ -148,8 +147,8 @@
   min-width: 34px;
   height: 34px;
   border-radius: 999px;
-  background: rgba(1, 53, 28, 0.24);
-  color: #d8f3df;
+  background: var(--ex-brand-subtle-bg);
+  color: var(--ex-primary-strong);
   font-weight: 700;
 }
 
@@ -174,7 +173,7 @@
 
 .listing-state-tag.state-deleted {
   background: #dc2626;
-  color: var(--ex-shell-text);
+  color: #fff;
   font-weight: 600;
   border: none;
 }
@@ -183,7 +182,7 @@
   position: relative;
   aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   overflow: hidden;
-  background: #101712;
+  background: var(--ex-surface-low);
 }
 
 .my-listing-image.my-listing-plate {
@@ -229,12 +228,12 @@
 
 .listing-type-tag {
   background: rgba(6, 17, 11, 0.8);
-  color: #f3faf5;
+  color: #fff;
 }
 
 .listing-state-tag {
-  background: rgba(1, 53, 28, 0.8);
-  color: var(--ex-shell-text);
+  background: var(--ex-primary-strong);
+  color: #fff;
 }
 
 .listing-state-tag.state-expired {
@@ -257,7 +256,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: rgba(226, 239, 231, 0.5);
+  color: var(--ex-text-muted);
 }
 
 .my-listing-details {
@@ -268,7 +267,7 @@
   margin: 0 0 8px;
   font-size: 1.1rem;
   line-height: 1.35;
-  color: var(--ex-shell-text);
+  color: var(--ex-text);
 }
 
 .my-listing-subtitle-card,
@@ -276,7 +275,7 @@
 .my-listing-lifecycle,
 .my-listing-views {
   margin: 0 0 6px;
-  color: rgba(225, 238, 230, 0.68);
+  color: var(--ex-text-muted);
 }
 
 .my-listing-subtitle-card {
@@ -287,11 +286,11 @@
   margin: 0 0 10px;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #c5f0d1;
+  color: var(--ex-primary-strong);
 }
 
 .my-listing-lifecycle {
-  color: #c7dfce;
+  color: var(--ex-text-muted);
 }
 
 .my-listing-actions {
@@ -313,13 +312,13 @@
 
 .empty-state h3 {
   margin: 0 0 12px;
-  color: var(--ex-shell-text);
+  color: var(--ex-text);
   font-size: 1.6rem;
 }
 
 .empty-state p {
   margin: 0 0 26px;
-  color: rgba(225, 238, 230, 0.72);
+  color: var(--ex-text-muted);
 }
 
 .empty-state-actions {
@@ -336,8 +335,8 @@
 }
 
 .my-listings-container .alert-danger {
-  background: rgba(151, 37, 49, 0.12);
-  color: #ffdce1;
+  background: color-mix(in srgb, #dc3545 8%, var(--ex-surface));
+  color: #991b1b;
   border: 1px solid rgba(220, 53, 69, 0.32);
 }
 
@@ -383,8 +382,8 @@
 }
 
 .delete-confirm-modal {
-  background: #0e1f16;
-  border: 1px solid rgba(162, 228, 166, 0.2);
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-line-strong);
   border-radius: 16px;
   padding: 32px;
   max-width: 420px;
@@ -393,13 +392,13 @@
 }
 
 .delete-confirm-modal h3 {
-  color: #fff;
+  color: var(--ex-text);
   margin: 0 0 12px;
   font-size: 1.25rem;
 }
 
 .delete-confirm-modal p {
-  color: color-mix(in srgb, var(--ex-shell-text) 70%, transparent);
+  color: var(--ex-text-muted);
   margin: 0 0 24px;
   line-height: 1.5;
 }
@@ -419,7 +418,7 @@
 
 .my-listings-container .btn-success {
   background: #28a745;
-  color: var(--ex-shell-text);
+  color: #fff;
   border-color: #28a745;
 }
 
@@ -431,14 +430,14 @@
 .btn-link {
   background: transparent !important;
   border: none !important;
-  color: color-mix(in srgb, var(--ex-shell-text) 50%, transparent) !important;
+  color: var(--ex-text-muted) !important;
   font-size: 0.9rem !important;
   padding: 8px !important;
   min-height: auto !important;
 }
 
 .btn-link:hover {
-  color: #fff !important;
+  color: var(--ex-primary-strong) !important;
   text-decoration: underline !important;
 }
 
@@ -449,8 +448,8 @@
   margin-bottom: 28px;
   padding: 4px;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--ex-shell-bg) 60%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ex-shell-text) 6%, transparent);
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-line);
 }
 
 .my-listings-tab {
@@ -463,7 +462,7 @@
   border-radius: 12px;
   border: none;
   background: transparent;
-  color: rgba(225, 238, 230, 0.6);
+  color: var(--ex-text-muted);
   font-weight: 600;
   font-size: 0.92rem;
   cursor: pointer;
@@ -471,14 +470,14 @@
 }
 
 .my-listings-tab:hover {
-  color: rgba(225, 238, 230, 0.9);
-  background: color-mix(in srgb, var(--ex-shell-text) 4%, transparent);
+  color: var(--ex-text);
+  background: var(--ex-brand-subtle-bg);
 }
 
 .my-listings-tab.is-active {
-  background: rgba(1, 53, 28, 0.5);
-  color: #c5f0d1;
-  box-shadow: 0 2px 8px rgba(1, 53, 28, 0.2);
+  background: var(--ex-primary-strong);
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ex-primary-strong) 20%, transparent);
 }
 
 .my-listings-tab .tab-count {
@@ -489,14 +488,14 @@
   height: 22px;
   padding: 0 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ex-shell-text) 10%, transparent);
+  background: var(--ex-brand-subtle-bg);
   font-size: 0.72rem;
   font-weight: 700;
 }
 
 .my-listings-tab.is-active .tab-count {
-  background: rgba(197, 240, 209, 0.2);
-  color: #c5f0d1;
+  background: color-mix(in srgb, #fff 20%, transparent);
+  color: #fff;
 }
 
 .my-listings-tab-content {
