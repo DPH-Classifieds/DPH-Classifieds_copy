@@ -1,15 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bike,
-  CarFront,
-  ChevronRight,
+  ChevronDown,
   MenuIcon,
   Moon,
-  Package,
   Plus,
   Sun,
-  Tag,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -21,61 +17,14 @@ import '../styles/Header.css';
 import ProfileMenu from './ProfileMenu';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Button } from './ui/button';
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from './ui/navigation-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
-
-// Reddit brand mark used in the Browse menu (replaces the generic fire icon).
-// Renders as a component so it drops into the same `item.icon` render sites.
-const RedditIcon = ({ className }) => (
-  <img src="/reddit-logo.png" alt="Reddit" className={className} style={{ objectFit: 'contain' }} />
-);
-
-const browseLinks = [
-  {
-    title: 'Buying Requests',
-    description: 'Browse anonymous buying requests.',
-    href: '/buying-requests',
-    icon: Plus,
-  },
-  {
-    title: 'Cars',
-    description: 'Browse used, luxury, and performance cars.',
-    href: '/cars',
-    icon: CarFront,
-  },
-  {
-    title: 'Car Parts',
-    description: 'Find replacement parts and upgrades fast.',
-    href: '/car-parts',
-    icon: Package,
-  },
-  {
-    title: 'Plates',
-    description: 'Shop collectible and premium UAE plates.',
-    href: '/plates',
-    icon: Tag,
-  },
-  {
-    title: 'Bikes',
-    description: 'Discover motorcycles and specialty bikes.',
-    href: '/bikes',
-    icon: Bike,
-  },
-  {
-    title: 'Reddit',
-    description: 'Cars imported from r/DubaiPetrolHeads.',
-    href: '/reddit',
-    icon: RedditIcon,
-  },
-];
+import {
+  BrowseCategoryList,
+  BrowseMegaMenu,
+  browseLinks,
+  SellMenu,
+  sellLinkConfig,
+} from './navigation/MarketplaceNavMenus';
 
 const resourceLinks = [{ title: 'About', href: '/about' }];
 
@@ -84,9 +33,14 @@ const Header = () => {
   const { theme, toggleTheme } = useTheme();
   const isAdmin = useIsAdmin(user);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopMenu, setDesktopMenu] = useState(null);
+  const [browseCategory, setBrowseCategory] = useState('cars');
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const desktopNavRef = useRef(null);
+  const browseTriggerRef = useRef(null);
+  const sellTriggerRef = useRef(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -100,7 +54,31 @@ const Header = () => {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setDesktopMenu(null);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!desktopMenu) return undefined;
+
+    const handleOutsidePointer = (event) => {
+      if (!desktopNavRef.current?.contains(event.target)) {
+        setDesktopMenu(null);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      setDesktopMenu(null);
+      const trigger = desktopMenu === 'browse' ? browseTriggerRef.current : sellTriggerRef.current;
+      trigger?.focus();
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointer);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointer);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [desktopMenu]);
 
   useEffect(() => {
     document.body.classList.toggle('menu-open', mobileMenuOpen);
@@ -111,13 +89,17 @@ const Header = () => {
 
   const postLinks = useMemo(
     () => {
-      const base = [
-        { title: 'Post Car', href: user ? '/post-car' : '/login?redirect=/post-car' },
-        { title: 'Post Car Part', href: user ? '/post-car-parts' : '/login?redirect=/post-car-parts' },
-        { title: 'Post Plate', href: user ? '/post-plate' : '/login?redirect=/post-plate' },
-        { title: 'Post Bike', href: user ? '/post-bike' : '/login?redirect=/post-bike' },
-        { title: 'Post a Buying Request', href: user ? '/post-buying-request' : '/login?redirect=/post-buying-request' },
-      ];
+      const routes = {
+        car: '/post-car',
+        'car-part': '/post-car-parts',
+        plate: '/post-plate',
+        bike: '/post-bike',
+        'buying-request': '/post-buying-request',
+      };
+      const base = sellLinkConfig.map((item) => ({
+        ...item,
+        href: user ? routes[item.id] : `/login?redirect=${routes[item.id]}`,
+      }));
       if (user && !dealerCanPost) {
         return base.map((item) => ({ ...item, href: '/settings', disabled: true }));
       }
@@ -174,116 +156,75 @@ const Header = () => {
           </span>
         </Link>
 
-        {/* Desktop Navigation - Centered */}
-        <NavigationMenu className="site-header__navigation hidden lg:flex lg:absolute lg:left-1/2 lg:-translate-x-1/2">
-          <NavigationMenuList className="gap-0.5">
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                asChild
-                className={`${isExploreActive ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
-              >
-                <Link to="/explore">Explore</Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+        {/* Desktop Navigation - centered marketplace menus stay in the header layer */}
+        <nav ref={desktopNavRef} className="site-header__navigation hidden lg:flex lg:absolute lg:left-1/2 lg:-translate-x-1/2" aria-label="Primary navigation">
+          <div className="site-header__desktop-nav-list">
+            <Link
+              to="/explore"
+              className={`site-header__nav-link ${isExploreActive ? 'is-active' : ''}`}
+            >
+              Explore
+            </Link>
 
-            <NavigationMenuItem>
-              <NavigationMenuTrigger
-                className={`${isBrowseActive ? 'is-active' : ''} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
+            <div className="site-header__desktop-menu-anchor">
+              <button
+                ref={browseTriggerRef}
+                type="button"
+                className={`site-header__nav-link site-header__menu-trigger site-header__menu-trigger--browse ${isBrowseActive ? 'is-active' : ''} ${desktopMenu === 'browse' ? 'is-open' : ''}`}
+                aria-expanded={desktopMenu === 'browse'}
+                aria-controls="dph-browse-menu"
+                onClick={() => setDesktopMenu((current) => current === 'browse' ? null : 'browse')}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setDesktopMenu('browse');
+                  }
+                }}
               >
-                Browse
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className="site-header__menu-content">
-                <div className="site-header__menu-grid grid w-[640px] grid-cols-2 gap-2 p-3">
-                  {browseLinks.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <NavigationMenuLink
-                        key={item.href}
-                        asChild
-                        className="rounded-xl border border-transparent p-0"
-                      >
-                        <Link
-                          to={item.href}
-                          className="site-header__menu-card flex rounded-xl p-4 transition-all duration-200"
-                        >
-                          <div className="site-header__menu-icon mr-3.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="site-header__menu-title mb-0.5 text-[14px] font-semibold">{item.title}</p>
-                            <p className="site-header__menu-description text-[13px] leading-5">{item.description}</p>
-                          </div>
-                        </Link>
-                      </NavigationMenuLink>
-                    );
-                  })}
-                </div>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
+                Browse <ChevronDown aria-hidden="true" />
+              </button>
+              {desktopMenu === 'browse' && (
+                <BrowseMegaMenu selectedId={browseCategory} onSelect={setBrowseCategory} />
+              )}
+            </div>
 
-            <NavigationMenuItem>
-              <NavigationMenuTrigger
-                className={`${isPostActive ? 'is-active' : ''} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
+            <div className="site-header__desktop-menu-anchor">
+              <button
+                ref={sellTriggerRef}
+                type="button"
+                className={`site-header__nav-link site-header__menu-trigger site-header__menu-trigger--sell ${isPostActive ? 'is-active' : ''} ${desktopMenu === 'sell' ? 'is-open' : ''}`}
+                aria-expanded={desktopMenu === 'sell'}
+                aria-controls="dph-sell-menu"
+                onClick={() => setDesktopMenu((current) => current === 'sell' ? null : 'sell')}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setDesktopMenu('sell');
+                  }
+                }}
               >
-                Sell
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className="site-header__menu-content">
-                <div className="site-header__menu-grid site-header__menu-grid--sell grid w-[420px] gap-1.5 p-3">
-                  {user && !dealerCanPost && (
-                    <div className="mb-1 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-700 dark:text-amber-200">
-                      Admin verification required before you can post.{' '}
-                      <Link to="/settings" className="underline">View status</Link>
-                    </div>
-                  )}
-                  {postLinks.map((item) => (
-                    <NavigationMenuLink key={item.href} asChild className="rounded-xl p-0">
-                      <Link
-                        to={item.href}
-                        className={`site-header__menu-card site-header__menu-card--compact flex items-center justify-between rounded-xl px-4 py-3 transition-all duration-200 ${
-                          item.disabled
-                            ? 'is-disabled cursor-not-allowed'
-                            : ''
-                        }`}
-                      >
-                        <span className="text-[14px] font-medium">{item.title}</span>
-                        <ChevronRight className="h-4 w-4 opacity-50" />
-                      </Link>
-                    </NavigationMenuLink>
-                  ))}
-                </div>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
+                Sell <ChevronDown aria-hidden="true" />
+              </button>
+              {desktopMenu === 'sell' && (
+                <SellMenu postLinks={postLinks} showVerificationNotice={Boolean(user && !dealerCanPost)} />
+              )}
+            </div>
 
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                asChild
-                    className={`${isResourcesActive ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
-              >
-                <Link to="/about">About</Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+            <Link to="/about" className={`site-header__nav-link ${isResourcesActive ? 'is-active' : ''}`}>
+              About
+            </Link>
 
-            {user && (
-              <NavigationMenuItem>
-                {user?.is_dealer && user?.dealer_verified ? (
-                  <NavigationMenuLink
-                    asChild
-                    className={`${location.pathname.startsWith('/dealer') ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
-                  >
-                    <Link to="/dealer/dashboard">Dealer Panel</Link>
-                  </NavigationMenuLink>
-                ) : (
-                  <NavigationMenuLink
-                    asChild
-                    className={`${location.pathname === '/my-listings' ? 'is-active' : ''} ${navigationMenuTriggerStyle()} site-header__nav-link rounded-full bg-transparent px-4 py-2 text-[14px]`}
-                  >
-                    <Link to="/my-listings">My Listings</Link>
-                  </NavigationMenuLink>
-                )}
-              </NavigationMenuItem>
-            )}
-          </NavigationMenuList>
-        </NavigationMenu>
+            {user && (user?.is_dealer && user?.dealer_verified ? (
+              <Link to="/dealer/dashboard" className={`site-header__nav-link ${location.pathname.startsWith('/dealer') ? 'is-active' : ''}`}>
+                Dealer Panel
+              </Link>
+            ) : (
+              <Link to="/my-listings" className={`site-header__nav-link ${location.pathname === '/my-listings' ? 'is-active' : ''}`}>
+                My Listings
+              </Link>
+            ))}
+          </div>
+        </nav>
 
         {/* Theme toggle — desktop only; on mobile it lives inside the hamburger menu below */}
         <div className="hidden items-center gap-2 lg:flex">
@@ -326,13 +267,17 @@ const Header = () => {
             <Button
               variant="ghost"
               size="icon"
-            className="site-header__icon-button rounded-full bg-transparent"
+              aria-label="Open navigation menu"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="dph-mobile-navigation"
+              className="site-header__icon-button rounded-full bg-transparent"
             >
               <MenuIcon className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent
             side="top"
+            id="dph-mobile-navigation"
             className="site-header__mobile-panel max-h-screen overflow-auto border-b text-[color:var(--ex-text)]"
             // Use the dedicated opaque shell token so the mobile menu stays
             // legible over every page and theme.
@@ -352,59 +297,31 @@ const Header = () => {
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="browse" className="border-[color:var(--ex-line)]">
                   <AccordionTrigger className="text-base font-medium text-[color:var(--ex-text)] hover:no-underline">
-                    Browse listings
+                    Browse
                   </AccordionTrigger>
                   <AccordionContent>
-                    <div className="grid gap-2 pt-2">
-                      {browseLinks.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.href}
-                            to={item.href}
-                            className="site-header__mobile-card flex items-start gap-3 rounded-xl px-4 py-3 transition-colors"
-                          >
-                            <div className="site-header__menu-icon mt-0.5 rounded-lg p-2">
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <p className="site-header__menu-title font-medium">{item.title}</p>
-                              <p className="site-header__menu-description text-sm">{item.description}</p>
-                            </div>
-                          </Link>
-                        );
-                      })}
+                    <div className="site-header__mobile-market-panel">
+                      <div className="site-header__mobile-market-intro">
+                        <span className="marketplace-nav__eyebrow">DISCOVER</span>
+                        <h2>Browse listings across the UAE</h2>
+                      </div>
+                      <BrowseCategoryList selectedId={browseCategory} onSelect={setBrowseCategory} mobile />
+                      <div className="site-header__mobile-market-feature">
+                        <span className="marketplace-nav__eyebrow">FEATURED</span>
+                        <strong>Find your next drive</strong>
+                        <span>Cars, luxury, and performance vehicles.</span>
+                        <Link to="/cars">Browse cars <span aria-hidden="true">→</span></Link>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
 
                 <AccordionItem value="sell" className="border-[color:var(--ex-line)]">
                   <AccordionTrigger className="text-base font-medium text-[color:var(--ex-text)] hover:no-underline">
-                    Post a listing
+                    Sell
                   </AccordionTrigger>
                   <AccordionContent>
-                    {user && !dealerCanPost && (
-                      <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-700 dark:text-amber-200">
-                        Admin verification required before you can post.{' '}
-                        <Link to="/settings" className="underline">View status</Link>
-                      </div>
-                    )}
-                    <div className="grid gap-2 pt-2">
-                      {postLinks.map((item) => (
-                        <Link
-                          key={item.href}
-                          to={item.href}
-                          className={`site-header__mobile-card flex items-center justify-between rounded-xl px-4 py-3 transition-colors ${
-                            item.disabled
-                              ? 'cursor-not-allowed text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10'
-                              : 'text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]'
-                          }`}
-                        >
-                          <span>{item.title}</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Link>
-                      ))}
-                    </div>
+                    <SellMenu postLinks={postLinks} mobile showVerificationNotice={Boolean(user && !dealerCanPost)} />
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

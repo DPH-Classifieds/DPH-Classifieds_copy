@@ -840,3 +840,191 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* DPH marketplace navigation refresh. These selectors are intentionally
+   scoped to the public header so the admin/dealer shells and page controls
+   keep their existing visual contracts. */
+.site-header {
+  overflow: visible;
+}
+
+.site-header > div {
+  position: relative;
+}
+
+.site-header__desktop-nav-list {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.site-header__desktop-menu-anchor {
+  position: relative;
+}
+
+.site-header__navigation .site-header__nav-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 13px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--dph-market-muted) !important;
+  background: transparent !important;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.site-header__navigation .site-header__nav-link svg {
+  width: 14px;
+  height: 14px;
+  color: var(--dph-market-green);
+  transition: transform 160ms ease;
+}
+
+.site-header__navigation .site-header__nav-link:hover,
+.site-header__navigation .site-header__nav-link:focus-visible,
+.site-header__navigation .site-header__nav-link.is-active,
+.site-header__navigation .site-header__nav-link.is-open {
+  border-color: var(--dph-market-border);
+  color: var(--dph-market-ink) !important;
+  background: var(--dph-market-mint) !important;
+  outline: none;
+}
+
+.site-header__navigation .site-header__menu-trigger.is-open svg {
+  transform: rotate(180deg);
+}
+
+.site-header__navigation .site-header__menu-trigger--browse.is-open {
+  border-color: var(--dph-market-green);
+  color: #fff !important;
+  background: var(--dph-market-green) !important;
+}
+
+.site-header__navigation .site-header__menu-trigger--browse.is-open svg {
+  color: #fff;
+}
+
+.site-header__desktop-menu-anchor > .marketplace-nav__browse-menu,
+.site-header__desktop-menu-anchor > .marketplace-nav__sell-menu {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 12px);
+  left: 50%;
+  animation: marketplace-menu-in 160ms ease-out both;
+  transform: translateX(-50%);
+}
+
+.site-header__desktop-menu-anchor > .marketplace-nav__browse-menu::before,
+.site-header__desktop-menu-anchor > .marketplace-nav__sell-menu::before {
+  position: absolute;
+  top: -13px;
+  left: 0;
+  width: 100%;
+  height: 13px;
+  content: '';
+}
+
+@keyframes marketplace-menu-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.site-header__mobile-market-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.site-header__mobile-market-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.site-header__mobile-market-intro h2 {
+  color: var(--dph-market-ink);
+  font-size: 21px;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.site-header__mobile-market-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 15px;
+  border-radius: 15px;
+  background: var(--dph-market-mint);
+}
+
+.site-header__mobile-market-feature strong {
+  color: var(--dph-market-ink);
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.site-header__mobile-market-feature > span:not(.marketplace-nav__eyebrow) {
+  color: var(--dph-market-muted);
+  font-size: 12px;
+}
+
+.site-header__mobile-market-feature a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--dph-market-green);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.site-header__mobile-panel {
+  top: calc(var(--dph-header-height) + 8px) !important;
+  right: 12px !important;
+  bottom: auto !important;
+  left: 12px !important;
+  width: auto !important;
+  max-height: calc(100vh - var(--dph-header-height) - 20px) !important;
+  padding: 20px !important;
+  border: 1px solid var(--dph-market-border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 22px 54px rgba(17, 24, 22, 0.18) !important;
+}
+
+.site-header__mobile-panel > button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.marketplace-nav__sell-list,
+.marketplace-nav__sell-card {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 1023px) {
+  .site-header__navigation {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header__desktop-menu-anchor > .marketplace-nav__browse-menu,
+  .site-header__desktop-menu-anchor > .marketplace-nav__sell-menu {
+    animation: none;
+  }
+}
