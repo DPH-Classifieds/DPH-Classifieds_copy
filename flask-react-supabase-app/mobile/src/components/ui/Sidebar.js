@@ -27,6 +27,9 @@ const VELOCITY_TO_CLOSE = 0.4;
 
 export default function Sidebar({ open, onClose, onSignOut }) {
   const { theme, colors, toggleTheme } = useTheme();
+  const shellColors = theme === 'light'
+    ? { ...colors, background: colors.chromeBackground, surface: colors.chromeSurface, textPrimary: colors.chromeText, textSecondary: colors.chromeMuted, border: colors.chromeBorder, line: colors.chromeBorderLight }
+    : colors;
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const router = useRouter();
   const pathname = usePathname();
@@ -96,9 +99,9 @@ export default function Sidebar({ open, onClose, onSignOut }) {
         style={[styles.drawer, { width: DRAWER_WIDTH, transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
-        <SafeAreaView edges={['top', 'bottom']} style={[styles.safe, { backgroundColor: colors.background }]}>
+        <SafeAreaView edges={['top', 'bottom']} style={[styles.safe, { backgroundColor: shellColors.background }]}>
           <View style={styles.header}>
-            <Text style={[styles.brand, { color: colors.textPrimary }]}>DPH Classifieds</Text>
+            <Text style={[styles.brand, { color: shellColors.textPrimary }]}>DPH Classifieds</Text>
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
@@ -106,7 +109,7 @@ export default function Sidebar({ open, onClose, onSignOut }) {
               hitSlop={12}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={26} color={colors.textPrimary} />
+              <Ionicons name="close" size={26} color={shellColors.textPrimary} />
             </Pressable>
           </View>
 
@@ -126,18 +129,18 @@ export default function Sidebar({ open, onClose, onSignOut }) {
                   }}
                   style={({ pressed }) => [
                     styles.navItem,
-                    { backgroundColor: pressed ? colors.surfaceHigh : 'transparent' },
+                    { backgroundColor: pressed ? shellColors.surfaceHigh : 'transparent' },
                   ]}
                 >
                   <Ionicons
                     name={iconName}
                     size={22}
-                    color={isActive ? colors.accent : colors.textPrimary}
+                    color={isActive ? shellColors.accent : shellColors.textPrimary}
                   />
                   <Text
                     style={[
                       styles.navLabel,
-                      { color: isActive ? colors.accent : colors.textPrimary },
+                      { color: isActive ? shellColors.accent : shellColors.textPrimary },
                     ]}
                   >
                     {item.label}
@@ -147,7 +150,7 @@ export default function Sidebar({ open, onClose, onSignOut }) {
             })}
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.line }]} />
+          <View style={[styles.divider, { backgroundColor: shellColors.line || shellColors.border }]} />
 
           <Pressable
             accessibilityRole="switch"
@@ -156,15 +159,15 @@ export default function Sidebar({ open, onClose, onSignOut }) {
             onPress={() => toggleTheme()}
             style={({ pressed }) => [
               styles.themeToggle,
-              { backgroundColor: pressed ? colors.surfaceHigh : colors.surface },
+              { backgroundColor: pressed ? shellColors.surfaceHigh : shellColors.surface, borderColor: shellColors.border, borderWidth: 1 },
             ]}
           >
             <Ionicons
               name={isDark ? 'sunny-outline' : 'moon-outline'}
               size={22}
-              color={colors.accent}
+              color={shellColors.accent}
             />
-            <Text style={[styles.themeToggleLabel, { color: colors.textPrimary }]}>
+            <Text style={[styles.themeToggleLabel, { color: shellColors.textPrimary }]}>
               {isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             </Text>
           </Pressable>

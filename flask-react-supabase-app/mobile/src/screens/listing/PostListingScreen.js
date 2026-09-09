@@ -236,7 +236,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
               value={search}
               onChangeText={setSearch}
               placeholder="Type to search..."
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -429,7 +429,20 @@ export default function PostListingScreen({ navigation, route }) {
   const { editMode, listingType, listingId } = route.params || {};
   const isEditMode = !!editMode;
   const { user } = useAuth();
-  const { colors } = useTheme();
+  const { theme, colors: themeColors } = useTheme();
+  const colors = theme === 'light'
+    ? {
+      ...themeColors,
+      background: themeColors.chromeBackground,
+      surface: themeColors.chromeSurface,
+      surfaceHigher: themeColors.chromeSurface,
+      textPrimary: themeColors.chromeText,
+      textSecondary: themeColors.chromeMuted,
+      textMuted: themeColors.chromeMuted,
+      border: themeColors.chromeBorder,
+      borderLight: themeColors.chromeBorderLight,
+    }
+    : themeColors;
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     moderatingOverlay: {
@@ -471,7 +484,7 @@ export default function PostListingScreen({ navigation, route }) {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
     },
-    stepDot: { width: 24, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)' },
+    stepDot: { width: 24, height: 4, borderRadius: 2, backgroundColor: colors.border },
     stepDotActive: { backgroundColor: colors.accent },
     stepDotDone: { backgroundColor: 'rgba(76,175,80,0.6)' },
     stepLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600', marginLeft: 8 },

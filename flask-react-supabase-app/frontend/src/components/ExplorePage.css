@@ -7,15 +7,15 @@
    Light values are the default; .dark (toggled on <html> by ThemeContext)
    overrides them. */
 :root {
-  --ex-page-bg: #fafafa;
-  --ex-surface-low: #f1f3f1;
+  --ex-page-bg: #ffffff;
+  --ex-surface-low: #f7fbf8;
   --ex-surface: #ffffff;
-  --ex-surface-high: #f6f8f7;
+  --ex-surface-high: #ffffff;
   --ex-surface-dark: #040806;
-  --ex-line: rgba(15, 23, 20, 0.10);
-  --ex-line-strong: rgba(15, 23, 20, 0.18);
-  --ex-text: #101613;
-  --ex-text-muted: #5a6560;
+  --ex-line: rgba(139, 214, 180, 0.52);
+  --ex-line-strong: rgba(11, 107, 76, 0.36);
+  --ex-text: #01351c;
+  --ex-text-muted: #315545;
   --ex-brand-accent: #0b6b4c;
   --ex-brand-accent-soft: rgba(11, 107, 76, 0.08);
   --ex-primary: var(--ex-brand-accent);

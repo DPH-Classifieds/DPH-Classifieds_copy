@@ -53,6 +53,12 @@ export const DARK_COLORS = {
   error: '#f44336',
   info: '#2196f3',
   overlay: 'rgba(4,8,6,0.7)',
+  chromeBackground: '#07110b',
+  chromeSurface: '#0C1C13',
+  chromeText: '#FFFFFF',
+  chromeMuted: '#A8B4AC',
+  chromeBorder: 'rgba(139,214,180,0.22)',
+  chromeBorderLight: 'rgba(139,214,180,0.12)',
 };
 
 // Light counterpart — same brand-invariant accents, off-white surfaces (never
@@ -88,6 +94,14 @@ export const LIGHT_COLORS = {
   error: '#f44336',
   info: '#2196f3',
   overlay: 'rgba(4,8,6,0.7)',
+  // Clean light-shell surfaces used by navigation and the Sell wizard. The
+  // legacy palette above remains stable for screens outside this refresh.
+  chromeBackground: '#FFFFFF',
+  chromeSurface: '#FFFFFF',
+  chromeText: '#01351C',
+  chromeMuted: '#315545',
+  chromeBorder: 'rgba(139,214,180,0.52)',
+  chromeBorderLight: 'rgba(139,214,180,0.30)',
 };
 
 // Legacy default — unmigrated screens keep statically importing this and

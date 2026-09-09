@@ -172,13 +172,15 @@ test('PostListingScreen renders LIGHT_COLORS values when theme is light', () => 
     <PostListingScreen navigation={navigation} route={route} />
   );
   // The default state shows the category picker.
-  // LIGHT_COLORS.background = '#FAFAFA' (page base — unique to LIGHT)
-  // LIGHT_COLORS.surface    = '#FFFFFF' (category cards — note: also matches DARK textPrimary)
+  // The Sell wizard uses the refreshed light shell: white canvas, brand-green
+  // type, and a visible mint outline on its category cards.
+  // LIGHT_COLORS.surface = '#FFFFFF' (category cards)
   // DARK_COLORS.background  = '#07110b' (UNIQUE to DARK)
   findByText('Choose a category');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('FAFAFA');
+  expect(tree).toContain('01351C');
   expect(tree).toContain('FFFFFF');
+  expect(tree).toContain('139,214,180,0.52');
   expect(tree).not.toContain('07110b');
 });
 

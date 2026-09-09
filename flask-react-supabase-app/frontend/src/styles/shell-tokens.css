@@ -5,9 +5,9 @@
    portal chrome stays dark regardless of the theme toggle — the dealer and
    admin experiences are dark-by-design.
 
-   Public header tokens deliberately have their own namespace. The header is
-   translucent, so it needs an opaque panel color for menus and a stable
-   offset for the fixed chrome. */
+   Public header tokens deliberately have their own namespace. The public
+   header and its Browse/Sell panels are opaque so their white light-mode
+   surfaces never blend with page content underneath. */
 
 :root {
   --ex-shell-bg: #070d10;
@@ -22,14 +22,14 @@
   --dph-header-surface: #ffffff;
   --dph-header-mobile-surface: #ffffff;
   --dph-header-panel: #ffffff;
-  --dph-header-panel-raised: #f3f7f4;
-  --dph-header-line: rgba(16, 32, 24, 0.12);
-  --dph-header-line-strong: rgba(16, 32, 24, 0.18);
-  --dph-header-text: #122019;
-  --dph-header-text-muted: #52635b;
+  --dph-header-panel-raised: #ffffff;
+  --dph-header-line: rgba(139, 214, 180, 0.68);
+  --dph-header-line-strong: rgba(11, 107, 76, 0.46);
+  --dph-header-text: #01351c;
+  --dph-header-text-muted: #315545;
   --dph-header-accent: #0b6b4c;
   --dph-header-accent-deep: #07543c;
-  --dph-header-accent-soft: rgba(11, 107, 76, 0.10);
+  --dph-header-accent-soft: rgba(139, 214, 180, 0.12);
   --dph-header-on-accent: #ffffff;
   --dph-header-shadow: rgba(16, 32, 24, 0.16);
 }

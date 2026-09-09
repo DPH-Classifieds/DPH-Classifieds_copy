@@ -734,6 +734,8 @@
 
 .site-header [data-radix-navigation-menu-viewport] {
   background: var(--dph-header-panel) !important;
+  opacity: 1;
+  backdrop-filter: none;
   color: var(--dph-header-text) !important;
   border: 1px solid var(--dph-header-line-strong) !important;
   border-radius: 18px;
@@ -748,6 +750,10 @@
   color: var(--dph-header-text) !important;
   background: var(--dph-header-panel-raised) !important;
   border: 1px solid var(--dph-header-line) !important;
+}
+
+.site-header__menu-grid {
+  background: var(--dph-header-panel) !important;
 }
 
 .site-header__menu-card:hover,
@@ -800,6 +806,20 @@
   color: var(--dph-header-text) !important;
   background: var(--dph-header-panel-raised) !important;
   border: 1px solid var(--dph-header-line) !important;
+}
+
+/* Legacy dropdown selectors remain in the stylesheet for the compact header
+   fallback. Keep them on the same opaque white/green contract as the Radix
+   navigation used by the public shell. */
+.browse-dropdown,
+.post-dropdown {
+  background: var(--dph-header-panel) !important;
+  border-color: var(--dph-header-line) !important;
+}
+
+.browse-item,
+.post-item {
+  color: var(--dph-header-text) !important;
 }
 
 .site-header__mobile-card:hover,

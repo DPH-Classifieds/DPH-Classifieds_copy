@@ -147,15 +147,11 @@ const Header = () => {
     }
   };
 
-  // Translucent surface so backdrop-blur has something visible to blur. The
-  // theme-aware surface tint comes from --ex-surface (white in light, near-
-  // black in dark); color-mix is used here because Tailwind's `/85` opacity
-  // modifier does not apply to bg-[color:var(--ex-surface)] — color-mix is
-  // the portable way to get theme-aware translucency. Inline style is
-  // required because Tailwind's arbitrary-value syntax does not accept
-  // color-mix() function expressions in the bg-[...] shorthand.
+  // Keep the navigation chrome opaque so Browse/Sell menus never blend with
+  // the page behind them. This is especially important on light pages where a
+  // translucent header made the menu look mint-tinted instead of white.
   const headerSurfaceStyle = {
-    backgroundColor: 'color-mix(in srgb, var(--dph-header-surface) 94%, transparent)',
+    backgroundColor: 'var(--dph-header-surface)',
   };
 
   const headerTone = scrolled
@@ -164,10 +160,10 @@ const Header = () => {
 
   return (
     <header
-      // backdrop-blur forces the browser to continuously sample+blur whatever
-      // scrolls beneath this fixed header — a real per-frame cost on weaker
-      // devices. Lighter on mobile, full blur restored from md: up.
-      className={`site-header fixed inset-x-0 top-0 z-50 backdrop-blur-sm md:backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
+      // The public chrome is intentionally solid. Avoiding backdrop blur keeps
+      // this fixed shell fast on weaker devices and prevents page content from
+      // bleeding through Browse/Sell surfaces.
+      className={`site-header fixed inset-x-0 top-0 z-50 transition-all duration-300 ${headerTone}`}
       style={headerSurfaceStyle}
     >
       <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
@@ -338,14 +334,8 @@ const Header = () => {
           <SheetContent
             side="top"
             className="site-header__mobile-panel max-h-screen overflow-auto border-b text-[color:var(--ex-text)]"
-            // bg-[color:var(--ex-page-bg)]/98 compiled to nothing (same
-            // opacity-modifier-on-CSS-var limitation as headerSurfaceStyle
-            // above) leaving the mobile menu fully transparent over the
-            // page content. --ex-page-bg is a gradient in dark mode, so
-            // unlike headerSurfaceStyle this can't use color-mix() either
-            // (that only accepts single colors) — plain `background`
-            // shorthand is the one form that accepts both the light theme's
-            // solid color and the dark theme's gradient.
+            // Use the dedicated opaque shell token so the mobile menu stays
+            // legible over every page and theme.
             style={{ background: 'var(--dph-header-mobile-surface)' }}
           >
             <SheetHeader>
@@ -404,7 +394,7 @@ const Header = () => {
                         <Link
                           key={item.href}
                           to={item.href}
-                          className={`flex items-center justify-between rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-brand-accent)]/10 px-4 py-3 transition-colors ${
+                          className={`site-header__mobile-card flex items-center justify-between rounded-xl px-4 py-3 transition-colors ${
                             item.disabled
                               ? 'cursor-not-allowed text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10'
                               : 'text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]'

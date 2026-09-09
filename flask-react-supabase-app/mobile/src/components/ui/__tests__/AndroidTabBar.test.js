@@ -59,4 +59,15 @@ describe('AndroidTabBar — no hamburger', () => {
     );
     expect(queryByLabelText(/Open navigation menu/)).toBeNull();
   });
+
+  test('uses the opaque white light shell with mint outlines', () => {
+    const state = { routes: [{ key: '1', name: '(explore)' }], routeNames: ['(explore)'] };
+    const navigation = { emit: jest.fn(), navigate: jest.fn() };
+    const { toJSON } = render(
+      <AndroidTabBar state={state} descriptors={{}} navigation={navigation} insets={{ bottom: 0 }} />
+    );
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain('#FFFFFF');
+    expect(tree).toContain('139,214,180,0.52');
+  });
 });

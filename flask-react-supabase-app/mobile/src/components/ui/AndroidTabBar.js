@@ -19,10 +19,11 @@ const TAB_META = {
 };
 
 function TabButton({ route, isFocused, onPress, onLongPress }) {
-  const { colors } = useTheme();
+  const { theme, colors } = useTheme();
   const meta = TAB_META[route.name] || { label: route.name, outline: 'ellipse-outline', filled: 'ellipse' };
   const scale = useSharedValue(1);
   const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const inactiveColor = theme === 'light' ? colors.chromeMuted : colors.textMuted;
 
   return (
     <Pressable
@@ -39,10 +40,10 @@ function TabButton({ route, isFocused, onPress, onLongPress }) {
         <Ionicons
           name={isFocused ? meta.filled : meta.outline}
           size={24}
-          color={isFocused ? colors.accent : colors.textMuted}
+          color={isFocused ? colors.accent : inactiveColor}
         />
       </Animated.View>
-      <Text style={[styles.label, { color: isFocused ? colors.accent : colors.textMuted }]}>
+      <Text style={[styles.label, { color: isFocused ? colors.accent : inactiveColor }]}>
         {meta.label}
       </Text>
     </Pressable>
@@ -60,12 +61,12 @@ export default function AndroidTabBar({ state, descriptors, navigation, insets }
     width: tabWidth > 0 ? tabWidth - 12 : 0,
   }));
 
-  const barBg = theme === 'dark' ? 'rgba(7,17,11,0.55)' : 'rgba(255,255,255,0.65)';
-  const pillBg = theme === 'dark' ? 'rgba(139,214,180,0.16)' : 'rgba(11,107,76,0.12)';
+  const barBg = theme === 'dark' ? 'rgba(7,17,11,0.55)' : colors.chromeBackground;
+  const pillBg = theme === 'dark' ? 'rgba(139,214,180,0.16)' : colors.chromeBorderLight;
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <BlurView intensity={40} tint={theme === 'dark' ? 'dark' : 'light'} style={[styles.bar, { borderColor: colors.border, backgroundColor: barBg }]}>
+      <BlurView intensity={40} tint={theme === 'dark' ? 'dark' : 'light'} style={[styles.bar, { borderColor: theme === 'dark' ? colors.border : colors.chromeBorder, backgroundColor: barBg }]}>
         <View
           style={styles.row}
           onLayout={(e) => {
@@ -76,7 +77,7 @@ export default function AndroidTabBar({ state, descriptors, navigation, insets }
         >
           {tabWidth > 0 && (
             <Animated.View
-              style={[styles.pill, pillStyle, { backgroundColor: pillBg, borderColor: colors.border }]}
+              style={[styles.pill, pillStyle, { backgroundColor: pillBg, borderColor: theme === 'light' ? colors.chromeBorder : colors.border }]}
               pointerEvents="none"
             />
           )}
