@@ -152,6 +152,10 @@ const SearchableSelect = ({
   const flatOptions = useMemo(() => flattenOptions(options), [options]);
   const selectedOption =
     flatOptions.find((option) => String(option.value) === String(value ?? '')) || null;
+  // `<option value="">Select Make</option>` is a placeholder, not an answer.
+  // Counting it as a selection switched `required` off on every dropdown in
+  // every posting form, so nothing was ever validated.
+  const hasRealSelection = Boolean(selectedOption && String(selectedOption.value) !== '');
 
   const derivedPlaceholder =
     placeholder ||
@@ -172,7 +176,7 @@ const SearchableSelect = ({
         autoComplete="off"
         value={value ?? ''}
         onChange={() => {}}
-        required={Boolean(required && !selectedOption)}
+        required={Boolean(required && !hasRealSelection)}
         className="searchable-select-proxy"
         onFocus={(event) => {
           event.target.blur();

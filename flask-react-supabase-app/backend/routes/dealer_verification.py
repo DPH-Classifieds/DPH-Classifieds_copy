@@ -446,9 +446,15 @@ def dealer_verification_list_messages(current_user):
         )
     except Exception as exc:
         logger.warning("dealer_verification_list_messages: fetch failed: %s", exc)
-        return jsonify({"error": "Failed to load messages"}), 500
+        rows, status_code = None, 500
     if status_code >= 400:
-        return jsonify({"error": "Failed to load messages"}), 500
+        # This is an audit side-panel, not load-bearing. Failing the request
+        # took the whole verification page down with a 500 whenever the
+        # dealer_admin_messages table was missing.
+        logger.warning(
+            "dealer_verification_list_messages: query returned %s", status_code
+        )
+        return jsonify({"messages": [], "degraded": True}), 200
     return jsonify({"messages": rows or []}), 200
 
 

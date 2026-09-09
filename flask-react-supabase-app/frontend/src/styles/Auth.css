@@ -1069,3 +1069,10 @@
 .auth-divider-label {
   white-space: nowrap;
 }
+
+/* Inline "(optional …)" qualifier next to a field label. */
+.optional-hint {
+  font-weight: 400;
+  font-size: 0.82em;
+  opacity: 0.7;
+}

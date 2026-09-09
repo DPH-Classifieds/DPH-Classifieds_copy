@@ -278,7 +278,10 @@ const Signup = () => {
       if (!/^\d{15}$/.test(String(value))) return 'TRN must be exactly 15 digits';
     }
     if (['tradeLicenseFile', 'taxRegistrationFile'].includes(name) && data.isDealer) {
-      if (!value) return `Please upload your ${name === 'tradeLicenseFile' ? 'trade license' : 'TRN certificate'}`;
+      // Optional here on purpose: signup has no session yet, so these files
+      // cannot be uploaded. They only drive the client-side field prefill; the
+      // real upload happens on /dealer/verification after email confirmation.
+      if (!value) return null;
       const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
       if (value && !allowed.includes(value.type)) {
         return 'Document must be a PDF, JPG, or PNG';
@@ -456,9 +459,7 @@ const Signup = () => {
       'username',
       'phone',
       'companyName',
-      ...(formData.isDealer
-        ? ['legalBusinessName', 'trn', 'tradeLicenseFile', 'taxRegistrationFile']
-        : []),
+      ...(formData.isDealer ? ['legalBusinessName', 'trn'] : []),
       'acceptTerms',
       'acceptPrivacy'
     ];
@@ -571,7 +572,6 @@ const Signup = () => {
       }
 
       // Save authentication tokens if present in response
-      let dealerJwt = null;
       if (data.access_token || data.session?.access_token) {
         const authData = {
           access_token: data.access_token || data.session?.access_token,
@@ -580,48 +580,6 @@ const Signup = () => {
         };
         saveAuthData(authData);
         setAuthHeader(authData.access_token);
-        dealerJwt = authData.access_token;
-      }
-
-      if (formData.isDealer) {
-        // Supabase returns no session when email confirmation is enabled. The
-        // account is still created successfully; send the dealer through the
-        // normal confirmation flow and resume document upload in Settings.
-        if (!dealerJwt) {
-          navigate('/check-email', {
-            state: {
-              email: signupData.email,
-              redirect: '/settings?dealer_verification=continue',
-            },
-          });
-          return;
-        }
-        const documents = [
-          ['trade_license', formData.tradeLicenseFile],
-          ['tax_registration', formData.taxRegistrationFile],
-        ];
-        for (const [documentType, file, expiresAt] of documents) {
-          const uploadForm = new FormData();
-          uploadForm.append('document_type', documentType);
-          uploadForm.append('file', file);
-          if (expiresAt) uploadForm.append('expires_at', expiresAt);
-          const uploadResponse = await fetch(`${API_URL}/api/user/dealer-documents`, {
-            method: 'POST', headers: { Authorization: `Bearer ${dealerJwt}` }, body: uploadForm,
-          });
-          if (!uploadResponse.ok) {
-            const uploadError = await uploadResponse.json().catch(() => ({}));
-            throw new Error(uploadError.error || `Could not upload ${documentType.replace('_', ' ')}`);
-          }
-        }
-        const submitResponse = await fetch(`${API_URL}/api/auth/dealer-submit-application`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${dealerJwt}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-        if (!submitResponse.ok) {
-          const submitError = await submitResponse.json().catch(() => ({}));
-          throw new Error(submitError.error || 'Could not submit dealer verification');
-        }
       }
 
       const verification = data.phone_verification;
@@ -640,14 +598,15 @@ const Signup = () => {
         return;
       }
 
-      if (formData.isDealer) {
-        // Reload once so AuthContext hydrates the new dealer session before the
-        // status screen is guarded; client-only navigation can otherwise bounce
-        // a just-created dealer back to login.
-        window.location.assign('/settings?dealer_verification=submitted');
-        return;
-      }
-      navigate('/check-email', { state: { email: signupData.email, redirect: safeRedirect } });
+      navigate('/check-email', {
+        state: {
+          email: signupData.email,
+          // Dealers still owe us their documents; land them on the page that
+          // can actually take the upload rather than the generic homepage.
+          redirect: formData.isDealer ? '/dealer/verification' : safeRedirect,
+          isDealer: formData.isDealer,
+        },
+      });
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
@@ -729,7 +688,7 @@ const Signup = () => {
             </div>
             {formData.isDealer && (
               <div className="dealer-note">
-                <strong>Note:</strong> New dealers start with a limit of 4 — upload your Trade License and TRN. PaddleOCR verifies both documents automatically; approved dealers start with a 4-listing limit.
+                <strong>Note:</strong> Approved dealers start with a 4-listing limit. After you confirm your email you'll upload your Trade License and TRN certificate on the verification page — PaddleOCR checks both automatically.
               </div>
             )}
           </div>
@@ -858,7 +817,7 @@ const Signup = () => {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="tradeLicenseFile">Trade License Document <span className="required">*</span></label>
+                <label htmlFor="tradeLicenseFile">Trade License Document <span className="optional-hint">(optional — auto-fills the fields above)</span></label>
                 <input
                   type="file"
                   id="tradeLicenseFile"
@@ -882,7 +841,6 @@ const Signup = () => {
                       });
                     });
                   }}
-                  required={formData.isDealer}
                   className="upload-card-input"
                 />
                 <label
@@ -907,8 +865,8 @@ const Signup = () => {
                     <>
                       <span className="upload-card-icon" aria-hidden="true">↑</span>
                       <span className="upload-card-body">
-                        <span className="upload-card-title">Click to upload your trade license</span>
-                        <span className="upload-card-meta">PDF, JPG, or PNG — up to 10 MB</span>
+                        <span className="upload-card-title">Scan your trade license to auto-fill</span>
+                        <span className="upload-card-meta">Read on your device only — upload for verification comes later</span>
                       </span>
                     </>
                   )}
@@ -916,7 +874,7 @@ const Signup = () => {
                 {renderFieldError('tradeLicenseFile')}
               </div>
               <div className="form-group">
-                <label htmlFor="taxRegistrationFile">Tax Registration Certificate (TRN) <span className="required">*</span></label>
+                <label htmlFor="taxRegistrationFile">Tax Registration Certificate <span className="optional-hint">(optional — auto-fills the fields above)</span></label>
                 <input
                   type="file"
                   id="taxRegistrationFile"
@@ -941,7 +899,6 @@ const Signup = () => {
                       });
                     });
                   }}
-                  required={formData.isDealer}
                 />
                 <label
                   htmlFor="taxRegistrationFile"
@@ -965,8 +922,8 @@ const Signup = () => {
                     <>
                       <span className="upload-card-icon" aria-hidden="true">↑</span>
                       <span className="upload-card-body">
-                        <span className="upload-card-title">Click to upload your TRN certificate</span>
-                        <span className="upload-card-meta">PDF, JPG, or PNG — up to 10 MB</span>
+                        <span className="upload-card-title">Scan your TRN certificate to auto-fill</span>
+                        <span className="upload-card-meta">Read on your device only — upload for verification comes later</span>
                       </span>
                     </>
                   )}

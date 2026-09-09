@@ -1,7 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
+import { API_BASE_URL as API_URL } from '../utils/apiBase';
+import { getAccessToken } from '../utils/supabaseClient';
+import { getCurrentUser } from '../utils/authService';
+import { useAuth } from '../context/AuthContext';
 import './DealerVerificationPage.css';
+
+const DOC_ACCEPT = '.jpg,.jpeg,.png,.pdf';
+const DOC_MAX_BYTES = 10 * 1024 * 1024;
 
 const POLL_INTERVAL_MS = 8000;
 
@@ -30,12 +37,15 @@ function statusChipForDoc(doc) {
 function dealerStatusChip(readiness, applicationStatus, dealerVerified) {
   if (dealerVerified) return { label: 'Verified Dealer', kind: 'success' };
   if (readiness?.ready_to_approve) return { label: 'Awaiting admin approval', kind: 'pending' };
-  if (readiness?.ready_to_submit) return { label: 'Ready to submit', kind: 'pending' };
+  // "submitted" has to win over ready_to_submit, or an application that has
+  // already been sent keeps advertising itself as still needing sending.
   if (applicationStatus === 'submitted') return { label: 'Under review', kind: 'pending' };
+  if (readiness?.ready_to_submit) return { label: 'Ready to submit', kind: 'pending' };
   return { label: 'Action needed', kind: 'muted' };
 }
 
 const DealerVerificationPage = () => {
+  const { updateUser } = useAuth();
   const [readiness, setReadiness] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [applicationStatus, setApplicationStatus] = useState(null);
@@ -54,7 +64,16 @@ const DealerVerificationPage = () => {
   const [sendError, setSendError] = useState(null);
   const [lastSendAt, setLastSendAt] = useState(null);
 
+  const [uploadingDocType, setUploadingDocType] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  // The backend rejects a trade licence whose expiry PaddleOCR can't read and
+  // tells the dealer to "enter the expiry date manually" — so give them a way.
+  const [expiryPrompt, setExpiryPrompt] = useState(null); // { file, message }
+  const [expiryValue, setExpiryValue] = useState('');
+
   const isMountedRef = useRef(true);
+  const fileInputRefs = useRef({});
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -132,6 +151,93 @@ const DealerVerificationPage = () => {
     }
   };
 
+  // The checklist used to say "Awaiting upload" with nowhere to upload, so a
+  // dealer who signed up could never finish verification from this page.
+  const sendDocument = async (documentType, file, expiresAt) => {
+    const token = await getAccessToken();
+    const body = new FormData();
+    body.append('file', file);
+    body.append('document_type', documentType);
+    if (expiresAt) body.append('expires_at', expiresAt);
+    const response = await fetch(`${API_URL}/api/user/dealer-documents`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body,
+    });
+    const data = await response.json().catch(() => ({}));
+    return { ok: response.ok, data };
+  };
+
+  const onUploadDocument = async (documentType, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    setExpiryPrompt(null);
+    if (file.size > DOC_MAX_BYTES) {
+      setUploadError('File too large. Maximum size: 10MB');
+      event.target.value = '';
+      return;
+    }
+    setUploadingDocType(documentType);
+    try {
+      const { ok, data } = await sendDocument(documentType, file);
+      if (!ok) {
+        if (data.code === 'trade_license_expiry_not_detected') {
+          // Keep the file so the retry doesn't make them pick it again.
+          setExpiryPrompt({ file, message: data.error });
+          return;
+        }
+        throw new Error(data.error || 'Failed to upload document');
+      }
+      await fetchStatus();
+    } catch (err) {
+      setUploadError(err?.message || 'Failed to upload document');
+    } finally {
+      if (isMountedRef.current) setUploadingDocType(null);
+      if (fileInputRefs.current[documentType]) fileInputRefs.current[documentType].value = '';
+    }
+  };
+
+  const onSubmitExpiry = async (event) => {
+    event.preventDefault();
+    if (!expiryPrompt?.file || !expiryValue) return;
+    setUploadingDocType('trade_license');
+    setUploadError(null);
+    try {
+      const { ok, data } = await sendDocument('trade_license', expiryPrompt.file, expiryValue);
+      if (!ok) throw new Error(data.error || 'Failed to upload document');
+      setExpiryPrompt(null);
+      setExpiryValue('');
+      await fetchStatus();
+    } catch (err) {
+      setUploadError(err?.message || 'Failed to upload document');
+    } finally {
+      if (isMountedRef.current) setUploadingDocType(null);
+    }
+  };
+
+  const onSubmitApplication = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setUploadError(null);
+    try {
+      await apiClient.post('/api/auth/dealer-submit-application', {});
+      await fetchStatus();
+      // Re-hydrate the session user or the site-wide banner keeps telling them
+      // to upload documents they just submitted.
+      try {
+        const { user: refreshed } = await getCurrentUser(true);
+        if (refreshed?.id) updateUser(refreshed);
+      } catch (refreshError) {
+        console.warn('Failed to refresh user after dealer submission', refreshError);
+      }
+    } catch (err) {
+      setUploadError(err?.message || 'Failed to submit application');
+    } finally {
+      if (isMountedRef.current) setSubmitting(false);
+    }
+  };
+
   const dealerStatus = useMemo(
     () => dealerStatusChip(readiness, applicationStatus, dealerVerified),
     [readiness, applicationStatus, dealerVerified]
@@ -169,6 +275,7 @@ const DealerVerificationPage = () => {
       const chip = statusChipForDoc(doc);
       items.push({
         key: `doc-${docType}`,
+        docType,
         label: DOC_LABELS[docType] || docType,
         state: chip.kind === 'success'
           ? 'ok'
@@ -232,10 +339,66 @@ const DealerVerificationPage = () => {
                 {item.doc?.denial_reason ? (
                   <p className="dvp-item-note">{item.doc.denial_reason}</p>
                 ) : null}
+                {item.docType && item.state !== 'ok' ? (
+                  <div className="dvp-item-upload">
+                    <input
+                      ref={(node) => { fileInputRefs.current[item.docType] = node; }}
+                      id={`dvp-upload-${item.docType}`}
+                      type="file"
+                      accept={DOC_ACCEPT}
+                      className="dvp-file-input"
+                      onChange={(event) => onUploadDocument(item.docType, event)}
+                      disabled={uploadingDocType === item.docType}
+                    />
+                    <label
+                      htmlFor={`dvp-upload-${item.docType}`}
+                      className="dvp-button dvp-button-secondary dvp-button-compact"
+                    >
+                      {uploadingDocType === item.docType
+                        ? 'Uploading…'
+                        : item.state === 'pending'
+                          ? `Replace ${item.label}`
+                          : `Upload ${item.label}`}
+                    </label>
+                    <span className="dvp-item-hint">JPG, PNG or PDF — up to 10 MB</span>
+                  </div>
+                ) : null}
+                {item.docType === 'trade_license' && expiryPrompt ? (
+                  <form className="dvp-expiry-prompt" onSubmit={onSubmitExpiry}>
+                    <p className="dvp-item-note">{expiryPrompt.message}</p>
+                    <label className="dvp-field dvp-field-inline">
+                      <span>Trade licence expiry date</span>
+                      <input
+                        type="date"
+                        value={expiryValue}
+                        required
+                        onChange={(event) => setExpiryValue(event.target.value)}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      className="dvp-button dvp-button-primary dvp-button-compact"
+                      disabled={!expiryValue || uploadingDocType === 'trade_license'}
+                    >
+                      {uploadingDocType === 'trade_license' ? 'Uploading…' : 'Upload with this date'}
+                    </button>
+                  </form>
+                ) : null}
               </div>
             </li>
           ))}
         </ul>
+        {uploadError ? <div className="dvp-form-error" role="alert">{uploadError}</div> : null}
+        {!dealerVerified && readiness?.ready_to_submit && applicationStatus !== 'submitted' ? (
+          <button
+            type="button"
+            className="dvp-button dvp-button-primary dvp-submit-application"
+            onClick={onSubmitApplication}
+            disabled={submitting}
+          >
+            {submitting ? 'Submitting…' : 'Submit for verification'}
+          </button>
+        ) : null}
         {dealerVerified ? (
           <p className="dvp-success-note">
             Your dealer account is verified. You can post up to your assigned listing cap.

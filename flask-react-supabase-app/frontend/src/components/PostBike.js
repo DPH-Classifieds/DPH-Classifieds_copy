@@ -913,7 +913,7 @@ const PostBike = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="price">Price (AED) <RequiredMark /></label>
-                    <input id="price" name="price" type="number" min="0" value={formData.price} onChange={handleChange} required placeholder="25000" />
+                    <input id="price" name="price" type="number" min="1" value={formData.price} onChange={handleChange} required placeholder="25000" />
                   </div>
                 </div>
 

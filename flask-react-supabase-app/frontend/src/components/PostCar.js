@@ -1,4 +1,5 @@
 import { API_BASE_URL as API_URL } from '../utils/apiBase';
+import { MAP_TILE_ATTRIBUTION, MAP_TILE_URL } from '../utils/mapTiles';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -112,10 +113,12 @@ const PostCar = () => {
     trim: '',
     regional_spec: 'GCC',
     make_year: new Date().getFullYear(),
-    kilometer_driven: 100,
+    kilometer_driven: '',
     body_type: '',
     is_insured: false,
-    expected_selling_price: 0,
+    // Prefilled numbers read as answers: a 0 here sailed past the required
+    // check and shipped live cars priced at AED 0.
+    expected_selling_price: '',
     country_code: defaultCountryCode,
     car_owner_phone_number: '',
     car_city: 'Dubai',
@@ -470,9 +473,12 @@ const PostCar = () => {
   // fuel/transmission problem.
   const describeField = (field) => {
     if (!field) return null;
+    // SearchableSelect validates through a hidden proxy input that carries the
+    // real control's id on data-field-id, so resolve that before field.id.
+    const fieldId = field.dataset?.fieldId || field.id;
     const labelEl =
       field.labels?.[0] ||
-      (field.id && formRef.current?.querySelector(`label[for="${field.id}"]`));
+      (fieldId && formRef.current?.querySelector(`label[for="${fieldId}"]`));
     const text = labelEl?.textContent?.replace(/[*\s]+$/g, '').replace(/\*/g, '').trim();
     if (text) return text;
     const NAMES = {
@@ -487,7 +493,7 @@ const PostCar = () => {
       car_location: 'Location',
       other_fuel_type: 'Fuel Type (Other)',
     };
-    return NAMES[field.name || field.id] || null;
+    return NAMES[field.name || fieldId] || null;
   };
 
   const getFirstInvalidRequiredField = () => {
@@ -1054,8 +1060,8 @@ const PostCar = () => {
           style={{ height: '100%', width: '100%' }}
         >
           <TileLayer
-            attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution={MAP_TILE_ATTRIBUTION}
+            url={MAP_TILE_URL}
           />
           <MapClickHandler />
           <MarkerWithDrag />
@@ -2441,7 +2447,7 @@ const PostCar = () => {
                 name="expected_selling_price"
                 value={formData.expected_selling_price}
                 onChange={handleChange}
-                min="0"
+                min="1"
                 required
                 className="form-control"
               />

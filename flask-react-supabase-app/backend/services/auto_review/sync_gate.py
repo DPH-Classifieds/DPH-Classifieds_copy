@@ -13,7 +13,10 @@ PART_CONDITIONS = {"New", "Like New", "Used", "Refurbished"}
 # The part-posting API and form both accept one or more uploaded images. Cars
 # and bikes retain their stronger photo minimums; parts do not require a
 # second angle before the listing can enter the review lifecycle.
-PHOTO_MIN = {"car": 3, "bike": 3, "part": 1, "plate": 1}
+# Plates carry no uploaded photo at all — the plate graphic is rendered by the
+# backend from the stored city/code/number — so requiring one here parked every
+# plate in auto_queued with missing_required_fields forever.
+PHOTO_MIN = {"car": 3, "bike": 3, "part": 1, "plate": 0}
 
 
 def normalize_vin(value):
@@ -24,6 +27,19 @@ def normalize_vin(value):
 class SyncGateResult:
     ok: bool
     missing: list = field(default_factory=list)
+
+
+def _numeric_text(value):
+    """'890cc' -> '890'.
+
+    Engine capacity is a free-text field whose own placeholder is "890cc", so
+    the gate has to accept a unit suffix instead of reporting the field as
+    missing. Only the gate's view is normalised; the raw value is still stored.
+    """
+    if value is None:
+        return None
+    match = re.search(r"\d+", str(value))
+    return match.group(0) if match else value
 
 
 def _first_text(*values):
@@ -80,7 +96,9 @@ def normalize_listing_fields(listing_type, listing):
             "make_year": src.get("make_year") or src.get("year"),
             "kilometer_driven": src.get("kilometer_driven") or src.get("mileage"),
             "price": src.get("price") or src.get("expected_selling_price"),
-            "engine_size": src.get("engine_size") or src.get("engine_capacity"),
+            "engine_size": _numeric_text(
+                src.get("engine_size") or src.get("engine_capacity")
+            ),
             "vin": _first_text(src.get("vin"), src.get("vin_number")),
         }
 
@@ -155,7 +173,7 @@ def _validate_car(listing, photo_count, min_year, max_year, missing):
         missing.append("make_year")
     if not _int_in_range(listing.get("kilometer_driven"), 0):
         missing.append("kilometer_driven")
-    if not _int_in_range(listing.get("expected_selling_price"), 0):
+    if not _int_in_range(listing.get("expected_selling_price"), 1):
         missing.append("expected_selling_price")
     vin = normalize_vin(listing.get("vin"))
     if vin and not VIN_RE.match(vin):
@@ -189,7 +207,7 @@ def _validate_bike(listing, photo_count, min_year, max_year, missing):
         missing.append("make_year")
     if not _int_in_range(listing.get("kilometer_driven"), 0):
         missing.append("kilometer_driven")
-    if not _int_in_range(listing.get("price"), 0):
+    if not _int_in_range(listing.get("price"), 1):
         missing.append("price")
     if not _int_in_range(listing.get("engine_size"), 1):
         missing.append("engine_size")
@@ -206,7 +224,7 @@ def _validate_part(listing, photo_count, missing):
     # turn an omitted/blank optional field into a 400 at submission time.
     for field in ("name", "part_type", "area", "contact_number"):
         _check_text_required(listing, field, missing)
-    if not _int_in_range(listing.get("price"), 0):
+    if not _int_in_range(listing.get("price"), 1):
         missing.append("price")
     if listing.get("condition") not in PART_CONDITIONS:
         missing.append("condition")
@@ -219,7 +237,7 @@ def _validate_plate(listing, photo_count, missing):
         _check_text_required(listing, field, missing)
     if not _int_in_range(listing.get("digits"), 1, 5):
         missing.append("digits")
-    if not _int_in_range(listing.get("price"), 0):
+    if not _int_in_range(listing.get("price"), 1):
         missing.append("price")
     if photo_count < PHOTO_MIN["plate"]:
         missing.append("photos")

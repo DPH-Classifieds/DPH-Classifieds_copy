@@ -809,7 +809,7 @@ const PostPlate = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="price">Price (AED) <RequiredMark /></label>
-                    <input id="price" name="price" type="number" min="0" value={formData.price} onChange={handleChange} required placeholder="15000" />
+                    <input id="price" name="price" type="number" min="1" value={formData.price} onChange={handleChange} required placeholder="15000" />
                   </div>
                 </div>
               </div>
@@ -1006,13 +1006,14 @@ const PostPlate = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="description">Description</label>
+                    <label htmlFor="description">Description <RequiredMark /></label>
                     <textarea
                       id="description"
                       name="description"
                       rows="5"
                       value={formData.description}
                       onChange={handleChange}
+                      required
                       placeholder="Share any provenance, rarity, transfer notes, or negotiation context."
                     />
                     <div className="form-text description-word-counter">

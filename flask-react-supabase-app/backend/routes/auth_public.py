@@ -6,6 +6,27 @@ from flask import Blueprint
 auth_public_bp = Blueprint("auth_public", __name__, url_prefix="/api/auth")
 
 
+def _record_successful_login(user_id, client_ip):
+    """Stamp last_login_at/ip. Both columns existed but nothing ever wrote
+    them, so admin user pages showed every account as never logged in."""
+    if not user_id:
+        return
+    from datetime import datetime, timezone
+
+    try:
+        supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{user_id}",
+            data={
+                "last_login_at": datetime.now(timezone.utc).isoformat(),
+                "last_login_ip": client_ip or None,
+            },
+            use_service_role=True,
+        )
+    except Exception as exc:  # never block a valid login on telemetry
+        logger.warning("[Login] Failed to record last_login for %s: %s", user_id, exc)
+
+
 @auth_public_bp.route("/login", methods=["POST"])
 def login():
     client_ip = _request_client_ip()
@@ -66,6 +87,7 @@ def login():
             if supabase_user_info and token:
                 user_id = supabase_user_info.get("id")
                 logger.info(f"[Login] Extracted user_id from Supabase auth: {user_id}")
+                _record_successful_login(user_id, client_ip)
                 user_details_for_session = _get_user_details_with_admin_status(user_id)
                 logger.info(
                     f"[Login] Details from _get_user_details_with_admin_status: {user_details_for_session}"

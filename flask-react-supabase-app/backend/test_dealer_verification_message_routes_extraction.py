@@ -75,9 +75,19 @@ def test_dealer_verification_messages_maps_provider_errors():
     assert status == 200
     assert response.get_json() == {"messages": [{"id": "m1"}]}
 
+    # The message log is a side panel on the verification page. A provider
+    # failure (or a missing dealer_admin_messages table) must degrade to an
+    # empty list instead of 500ing the page the dealer needs to upload docs on.
     with backend.app.test_request_context("/api/dealer/verification/messages"), patch.object(
         backend, "supabase_request", side_effect=RuntimeError("provider unavailable")
     ):
         response, status = backend.dealer_verification_list_messages.__wrapped__("u1")
-    assert status == 500
-    assert response.get_json() == {"error": "Failed to load messages"}
+    assert status == 200
+    assert response.get_json() == {"messages": [], "degraded": True}
+
+    with backend.app.test_request_context("/api/dealer/verification/messages"), patch.object(
+        backend, "supabase_request", return_value=({"code": "42P01"}, 404)
+    ):
+        response, status = backend.dealer_verification_list_messages.__wrapped__("u1")
+    assert status == 200
+    assert response.get_json() == {"messages": [], "degraded": True}

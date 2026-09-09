@@ -226,6 +226,51 @@ class PlateSyncGateTests(unittest.TestCase):
         self.assertIn("digits", result.missing)
 
 
+class StagingWalkthroughRegressionTests(unittest.TestCase):
+    """Defects found driving the real posting forms end to end."""
+
+    def test_plate_passes_without_any_uploaded_photo(self):
+        # The plate form has no photo upload; the graphic is rendered server
+        # side. Requiring one parked every plate in auto_queued forever.
+        result = validate_required_fields(
+            "plate", VALID_PLATE, photo_count=0, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertTrue(result.ok, msg=result.missing)
+
+    def test_bike_engine_size_accepts_the_placeholder_format(self):
+        # PostBike's placeholder is literally "890cc".
+        listing = {**VALID_BIKE, "engine_size": "890cc"}
+        result = validate_required_fields(
+            "bike", listing, photo_count=3, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertTrue(result.ok, msg=result.missing)
+
+    def test_bike_engine_size_still_rejects_pure_text(self):
+        listing = {**VALID_BIKE, "engine_size": "big one"}
+        result = validate_required_fields(
+            "bike", listing, photo_count=3, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertIn("engine_size", result.missing)
+
+    def test_zero_price_is_rejected_for_every_listing_type(self):
+        cases = (
+            ("car", {**VALID_CAR, "expected_selling_price": 0}, 3, "expected_selling_price"),
+            ("bike", {**VALID_BIKE, "price": 0}, 3, "price"),
+            ("part", {**VALID_PART, "price": 0}, 1, "price"),
+            ("plate", {**VALID_PLATE, "price": 0}, 0, "price"),
+        )
+        for listing_type, listing, photos, field_name in cases:
+            with self.subTest(listing_type=listing_type):
+                result = validate_required_fields(
+                    listing_type,
+                    listing,
+                    photo_count=photos,
+                    min_year=MIN_YEAR,
+                    max_year=MAX_YEAR,
+                )
+                self.assertIn(field_name, result.missing)
+
+
 class UnsupportedTypeTests(unittest.TestCase):
     def test_unknown_type_fails(self):
         result = validate_required_fields(

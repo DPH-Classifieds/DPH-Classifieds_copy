@@ -1,14 +1,51 @@
+/* Palette lives in variables so the page can render on the light shell too.
+   It used to hardcode a dark scheme, which made every heading and card on
+   /dealer/verification invisible whenever the user was in light mode. */
+.dvp-shell {
+  --dvp-text-strong: #f0fdf4;
+  --dvp-text: #e6f1e6;
+  --dvp-text-muted: rgba(230, 241, 230, 0.78);
+  --dvp-text-dim: rgba(230, 241, 230, 0.55);
+  --dvp-accent: rgba(143, 230, 148, 0.7);
+  --dvp-card-bg: linear-gradient(180deg, rgba(17, 39, 27, 0.96) 0%, rgba(11, 24, 17, 0.98) 100%);
+  --dvp-card-border: rgba(143, 230, 148, 0.12);
+  --dvp-row-bg: rgba(255, 255, 255, 0.03);
+  --dvp-row-border: rgba(143, 230, 148, 0.08);
+  --dvp-input-bg: rgba(255, 255, 255, 0.04);
+  --dvp-input-border: rgba(255, 255, 255, 0.18);
+  --dvp-success-text: #b8f2c0;
+  --dvp-pending-text: #f8d77a;
+  --dvp-danger-text: #ffb3b3;
+}
+
+:root:not(.dark) .dvp-shell {
+  --dvp-text-strong: #0f2417;
+  --dvp-text: #1c3527;
+  --dvp-text-muted: rgba(28, 53, 39, 0.78);
+  --dvp-text-dim: rgba(28, 53, 39, 0.58);
+  --dvp-accent: #2f7a4d;
+  --dvp-card-bg: #ffffff;
+  --dvp-card-border: rgba(15, 36, 23, 0.12);
+  --dvp-row-bg: rgba(15, 36, 23, 0.03);
+  --dvp-row-border: rgba(15, 36, 23, 0.08);
+  --dvp-input-bg: #ffffff;
+  --dvp-input-border: rgba(15, 36, 23, 0.18);
+  --dvp-success-text: #1c6b3a;
+  --dvp-pending-text: #8a5b00;
+  --dvp-danger-text: #a3272c;
+}
+
 .dvp-shell {
   max-width: 880px;
   margin: 0 auto;
   padding: 32px 24px 64px;
-  color: #e6f1e6;
+  color: var(--dvp-text);
 }
 
 .dvp-loading {
   padding: 64px 0;
   text-align: center;
-  color: rgba(230, 241, 230, 0.6);
+  color: var(--dvp-text-dim);
 }
 
 .dvp-header {
@@ -25,7 +62,7 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(143, 230, 148, 0.7);
+  color: var(--dvp-accent);
   margin-bottom: 6px;
 }
 
@@ -33,12 +70,12 @@
   font-size: 1.85rem;
   margin: 0;
   font-weight: 700;
-  color: #f0fdf4;
+  color: var(--dvp-text-strong);
 }
 
 .dvp-subtitle {
   margin: 4px 0 0;
-  color: rgba(230, 241, 230, 0.7);
+  color: var(--dvp-text-muted);
   font-size: 0.95rem;
 }
 
@@ -57,26 +94,26 @@
 
 .dvp-chip-success {
   background: rgba(143, 230, 148, 0.16);
-  color: #b8f2c0;
+  color: var(--dvp-success-text);
   border-color: rgba(143, 230, 148, 0.4);
 }
 
 .dvp-chip-pending {
   background: rgba(255, 193, 7, 0.12);
-  color: #f8d77a;
+  color: var(--dvp-pending-text);
   border-color: rgba(255, 193, 7, 0.35);
 }
 
 .dvp-chip-danger {
   background: rgba(255, 99, 99, 0.14);
-  color: #ffb3b3;
+  color: var(--dvp-danger-text);
   border-color: rgba(255, 99, 99, 0.4);
 }
 
 .dvp-chip-muted {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(230, 241, 230, 0.78);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--dvp-input-bg);
+  color: var(--dvp-text-muted);
+  border-color: var(--dvp-input-border);
 }
 
 .dvp-error {
@@ -85,7 +122,7 @@
   border-radius: 12px;
   background: rgba(255, 99, 99, 0.08);
   border: 1px solid rgba(255, 99, 99, 0.3);
-  color: #ffd1d1;
+  color: var(--dvp-danger-text);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -93,8 +130,8 @@
 }
 
 .dvp-section {
-  background: linear-gradient(180deg, rgba(17, 39, 27, 0.96) 0%, rgba(11, 24, 17, 0.98) 100%);
-  border: 1px solid rgba(143, 230, 148, 0.12);
+  background: var(--dvp-card-bg);
+  border: 1px solid var(--dvp-card-border);
   border-radius: 18px;
   padding: 22px 24px;
   margin-bottom: 18px;
@@ -113,13 +150,13 @@
   margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
-  color: #f0fdf4;
+  color: var(--dvp-text-strong);
 }
 
 .dvp-section-meta {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(230, 241, 230, 0.55);
+  color: var(--dvp-text-dim);
 }
 
 .dvp-checklist {
@@ -137,8 +174,8 @@
   gap: 14px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(143, 230, 148, 0.08);
+  background: var(--dvp-row-bg);
+  border: 1px solid var(--dvp-row-border);
 }
 
 .dvp-item-dot {
@@ -151,28 +188,28 @@
   font-weight: 700;
   font-size: 0.85rem;
   background: rgba(143, 230, 148, 0.16);
-  color: #b8f2c0;
+  color: var(--dvp-success-text);
 }
 
 .dvp-item-ok .dvp-item-dot {
   background: rgba(143, 230, 148, 0.16);
-  color: #b8f2c0;
+  color: var(--dvp-success-text);
 }
 
 .dvp-item-pending .dvp-item-dot {
   background: rgba(255, 193, 7, 0.16);
-  color: #f8d77a;
+  color: var(--dvp-pending-text);
 }
 
 .dvp-item-error .dvp-item-dot,
 .dvp-item-danger .dvp-item-dot {
   background: rgba(255, 99, 99, 0.16);
-  color: #ffb3b3;
+  color: var(--dvp-danger-text);
 }
 
 .dvp-item-missing .dvp-item-dot {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(230, 241, 230, 0.78);
+  background: var(--dvp-input-bg);
+  color: var(--dvp-text-muted);
 }
 
 .dvp-item-body {
@@ -185,13 +222,13 @@
 
 .dvp-item-label {
   font-weight: 600;
-  color: #f0fdf4;
+  color: var(--dvp-text-strong);
 }
 
 .dvp-item-note {
   margin: 4px 0 0;
   font-size: 0.85rem;
-  color: rgba(255, 179, 179, 0.92);
+  color: var(--dvp-danger-text);
 }
 
 .dvp-success-note {
@@ -199,7 +236,7 @@
   padding: 10px 14px;
   border-radius: 12px;
   background: rgba(143, 230, 148, 0.1);
-  color: #b8f2c0;
+  color: var(--dvp-success-text);
   font-size: 0.9rem;
 }
 
@@ -236,9 +273,9 @@
 }
 
 .dvp-button-secondary {
-  background: rgba(255, 255, 255, 0.04);
-  color: #f0fdf4;
-  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--dvp-input-bg);
+  color: var(--dvp-text-strong);
+  border-color: var(--dvp-input-border);
 }
 
 .dvp-form {
@@ -257,7 +294,7 @@
 .dvp-field > span {
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(230, 241, 230, 0.78);
+  color: var(--dvp-text-muted);
 }
 
 .dvp-field input,
@@ -265,9 +302,9 @@
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(143, 230, 148, 0.15);
-  color: #f0fdf4;
+  background: var(--dvp-input-bg);
+  border: 1px solid var(--dvp-input-border);
+  color: var(--dvp-text-strong);
   font-family: inherit;
   font-size: 0.95rem;
   resize: vertical;
@@ -281,12 +318,12 @@
 }
 
 .dvp-form-error {
-  color: #ffb3b3;
+  color: var(--dvp-danger-text);
   font-size: 0.88rem;
 }
 
 .dvp-form-success {
-  color: #b8f2c0;
+  color: var(--dvp-success-text);
   font-size: 0.88rem;
 }
 
@@ -299,26 +336,26 @@
 
 .dvp-form-counter {
   font-size: 0.82rem;
-  color: rgba(230, 241, 230, 0.5);
+  color: var(--dvp-text-dim);
 }
 
 .dvp-history {
   margin-top: 22px;
-  border-top: 1px solid rgba(143, 230, 148, 0.08);
+  border-top: 1px solid var(--dvp-row-border);
   padding-top: 16px;
 }
 
 .dvp-history h3 {
   font-size: 0.95rem;
   margin: 0 0 10px;
-  color: rgba(230, 241, 230, 0.78);
+  color: var(--dvp-text-muted);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .dvp-history-empty {
-  color: rgba(230, 241, 230, 0.5);
+  color: var(--dvp-text-dim);
   font-size: 0.9rem;
 }
 
@@ -334,8 +371,8 @@
 .dvp-history-item {
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(143, 230, 148, 0.08);
+  background: var(--dvp-row-bg);
+  border: 1px solid var(--dvp-row-border);
 }
 
 .dvp-history-head {
@@ -349,19 +386,19 @@
 .dvp-history-context {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #b8f2c0;
+  color: var(--dvp-success-text);
 }
 
 .dvp-history-time {
   font-size: 0.78rem;
-  color: rgba(230, 241, 230, 0.5);
+  color: var(--dvp-text-dim);
 }
 
 .dvp-history-body {
   margin: 0;
   white-space: pre-wrap;
   font-size: 0.92rem;
-  color: rgba(230, 241, 230, 0.85);
+  color: var(--dvp-text);
 }
 
 .dvp-link {
@@ -372,4 +409,68 @@
   cursor: pointer;
   font: inherit;
   padding: 0;
+}
+/* Document upload controls on the checklist rows. */
+.dvp-item-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.dvp-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dvp-file-input:focus-visible + .dvp-button {
+  outline: 2px solid var(--dvp-accent);
+  outline-offset: 2px;
+}
+
+.dvp-button-compact {
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.dvp-item-hint {
+  font-size: 0.78rem;
+  color: var(--dvp-text-dim);
+}
+
+.dvp-submit-application {
+  margin-top: 16px;
+}
+
+/* Manual expiry fallback when PaddleOCR can't read the trade licence date. */
+.dvp-expiry-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--dvp-row-border);
+  border-radius: 10px;
+  background: var(--dvp-row-bg);
+}
+
+.dvp-expiry-prompt .dvp-item-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.dvp-field-inline {
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
 }

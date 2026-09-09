@@ -264,7 +264,8 @@ def _build_content_security_policy():
         f"script-src {' '.join(script_sources)}; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data: blob: https://*.supabase.co https://*.railway.app; "
+        "img-src 'self' data: blob: https://*.supabase.co https://*.railway.app "
+        "https://tile.openstreetmap.org https://*.tile.openstreetmap.org; "
         "connect-src 'self' https://*.supabase.co https://dph-classifieds-production.up.railway.app "
         "https://dphclassifieds.com https://www.dphclassifieds.com https://challenges.cloudflare.com; "
         "frame-src https://challenges.cloudflare.com;"
@@ -4099,6 +4100,43 @@ def _normalize_listing_vin(payload):
             payload[key] = re.sub(r"[^A-Z0-9]", "", str(payload[key]).upper())
 
 
+def _listing_payload_image_urls(payload):
+    """Every image URL a create/update payload is carrying, in order."""
+    urls = []
+    if not isinstance(payload, dict):
+        return urls
+    for value in (payload.get("images") or []):
+        if isinstance(value, str):
+            urls.append(value)
+        elif isinstance(value, dict):
+            for key in ("image_url", "url", "display_url"):
+                if value.get(key):
+                    urls.append(value[key])
+    return list(dict.fromkeys(urls))
+
+
+def discard_rejected_listing_images(payload):
+    """Delete objects a client already uploaded for a listing we are refusing.
+
+    The posting forms upload to storage first and only then POST the listing, so
+    every rejected submission used to leave its images behind forever.
+    """
+    from urllib.parse import quote
+
+    for url in _listing_payload_image_urls(payload):
+        if "listing-images/" not in url:
+            continue
+        object_path = url.split("listing-images/", 1)[-1].split("?")[0]
+        try:
+            supabase_request(
+                "delete",
+                f"/storage/v1/object/listing-images/{quote(object_path)}",
+                use_service_role=True,
+            )
+        except Exception as exc:
+            logger.warning("Failed to discard rejected listing image %s: %s", url, exc)
+
+
 def _sync_gate_error(listing_type, payload, photo_count):
     from services.auto_review.sync_gate import validate_required_fields
 
@@ -4111,6 +4149,7 @@ def _sync_gate_error(listing_type, payload, photo_count):
     )
     if result.ok:
         return None
+    discard_rejected_listing_images(payload)
     return jsonify(
         {
             "error": "Please complete all required listing fields before submitting.",
@@ -5174,10 +5213,29 @@ def _require_dealer_verified(user_id):
         if not rows:
             return jsonify({"error": "Dealer verification could not be confirmed", "code": "dealer_verification_unavailable"}), 503
         if rows and rows[0].get("is_dealer") and not rows[0].get("dealer_verified"):
+            # "Still verifying" is a lie when nothing has been uploaded yet, and
+            # it left new dealers waiting on a review that could never start.
+            # The client has already pushed its photos to storage by the time
+            # this gate runs, so drop them instead of orphaning them.
+            discard_rejected_listing_images(request.get_json(silent=True) or {})
+            pending_readiness, _ = _get_dealer_application_readiness(user_id)
+            awaiting_upload = bool(
+                pending_readiness
+                and (
+                    pending_readiness.get("missing_uploads")
+                    or pending_readiness.get("missing_fields")
+                )
+            )
             return jsonify(
                 {
-                    "error": "We're still verifying your documents — usually under a minute.",
+                    "error": (
+                        "Upload your Trade License and TRN certificate on the dealer "
+                        "verification page to finish setting up your account."
+                        if awaiting_upload
+                        else "We're still verifying your documents — usually under a minute."
+                    ),
                     "code": "dealer_not_verified",
+                    "awaiting_documents": awaiting_upload,
                 }
             ), 403
 

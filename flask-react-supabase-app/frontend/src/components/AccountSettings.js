@@ -1206,12 +1206,13 @@ const AccountSettings = () => {
                 <div className="form-group">
                   <label>Required Documents</label>
                   <p className="dealer-documents-help">
-                    Upload all three documents to activate your dealer account. Accepted: JPG, PNG, PDF (max 10MB each).
+                    Upload both documents to activate your dealer account. Accepted: JPG, PNG, PDF (max 10MB each).
                   </p>
 
+                  {/* Must match backend _DEALER_REQUIRED_DOCS. Listing a third
+                      document here asked dealers for something no gate wanted. */}
                   {[
                     { type: 'trade_license', label: 'Trade License', icon: '📋' },
-                    { type: 'company_registration', label: 'Company Registration', icon: '🏢' },
                     { type: 'tax_registration', label: 'Tax Registration (TRN)', icon: '🧾' },
                   ].map(({ type, label, icon }) => {
                     const doc = dealerDocuments.find(d => d.document_type === type);
