@@ -172,6 +172,7 @@ const Header = () => {
             <div
               className="site-header__desktop-menu-anchor"
               onMouseEnter={() => setDesktopMenu('browse')}
+              onMouseLeave={() => setDesktopMenu(null)}
             >
               <button
                 ref={browseTriggerRef}
@@ -197,6 +198,7 @@ const Header = () => {
             <div
               className="site-header__desktop-menu-anchor"
               onMouseEnter={() => setDesktopMenu('sell')}
+              onMouseLeave={() => setDesktopMenu(null)}
             >
               <button
                 ref={sellTriggerRef}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Header from './Header';
 
@@ -52,4 +52,21 @@ test('header uses theme tokens, not hardcoded rgba dark scrim', () => {
   const brandCls = brand?.getAttribute('class') || '';
   expect(brandCls).not.toMatch(/\[#8bd6b4\]/);
   expect(brandCls).toMatch(/var\(--ex-accent-green\)/);
+});
+
+test('desktop marketplace menu closes when the pointer leaves its anchor', () => {
+  const { container } = render(
+    <MemoryRouter>
+      <Header />
+    </MemoryRouter>
+  );
+
+  const browseAnchor = container.querySelector('.site-header__desktop-menu-anchor');
+  expect(browseAnchor).toBeTruthy();
+
+  fireEvent.mouseEnter(browseAnchor);
+  expect(container.querySelector('#dph-browse-menu')).toBeTruthy();
+
+  fireEvent.mouseLeave(browseAnchor);
+  expect(container.querySelector('#dph-browse-menu')).toBeNull();
 });

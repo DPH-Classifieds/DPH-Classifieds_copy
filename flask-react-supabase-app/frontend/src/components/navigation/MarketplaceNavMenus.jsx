@@ -21,7 +21,7 @@ import {
 import './MarketplaceNavMenus.css';
 
 const RedditIcon = ({ className }) => (
-  <img src="/reddit-logo.png" alt="" aria-hidden="true" className={className} />
+  <img src="/redditlogo.png" alt="" aria-hidden="true" className={`marketplace-nav__reddit-icon ${className || ''}`} />
 );
 
 export const browseLinks = [
@@ -98,6 +98,8 @@ export const browseContent = {
     eyebrow: 'CAR PARTS',
     headline: 'The right part, sooner',
     description: 'Find replacement parts, upgrades, and useful gear from sellers across the UAE.',
+    heroFallbackTitle: 'Parts that keep you moving',
+    heroFallbackDescription: 'Find the next upgrade or replacement across the UAE.',
     popularLabel: 'Explore Car Parts',
     popularAction: 'View All Parts',
     popularCategories: [
@@ -111,6 +113,8 @@ export const browseContent = {
     eyebrow: 'PLATES',
     headline: 'A plate with presence',
     description: 'Discover collectible and premium UAE number plates from sellers you can reach directly.',
+    heroFallbackTitle: 'Numbers with presence',
+    heroFallbackDescription: 'Discover standout UAE plates from trusted sellers.',
     popularLabel: 'Browse Plate Collections',
     popularAction: 'View All Plates',
     popularCategories: [
@@ -124,6 +128,8 @@ export const browseContent = {
     eyebrow: 'BIKES',
     headline: 'Make your next move',
     description: 'Explore motorcycles, scooters, and specialty bikes from riders across the UAE.',
+    heroFallbackTitle: 'Your next ride awaits',
+    heroFallbackDescription: 'Find motorcycles and scooters ready for the next adventure.',
     popularLabel: 'Popular Bike Types',
     popularAction: 'View All Bikes',
     popularCategories: [
@@ -137,6 +143,8 @@ export const browseContent = {
     eyebrow: 'REDDIT IMPORTS',
     headline: 'Petrolhead finds, curated',
     description: 'Browse cars imported from the r/DubaiPetrolHeads community and discover the story behind each one.',
+    heroFallbackTitle: 'Community cars, curated',
+    heroFallbackDescription: 'Explore imports and stories from r/DubaiPetrolHeads.',
     popularLabel: 'Explore the Community',
     popularAction: 'View Reddit Imports',
     popularCategories: [
@@ -150,6 +158,8 @@ export const browseContent = {
     eyebrow: 'BUYING REQUESTS',
     headline: 'Let the right seller find you',
     description: 'See what UAE buyers are looking for, or share the exact vehicle, part, or plate you need.',
+    heroFallbackTitle: 'Tell sellers what you need',
+    heroFallbackDescription: 'Post a request and let the right seller find you.',
     popularLabel: 'Browse Requests',
     popularAction: 'View All Requests',
     popularCategories: [
@@ -245,11 +255,11 @@ export const BrowseHero = ({ categoryId }) => {
           <span>Explore the UAE marketplace <ArrowRight aria-hidden="true" /></span>
         </Link>
       ) : (
-        <Link to={viewAllHref} className="marketplace-nav__hero-fallback">
+        <Link to={viewAllHref} className={`marketplace-nav__hero-fallback is-${categoryId}`}>
           <span className="marketplace-nav__hero-fallback-icon"><SelectedIcon aria-hidden="true" /></span>
           <span>
-            <strong>Built for the UAE</strong>
-            <small>Discover listings from all seven Emirates</small>
+            <strong>{category.heroFallbackTitle || 'Built for the UAE'}</strong>
+            <small>{category.heroFallbackDescription || 'Discover listings from all seven Emirates'}</small>
           </span>
           <ArrowRight aria-hidden="true" />
         </Link>

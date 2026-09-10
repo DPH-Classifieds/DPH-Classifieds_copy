@@ -103,6 +103,14 @@
   stroke-width: 1.9;
 }
 
+.marketplace-nav__category-icon img,
+.marketplace-nav__hero-fallback-icon img {
+  display: block;
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+}
+
 .marketplace-nav__category-copy,
 .marketplace-nav__sell-copy {
   display: flex;
@@ -292,8 +300,21 @@
   align-items: center;
   gap: 12px;
   padding: 18px;
-  background: var(--dph-market-mint);
-  color: var(--dph-market-ink);
+  background:
+    radial-gradient(circle at 88% 20%, rgba(122, 219, 181, 0.28), transparent 34%),
+    linear-gradient(135deg, #0b2c24 0%, #0e4033 56%, #12654b 100%);
+  color: #fff;
+}
+
+.marketplace-nav__hero-fallback::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  opacity: 0.38;
+  background:
+    linear-gradient(122deg, transparent 0 55%, rgba(255, 255, 255, 0.1) 55.2%, transparent 55.5%),
+    linear-gradient(180deg, transparent 0 64%, rgba(255, 255, 255, 0.08) 64.2%, transparent 64.5%);
+  pointer-events: none;
 }
 
 .marketplace-nav__hero-fallback-icon {
@@ -301,6 +322,8 @@
   height: 48px;
   border-radius: 15px;
   background: var(--dph-market-white);
+  position: relative;
+  z-index: 1;
 }
 
 .marketplace-nav__hero-fallback-icon svg {
@@ -313,6 +336,8 @@
   flex: 1;
   flex-direction: column;
   gap: 3px;
+  position: relative;
+  z-index: 1;
 }
 
 .marketplace-nav__hero-fallback strong {
@@ -320,14 +345,26 @@
 }
 
 .marketplace-nav__hero-fallback small {
-  color: var(--dph-market-muted);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 11px;
+  line-height: 1.35;
 }
 
 .marketplace-nav__hero-fallback > svg {
   width: 17px;
   height: 17px;
-  color: var(--dph-market-green);
+  position: relative;
+  z-index: 1;
+  color: #b7efd3;
+}
+
+.marketplace-nav__hero-fallback.is-reddit .marketplace-nav__hero-fallback-icon {
+  background: #fff;
+}
+
+.marketplace-nav__hero-fallback.is-reddit .marketplace-nav__hero-fallback-icon img {
+  width: 30px;
+  height: 30px;
 }
 
 .marketplace-nav__popular-heading {
@@ -690,6 +727,10 @@
   }
 
   .marketplace-nav__hero-media {
+    height: 170px;
+  }
+
+  .marketplace-nav__hero-fallback {
     height: 170px;
   }
 
