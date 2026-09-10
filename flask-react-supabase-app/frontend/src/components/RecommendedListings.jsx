@@ -69,7 +69,7 @@ const RecommendedListings = ({ limit = 8, className = '', listingType, listingId
             <h2>{isSimilar ? 'You might also like' : 'Based on what you have been looking at'}</h2>
           </div>
         </div>
-        <div className="cn-market-grid">
+        <div className="cn-similar-grid">
           {recommendations.map((item) => (
             <MarketplaceListingCard
               key={`${item.listingType || item.type}-${item.id}`}
@@ -83,6 +83,7 @@ const RecommendedListings = ({ limit = 8, className = '', listingType, listingId
                 image: item.image,
                 images: item.images,
                 route: item.route,
+                listingType: item.listingType || item.type,
               }}
               showMoreLink={false}
             />

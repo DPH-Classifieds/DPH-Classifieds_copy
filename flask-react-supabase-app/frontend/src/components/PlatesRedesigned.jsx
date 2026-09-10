@@ -1,5 +1,6 @@
 import { API_BASE_URL as API_URL } from '../utils/apiBase';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import UAELicensePlate from './UAELicensePlate';
@@ -10,28 +11,44 @@ import './PlatesRedesigned.css';
 import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
 import useListingCounts from '../hooks/useListingCounts';
+import { readFilterState, writeFilterState } from '../utils/searchParams';
 
 const LIST_PAGE_SIZE = 24;
+const PLATE_FILTER_DEFAULTS = {
+  city: 'All cities', code: 'All codes', digits: '', contains: '', priceMin: '', priceMax: '',
+  startsWith: '', endsWith: '', format: 'Any format', sortBy: 'newest',
+};
+const PLATE_FILTER_ALIASES = {
+  priceMin: 'price_from', priceMax: 'price_to', startsWith: 'starts_with', endsWith: 'ends_with', sortBy: 'sort',
+};
 
 const PlatesRedesigned = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lastSyncedSearchRef = useRef(searchParams.toString());
   const totalCounts = useListingCounts();
   const [plates, setPlates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({
-    city: 'All cities',
-    code: 'All codes',
-    digits: '',
-    contains: '',
-    priceMin: '',
-    priceMax: '',
-    startsWith: '',
-    endsWith: '',
-    format: 'Any format',
-    sortBy: 'newest'
-  });
+  const [filters, setFilters] = useState(() => readFilterState(searchParams, PLATE_FILTER_DEFAULTS, PLATE_FILTER_ALIASES));
+
+  useEffect(() => {
+    if (searchParams.toString() !== lastSyncedSearchRef.current) return;
+    const next = writeFilterState(new URLSearchParams(), filters, PLATE_FILTER_DEFAULTS, PLATE_FILTER_ALIASES);
+    const nextString = next.toString();
+    if (nextString !== searchParams.toString()) {
+      lastSyncedSearchRef.current = nextString;
+      setSearchParams(next, { replace: true });
+    }
+  }, [filters, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const current = searchParams.toString();
+    if (current === lastSyncedSearchRef.current) return;
+    setFilters(readFilterState(searchParams, PLATE_FILTER_DEFAULTS, PLATE_FILTER_ALIASES));
+    lastSyncedSearchRef.current = current;
+  }, [searchParams]);
 
   const cityOptions = [
     'All cities',

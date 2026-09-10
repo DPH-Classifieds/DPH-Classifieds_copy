@@ -7,6 +7,7 @@ import apiClient from '../utils/apiClient';
 import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { prefetchListing } from '../utils/listingCache';
+import { getMemoryRecommendations, readRecommendations, writeRecommendations } from '../utils/recommendationsCache';
 
 // Detail screens cache by plural type; recommendations use the singular.
 const CACHE_TYPE = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
@@ -23,18 +24,37 @@ export default function RecommendedListings({ listingType, listingId, navigation
     title: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingBottom: 8 },
   }), [colors]);
 
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(() => getMemoryRecommendations(listingType, listingId) || []);
+  const [loading, setLoading] = useState(items.length === 0);
 
-  useEffect(() => { loadRecommendations(); }, [listingType, listingId]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const cached = await readRecommendations(listingType, listingId);
+      if (!cancelled && cached?.length) {
+        setItems(cached);
+        setLoading(false);
+      }
+      try {
+        // Revalidate in the background so cached recommendations paint first
+        // while shared web/mobile listing data stays fresh.
+        const data = await apiClient.post('/api/recommendations', { listing_type: listingType, listing_id: listingId, limit: 6 });
+        const nextItems = data?.recommendations || [];
+        writeRecommendations(listingType, listingId, nextItems);
+        if (!cancelled) setItems(nextItems);
+      } catch (err) {
+        // A cached result is still useful when the recommendation service is
+        // unavailable; an empty cold state simply remains hidden.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [listingType, listingId]);
 
-  const loadRecommendations = async () => {
-    try {
-      const data = await apiClient.post('/api/recommendations', { listing_type: listingType, listing_id: listingId, limit: 6 });
-      setItems(data?.recommendations || []);
-    } catch (err) { /* silent */ }
-  };
-
-  if (items.length === 0) return null;
+  if (items.length === 0 && !loading) return null;
+  if (items.length === 0) return <View style={styles.container} accessibilityLabel="Loading similar listings" />;
 
   const renderItem = ({ item }) => {
     const detailRoute = { car: 'CarDetail', bike: 'BikeDetail', plate: 'PlateDetail', parts: 'PartDetail' }[listingType];

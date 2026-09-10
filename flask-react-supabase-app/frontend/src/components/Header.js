@@ -26,6 +26,9 @@ import {
   sellLinkConfig,
 } from './navigation/MarketplaceNavMenus';
 
+// SellMenu displays this verification guard before posting:
+// Admin verification required before you can post
+
 const resourceLinks = [{ title: 'About', href: '/about' }];
 
 const Header = () => {

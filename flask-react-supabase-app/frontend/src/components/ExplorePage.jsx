@@ -20,6 +20,7 @@ import { buildCarPath } from '../utils/listingUrl';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import useListingCounts from '../hooks/useListingCounts';
+import { readFilterState, writeFilterState } from '../utils/searchParams';
 
 const PAGE_SIZE = 24;
 // Keep the client-side inventory buffer bounded as feeds grow. The results
@@ -58,6 +59,20 @@ const CATEGORY_FILTER_PARAM_BUILDERS = {
     const params = [];
     if (filters.manufacturer) params.push(['car_manufacturer', filters.manufacturer]);
     if (filters.model) params.push(['car_model', filters.model]);
+    if (filters.trim) params.push(['car_trim', filters.trim]);
+    if (filters.city) params.push(['car_city', filters.city]);
+    if (filters.makeYearMin) params.push(['make_year_from', filters.makeYearMin]);
+    if (filters.makeYearMax) params.push(['make_year_to', filters.makeYearMax]);
+    if (filters.bodyType) params.push(['body_type', filters.bodyType]);
+    if (filters.fuelType) params.push(['fuel_type', filters.fuelType]);
+    if (filters.transmissionType) params.push(['transmission_type', filters.transmissionType]);
+    if (filters.regionalSpec) params.push(['regional_spec', filters.regionalSpec]);
+    if (filters.kilometerMin) params.push(['kilometer_from', filters.kilometerMin]);
+    if (filters.kilometerMax) params.push(['kilometer_to', filters.kilometerMax]);
+    if (filters.steeringSide) params.push(['steering_side', filters.steeringSide]);
+    if (filters.seatingCapacity) params.push(['seating_capacity', filters.seatingCapacity]);
+    if (filters.horsepower) params.push(['horsepower', filters.horsepower]);
+    if (filters.engineCapacity) params.push(['engine_capacity', filters.engineCapacity]);
     if (filters.priceMin) params.push(['price_from', filters.priceMin]);
     if (filters.priceMax) params.push(['price_to', filters.priceMax]);
     return params;
@@ -190,6 +205,20 @@ const carInitialFilters = {
   query: '',
   manufacturer: '',
   model: '',
+  trim: '',
+  city: '',
+  makeYearMin: '',
+  makeYearMax: '',
+  bodyType: '',
+  fuelType: '',
+  transmissionType: '',
+  regionalSpec: '',
+  kilometerMin: '',
+  kilometerMax: '',
+  steeringSide: '',
+  seatingCapacity: '',
+  horsepower: '',
+  engineCapacity: '',
   priceMin: '',
   priceMax: '',
   sortBy: 'newest',
@@ -198,6 +227,8 @@ const carInitialFilters = {
 const partsInitialFilters = {
   query: '',
   category: '',
+  area: '',
+  condition: '',
   priceMin: '',
   priceMax: '',
   sortBy: 'newest',
@@ -205,8 +236,13 @@ const partsInitialFilters = {
 
 const plateInitialFilters = {
   query: '',
+  city: '',
   code: '',
   digits: '',
+  contains: '',
+  format: '',
+  startsWith: '',
+  endsWith: '',
   priceMin: '',
   priceMax: '',
   sortBy: 'newest',
@@ -216,11 +252,44 @@ const bikeInitialFilters = {
   query: '',
   type: '',
   brand: '',
+  area: '',
   priceMin: '',
   priceMax: '',
   yearMin: '',
   yearMax: '',
+  engineMin: '',
+  engineMax: '',
+  cylinders: 'all',
+  wheels: 'all',
   sortBy: 'newest',
+};
+
+const EXPLORE_FILTER_ALIASES = {
+  cars: {
+    query: 'q', manufacturer: 'car_manufacturer', model: 'car_model', trim: 'car_trim', city: 'car_city',
+    makeYearMin: 'make_year_from', makeYearMax: 'make_year_to', bodyType: 'body_type', fuelType: 'fuel_type',
+    transmissionType: 'transmission_type', regionalSpec: 'regional_spec', kilometerMin: 'kilometer_from',
+    kilometerMax: 'kilometer_to', steeringSide: 'steering_side', seatingCapacity: 'seating_capacity',
+    horsepower: 'horsepower', engineCapacity: 'engine_capacity', priceMin: 'price_from', priceMax: 'price_to',
+  },
+  'car-parts': { query: 'q', category: 'part_type', area: 'area', condition: 'condition', priceMin: 'price_from', priceMax: 'price_to' },
+  plates: {
+    query: 'q', city: 'city', code: 'code', digits: 'digits', contains: 'contains', format: 'format',
+    startsWith: 'starts_with', endsWith: 'ends_with', priceMin: 'price_from', priceMax: 'price_to',
+  },
+  bikes: {
+    query: 'q', type: 'bike_type', brand: 'bike_brand', area: 'area', priceMin: 'price_from', priceMax: 'price_to',
+    yearMin: 'year_from', yearMax: 'year_to', engineMin: 'engine_from', engineMax: 'engine_to',
+    cylinders: 'cylinders', wheels: 'wheels',
+  },
+};
+
+const writeExploreCategoryFilters = (params, filters, defaults, aliases) => {
+  const filterValues = { ...filters };
+  const defaultValues = { ...defaults };
+  delete filterValues.query;
+  delete defaultValues.query;
+  return writeFilterState(params, filterValues, defaultValues, aliases);
 };
 
 const PRICE_PRESETS = [
@@ -393,6 +462,16 @@ const normalizeCar = (car) => {
     sellerName: car.seller_name || null,
     manufacturer: make,
     model,
+    trim,
+    bodyType: normalizeText(car.body_type),
+    fuelType: normalizeText(car.fuel_type),
+    transmissionType: normalizeText(car.transmission_type),
+    regionalSpec: normalizeText(car.regional_spec),
+    kilometerValue: toNumeric(mileage),
+    steeringSide: normalizeText(car.steering_side),
+    seatingCapacity: normalizeText(car.seating_capacity),
+    horsepower: normalizeText(car.horsepower),
+    engineCapacity: normalizeText(car.engine_capacity),
     city: location,
     searchableText: buildSearchableText([
       title,
@@ -437,6 +516,10 @@ const normalizeBike = (bike) => {
     sellerName: bike.seller_name || null,
     brand,
     bikeType,
+    area: normalizeText(bike.area || bike.city || bike.location),
+    engineValue: toNumeric(bike.engine || bike.engine_size || bike.engine_capacity),
+    cylindersValue: toNumeric(bike.cylinders),
+    wheelsValue: toNumeric(bike.wheels),
     yearValue: toNumeric(year),
     searchableText: buildSearchableText([
       title,
@@ -473,6 +556,8 @@ const normalizePart = (part) => {
     sellerDealerVerified: Boolean(part.seller_dealer_verified),
     sellerName: part.seller_name || null,
     partCategory: category,
+    area: normalizeText(part.area || part.city || part.location),
+    condition: normalizeText(part.condition),
     searchableText: buildSearchableText([
       title,
       category,
@@ -514,6 +599,7 @@ const normalizePlate = (plate) => {
     cityValue: location,
     codeValue: plateCode,
     digitsValue: digits,
+    formatValue: normalizeText(plate.plate_format || plate.format),
     searchableText: buildSearchableText([
       title,
       plateCode,
@@ -614,6 +700,8 @@ const BuyingRequestCard = ({ item }) => (
 
 const ExplorePage = ({ forcedCategory } = {}) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const lastSyncedSearchRef = useRef('__uninitialized__');
+  const skipNextUrlSyncRef = useRef(false);
   const { user } = useAuth();
   const featuredPattern = useFeaturedPattern();
   const [featuredByCategory, setFeaturedByCategory] = useState({ cars: [], bikes: [], parts: [], plates: [] });
@@ -654,11 +742,11 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     exploreModes.some((mode) => mode.key === initialCategory) ? initialCategory : 'all'
   );
   const [globalQuery, setGlobalQuery] = useState('');
-  const [carFilters, setCarFilters] = useState(carInitialFilters);
-  const [partsFilters, setPartsFilters] = useState(partsInitialFilters);
-  const [plateFilters, setPlateFilters] = useState(plateInitialFilters);
-  const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
-  const [redditFilters, setRedditFilters] = useState(carInitialFilters);
+  const [carFilters, setCarFilters] = useState(() => readFilterState(searchParams, carInitialFilters, EXPLORE_FILTER_ALIASES.cars));
+  const [partsFilters, setPartsFilters] = useState(() => readFilterState(searchParams, partsInitialFilters, EXPLORE_FILTER_ALIASES['car-parts']));
+  const [plateFilters, setPlateFilters] = useState(() => readFilterState(searchParams, plateInitialFilters, EXPLORE_FILTER_ALIASES.plates));
+  const [bikeFilters, setBikeFilters] = useState(() => readFilterState(searchParams, bikeInitialFilters, EXPLORE_FILTER_ALIASES.bikes));
+  const [redditFilters, setRedditFilters] = useState(() => readFilterState(searchParams, carInitialFilters, EXPLORE_FILTER_ALIASES.cars));
   const [buyingRequestFilters, setBuyingRequestFilters] = useState({ query: '', itemType: 'all' });
   const [locationFilter, setLocationFilter] = useState('');
   // All three default on. toggleSource() below refuses to leave all off.
@@ -696,26 +784,27 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const debouncedRedditFilters = useDebouncedValue(redditFilters, 300);
   const debouncedBuyingRequestFilters = useDebouncedValue(buyingRequestFilters, 300);
 
-  // ── one-way-ish read from the URL: applies on mount, and again if the URL
-  // changes from outside this page (back/forward, a saved-search link) ─────
+  // Read the URL on mount and when it changes through browser navigation or a
+  // saved-search link. The per-category fields use the same names as Browse,
+  // so a search can move between both surfaces without losing its filters.
   useEffect(() => {
+    const currentSearch = searchParams.toString();
+    if (currentSearch === lastSyncedSearchRef.current) return;
+    skipNextUrlSyncRef.current = true;
     const q = searchParams.get('q') || '';
     const city = searchParams.get('city') || '';
     const source = searchParams.get('source') || '';
     const sort = searchParams.get('sort') || '';
     const cat = forcedCategory || searchParams.get('category') || 'all';
 
-    if (q) {
-      setGlobalQuery(q);
-      setHeroQuery(q);
-      setCarFilters((prev) => ({ ...prev, query: q }));
-      setPartsFilters((prev) => ({ ...prev, query: q }));
-      setPlateFilters((prev) => ({ ...prev, query: q }));
-      setBikeFilters((prev) => ({ ...prev, query: q }));
-    }
-    if (city) {
-      setLocationFilter(city);
-    }
+    setGlobalQuery(q);
+    setHeroQuery(q);
+    setCarFilters(readFilterState(searchParams, carInitialFilters, EXPLORE_FILTER_ALIASES.cars));
+    setPartsFilters(readFilterState(searchParams, partsInitialFilters, EXPLORE_FILTER_ALIASES['car-parts']));
+    setPlateFilters(readFilterState(searchParams, plateInitialFilters, EXPLORE_FILTER_ALIASES.plates));
+    setBikeFilters(readFilterState(searchParams, bikeInitialFilters, EXPLORE_FILTER_ALIASES.bikes));
+    setRedditFilters(readFilterState(searchParams, carInitialFilters, EXPLORE_FILTER_ALIASES.cars));
+    setLocationFilter(city);
     if (source) {
       const included = new Set(source.split(','));
       if (included.size > 0) {
@@ -726,18 +815,11 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         });
       }
     }
-    if (sort) {
-      setCarFilters((prev) => ({ ...prev, sortBy: sort }));
-      setPartsFilters((prev) => ({ ...prev, sortBy: sort }));
-      setPlateFilters((prev) => ({ ...prev, sortBy: sort }));
-      setBikeFilters((prev) => ({ ...prev, sortBy: sort }));
-      setRedditFilters((prev) => ({ ...prev, sortBy: sort }));
-      setAllSortBy(sort);
-    }
+    setAllSortBy(sort || 'newest');
     if (cat && exploreModes.some((m) => m.key === cat)) {
       setActiveMode(cat);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    lastSyncedSearchRef.current = currentSearch;
   }, [searchParams, forcedCategory]);
 
   const seoData = buildStaticSeo({
@@ -1066,10 +1148,16 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       : normalizedInventory.cars;
     return distinctValues(pool, (item) => item.model);
   }, [normalizedInventory.cars, carFilters.manufacturer]);
+  const carTrims = useMemo(() => distinctValues(normalizedInventory.cars, (item) => item.trim), [normalizedInventory.cars]);
+  const carBodyTypes = useMemo(() => distinctValues(normalizedInventory.cars, (item) => item.bodyType), [normalizedInventory.cars]);
+  const carFuelTypes = useMemo(() => distinctValues(normalizedInventory.cars, (item) => item.fuelType), [normalizedInventory.cars]);
+  const carTransmissionTypes = useMemo(() => distinctValues(normalizedInventory.cars, (item) => item.transmissionType), [normalizedInventory.cars]);
+  const carRegionalSpecs = useMemo(() => distinctValues(normalizedInventory.cars, (item) => item.regionalSpec), [normalizedInventory.cars]);
   const partCategories = useMemo(
     () => distinctValues(normalizedInventory.parts, (item) => item.partCategory),
     [normalizedInventory.parts]
   );
+  const partConditions = useMemo(() => distinctValues(normalizedInventory.parts, (item) => item.condition), [normalizedInventory.parts]);
   const bikeTypes = useMemo(
     () => distinctValues(normalizedInventory.bikes, (item) => item.bikeType),
     [normalizedInventory.bikes]
@@ -1078,6 +1166,10 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     () => distinctValues(normalizedInventory.bikes, (item) => item.brand),
     [normalizedInventory.bikes]
   );
+  const bikeCylinderOptions = useMemo(() => distinctValues(normalizedInventory.bikes, (item) => item.cylindersValue), [normalizedInventory.bikes]);
+  const bikeWheelOptions = useMemo(() => distinctValues(normalizedInventory.bikes, (item) => item.wheelsValue), [normalizedInventory.bikes]);
+  const plateCityOptions = useMemo(() => distinctValues(normalizedInventory.plates, (item) => item.cityValue), [normalizedInventory.plates]);
+  const plateFormatOptions = useMemo(() => distinctValues(normalizedInventory.plates, (item) => item.formatValue), [normalizedInventory.plates]);
   const plateDigitOptions = useMemo(
     () => distinctValues(normalizedInventory.plates, (item) => item.digitsValue),
     [normalizedInventory.plates]
@@ -1180,6 +1272,25 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           if (debouncedCarFilters.model && normalizeText(item.model) !== debouncedCarFilters.model) {
             return false;
           }
+          if (debouncedCarFilters.trim && normalizeText(item.trim) !== debouncedCarFilters.trim) return false;
+          if (debouncedCarFilters.city && normalizeText(item.city) !== debouncedCarFilters.city) return false;
+          if (debouncedCarFilters.bodyType && normalizeText(item.bodyType) !== debouncedCarFilters.bodyType) return false;
+          if (debouncedCarFilters.fuelType && normalizeText(item.fuelType) !== debouncedCarFilters.fuelType) return false;
+          if (debouncedCarFilters.transmissionType && normalizeText(item.transmissionType) !== debouncedCarFilters.transmissionType) return false;
+          if (debouncedCarFilters.regionalSpec && normalizeText(item.regionalSpec) !== debouncedCarFilters.regionalSpec) return false;
+          if (debouncedCarFilters.steeringSide && normalizeText(item.steeringSide) !== debouncedCarFilters.steeringSide) return false;
+          if (debouncedCarFilters.seatingCapacity && normalizeText(item.seatingCapacity) !== debouncedCarFilters.seatingCapacity) return false;
+          if (debouncedCarFilters.horsepower && normalizeText(item.horsepower) !== debouncedCarFilters.horsepower) return false;
+          if (debouncedCarFilters.engineCapacity && normalizeText(item.engineCapacity) !== debouncedCarFilters.engineCapacity) return false;
+          const minYear = toNumeric(debouncedCarFilters.makeYearMin);
+          const maxYear = toNumeric(debouncedCarFilters.makeYearMax);
+          const minKilometers = toNumeric(debouncedCarFilters.kilometerMin);
+          const maxKilometers = toNumeric(debouncedCarFilters.kilometerMax);
+          const itemYear = toNumeric(item.year);
+          if (minYear !== null && (itemYear === null || itemYear < minYear)) return false;
+          if (maxYear !== null && (itemYear === null || itemYear > maxYear)) return false;
+          if (minKilometers !== null && (item.kilometerValue === null || item.kilometerValue < minKilometers)) return false;
+          if (maxKilometers !== null && (item.kilometerValue === null || item.kilometerValue > maxKilometers)) return false;
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
             return false;
           }
@@ -1206,6 +1317,8 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           if (debouncedPartsFilters.category && partCategory !== debouncedPartsFilters.category) {
             return false;
           }
+          if (debouncedPartsFilters.area && normalizeText(item.area) !== debouncedPartsFilters.area) return false;
+          if (debouncedPartsFilters.condition && normalizeText(item.condition) !== debouncedPartsFilters.condition) return false;
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
             return false;
           }
@@ -1235,6 +1348,11 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           if (debouncedPlateFilters.digits && digits !== debouncedPlateFilters.digits) {
             return false;
           }
+          if (debouncedPlateFilters.city && normalizeText(item.cityValue) !== debouncedPlateFilters.city) return false;
+          if (debouncedPlateFilters.contains && !normalizeText(item.numberValue).includes(debouncedPlateFilters.contains)) return false;
+          if (debouncedPlateFilters.format && normalizeText(item.formatValue) !== debouncedPlateFilters.format) return false;
+          if (debouncedPlateFilters.startsWith && !normalizeText(item.numberValue).startsWith(debouncedPlateFilters.startsWith)) return false;
+          if (debouncedPlateFilters.endsWith && !normalizeText(item.numberValue).endsWith(debouncedPlateFilters.endsWith)) return false;
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
             return false;
           }
@@ -1294,6 +1412,12 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         if (maxYear !== null && (year === null || year > maxYear)) {
           return false;
         }
+        const minEngine = toNumeric(debouncedBikeFilters.engineMin);
+        const maxEngine = toNumeric(debouncedBikeFilters.engineMax);
+        if (minEngine !== null && (item.engineValue === null || item.engineValue < minEngine)) return false;
+        if (maxEngine !== null && (item.engineValue === null || item.engineValue > maxEngine)) return false;
+        if (debouncedBikeFilters.cylinders !== 'all' && item.cylindersValue !== toNumeric(debouncedBikeFilters.cylinders)) return false;
+        if (debouncedBikeFilters.wheels !== 'all' && item.wheelsValue !== toNumeric(debouncedBikeFilters.wheels)) return false;
         if (query && !item.searchableText.includes(query)) {
           return false;
         }
@@ -1338,20 +1462,28 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     if (activeMode === 'all') return !debouncedGlobalQuery.trim() && allSortBy === 'newest';
     if (activeMode === 'cars') {
       return !debouncedCarFilters.query.trim() && debouncedCarFilters.sortBy === 'newest' && !debouncedCarFilters.manufacturer
-        && !debouncedCarFilters.model && !debouncedCarFilters.priceMin && !debouncedCarFilters.priceMax;
+        && !debouncedCarFilters.model && !debouncedCarFilters.trim && !debouncedCarFilters.city
+        && !debouncedCarFilters.makeYearMin && !debouncedCarFilters.makeYearMax && !debouncedCarFilters.bodyType
+        && !debouncedCarFilters.fuelType && !debouncedCarFilters.transmissionType && !debouncedCarFilters.regionalSpec
+        && !debouncedCarFilters.kilometerMin && !debouncedCarFilters.kilometerMax && !debouncedCarFilters.steeringSide
+        && !debouncedCarFilters.seatingCapacity && !debouncedCarFilters.horsepower && !debouncedCarFilters.engineCapacity
+        && !debouncedCarFilters.priceMin && !debouncedCarFilters.priceMax;
     }
     if (activeMode === 'car-parts') {
       return !debouncedPartsFilters.query.trim() && debouncedPartsFilters.sortBy === 'newest' && !debouncedPartsFilters.category
-        && !debouncedPartsFilters.priceMin && !debouncedPartsFilters.priceMax;
+        && !debouncedPartsFilters.area && !debouncedPartsFilters.condition && !debouncedPartsFilters.priceMin && !debouncedPartsFilters.priceMax;
     }
     if (activeMode === 'plates') {
       return !debouncedPlateFilters.query.trim() && debouncedPlateFilters.sortBy === 'newest'
-        && !debouncedPlateFilters.code && !debouncedPlateFilters.digits && !debouncedPlateFilters.priceMin && !debouncedPlateFilters.priceMax;
+        && !debouncedPlateFilters.city && !debouncedPlateFilters.code && !debouncedPlateFilters.digits
+        && !debouncedPlateFilters.contains && !debouncedPlateFilters.format && !debouncedPlateFilters.startsWith
+        && !debouncedPlateFilters.endsWith && !debouncedPlateFilters.priceMin && !debouncedPlateFilters.priceMax;
     }
     if (activeMode === 'bikes') {
       return !debouncedBikeFilters.query.trim() && debouncedBikeFilters.sortBy === 'newest' && !debouncedBikeFilters.type
-        && !debouncedBikeFilters.brand && !debouncedBikeFilters.priceMin && !debouncedBikeFilters.priceMax
-        && !debouncedBikeFilters.yearMin && !debouncedBikeFilters.yearMax;
+        && !debouncedBikeFilters.brand && !debouncedBikeFilters.area && !debouncedBikeFilters.priceMin && !debouncedBikeFilters.priceMax
+        && !debouncedBikeFilters.yearMin && !debouncedBikeFilters.yearMax && !debouncedBikeFilters.engineMin && !debouncedBikeFilters.engineMax
+        && debouncedBikeFilters.cylinders === 'all' && debouncedBikeFilters.wheels === 'all';
     }
     return false; // reddit, buying-requests: no featured placement
   }, [activeMode, debouncedGlobalQuery, allSortBy, debouncedCarFilters, debouncedPartsFilters, debouncedPlateFilters, debouncedBikeFilters, locationFilter, sourceFilter]);
@@ -1449,6 +1581,11 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
   useEffect(() => {
     if (forcedCategory) return; // /reddit keeps a clean URL
+    if (skipNextUrlSyncRef.current) {
+      skipNextUrlSyncRef.current = false;
+      return;
+    }
+    if (searchParams.toString() !== lastSyncedSearchRef.current) return;
     const params = new URLSearchParams();
     if (activeMode !== 'all') params.set('category', activeMode);
     if (locationFilter) params.set('city', locationFilter);
@@ -1459,9 +1596,18 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     if (activeSortBy && activeSortBy !== 'newest') params.set('sort', activeSortBy);
     const q = globalQuery.trim();
     if (q) params.set('q', q);
-    setSearchParams(params, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeMode, locationFilter, sourceFilter, activeSortBy, globalQuery, forcedCategory]);
+    writeExploreCategoryFilters(params, carFilters, carInitialFilters, EXPLORE_FILTER_ALIASES.cars);
+    writeExploreCategoryFilters(params, partsFilters, partsInitialFilters, EXPLORE_FILTER_ALIASES['car-parts']);
+    writeExploreCategoryFilters(params, plateFilters, plateInitialFilters, EXPLORE_FILTER_ALIASES.plates);
+    writeExploreCategoryFilters(params, bikeFilters, bikeInitialFilters, EXPLORE_FILTER_ALIASES.bikes);
+    const nextSearch = params.toString();
+    if (nextSearch !== searchParams.toString()) {
+      lastSyncedSearchRef.current = nextSearch;
+      setSearchParams(params, { replace: true });
+    } else {
+      lastSyncedSearchRef.current = nextSearch;
+    }
+  }, [activeMode, activeSortBy, bikeFilters, carFilters, forcedCategory, globalQuery, locationFilter, partsFilters, plateFilters, searchParams, setSearchParams, sourceFilter]);
 
   const handleModeChange = (modeKey) => {
     setActiveMode(modeKey);
@@ -1562,6 +1708,9 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       if (carFilters.model) {
         pills.push({ id: 'model', label: carFilters.model, onRemove: () => setCarFilters((prev) => ({ ...prev, model: '' })) });
       }
+      if (carFilters.trim) pills.push({ id: 'trim', label: `Trim ${carFilters.trim}`, onRemove: () => setCarFilters((prev) => ({ ...prev, trim: '' })) });
+      if (carFilters.city) pills.push({ id: 'car-city', label: carFilters.city, onRemove: () => setCarFilters((prev) => ({ ...prev, city: '' })) });
+      if (carFilters.bodyType) pills.push({ id: 'body-type', label: carFilters.bodyType, onRemove: () => setCarFilters((prev) => ({ ...prev, bodyType: '' })) });
       if (carFilters.priceMin || carFilters.priceMax) {
         pills.push({ id: 'price', label: priceRangeLabel(carFilters), onRemove: () => setCarFilters((prev) => ({ ...prev, priceMin: '', priceMax: '' })) });
       }
@@ -1570,6 +1719,8 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       if (partsFilters.category) {
         pills.push({ id: 'category', label: partsFilters.category, onRemove: () => setPartsFilters((prev) => ({ ...prev, category: '' })) });
       }
+      if (partsFilters.condition) pills.push({ id: 'condition', label: partsFilters.condition, onRemove: () => setPartsFilters((prev) => ({ ...prev, condition: '' })) });
+      if (partsFilters.area) pills.push({ id: 'part-area', label: partsFilters.area, onRemove: () => setPartsFilters((prev) => ({ ...prev, area: '' })) });
       if (partsFilters.priceMin || partsFilters.priceMax) {
         pills.push({ id: 'price', label: priceRangeLabel(partsFilters), onRemove: () => setPartsFilters((prev) => ({ ...prev, priceMin: '', priceMax: '' })) });
       }
@@ -1581,6 +1732,8 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       if (plateFilters.digits) {
         pills.push({ id: 'digits', label: `${plateFilters.digits} digits`, onRemove: () => setPlateFilters((prev) => ({ ...prev, digits: '' })) });
       }
+      if (plateFilters.city) pills.push({ id: 'plate-city', label: plateFilters.city, onRemove: () => setPlateFilters((prev) => ({ ...prev, city: '' })) });
+      if (plateFilters.contains) pills.push({ id: 'contains', label: `Contains ${plateFilters.contains}`, onRemove: () => setPlateFilters((prev) => ({ ...prev, contains: '' })) });
       if (plateFilters.priceMin || plateFilters.priceMax) {
         pills.push({ id: 'price', label: priceRangeLabel(plateFilters), onRemove: () => setPlateFilters((prev) => ({ ...prev, priceMin: '', priceMax: '' })) });
       }
@@ -1592,6 +1745,9 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       if (bikeFilters.type) {
         pills.push({ id: 'type', label: bikeFilters.type, onRemove: () => setBikeFilters((prev) => ({ ...prev, type: '' })) });
       }
+      if (bikeFilters.engineMin || bikeFilters.engineMax) pills.push({ id: 'engine', label: `${bikeFilters.engineMin || 'Any'}–${bikeFilters.engineMax || 'Any'} cc`, onRemove: () => setBikeFilters((prev) => ({ ...prev, engineMin: '', engineMax: '' })) });
+      if (bikeFilters.cylinders !== 'all') pills.push({ id: 'cylinders', label: `${bikeFilters.cylinders} cylinders`, onRemove: () => setBikeFilters((prev) => ({ ...prev, cylinders: 'all' })) });
+      if (bikeFilters.wheels !== 'all') pills.push({ id: 'wheels', label: `${bikeFilters.wheels} wheels`, onRemove: () => setBikeFilters((prev) => ({ ...prev, wheels: 'all' })) });
       if (bikeFilters.yearMin || bikeFilters.yearMax) {
         pills.push({ id: 'year', label: `${bikeFilters.yearMin || 'Any'}–${bikeFilters.yearMax || 'Any'}`, onRemove: () => setBikeFilters((prev) => ({ ...prev, yearMin: '', yearMax: '' })) });
       }
@@ -1728,6 +1884,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
             </div>
           ) : null}
 
+          <section className="explore-v2-results" aria-label="Listings">
           <div className="explore-v2-resultsbar">
             <p>{resultsDescription}</p>
             <div className="explore-v2-resultsbar-actions">
@@ -1788,6 +1945,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           )}
 
           {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}
+          </section>
 
           <BrowseSellCta category={postCategory} />
         </div>
@@ -1853,6 +2011,28 @@ const ExplorePage = ({ forcedCategory } = {}) => {
                           {carModels.map((model) => <option key={model} value={model}>{model}</option>)}
                         </select>
                       </label>
+                      <label className="explore-v2-field">
+                        <span>Trim</span>
+                        <select className="explore-v2-input" value={carFilters.trim} onChange={(e) => setCarFilters((prev) => ({ ...prev, trim: e.target.value }))}>
+                          <option value="">All trims</option>
+                          {carTrims.map((trim) => <option key={trim} value={trim}>{trim}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Emirate</span>
+                        <select className="explore-v2-input" value={carFilters.city} onChange={(e) => setCarFilters((prev) => ({ ...prev, city: e.target.value }))}>
+                          <option value="">All Emirates</option>
+                          {UAE_EMIRATES.map((emirate) => <option key={emirate} value={emirate}>{emirate}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Year from</span>
+                        <input className="explore-v2-input" type="number" min="1886" value={carFilters.makeYearMin} onChange={(e) => setCarFilters((prev) => ({ ...prev, makeYearMin: e.target.value }))} placeholder="Any year" />
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Year to</span>
+                        <input className="explore-v2-input" type="number" min="1886" value={carFilters.makeYearMax} onChange={(e) => setCarFilters((prev) => ({ ...prev, makeYearMax: e.target.value }))} placeholder="Any year" />
+                      </label>
                     </div>
                   </div>
                 )}
@@ -1860,17 +2040,23 @@ const ExplorePage = ({ forcedCategory } = {}) => {
                 {activeMode === 'car-parts' && (
                   <div className="explore-v2-drawer-section">
                     <span className="explore-v2-drawer-section-title">Part Filters</span>
-                    <label className="explore-v2-field is-full">
-                      <span>Category</span>
-                      <select
-                        className="explore-v2-input"
-                        value={partsFilters.category}
-                        onChange={(e) => setPartsFilters((prev) => ({ ...prev, category: e.target.value }))}
-                      >
-                        <option value="">All categories</option>
-                        {partCategories.map((category) => <option key={category} value={category}>{category}</option>)}
-                      </select>
-                    </label>
+                    <div className="explore-v2-drawer-grid">
+                      <label className="explore-v2-field">
+                        <span>Category</span>
+                        <select className="explore-v2-input" value={partsFilters.category} onChange={(e) => setPartsFilters((prev) => ({ ...prev, category: e.target.value }))}>
+                          <option value="">All categories</option>
+                          {partCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Condition</span>
+                        <select className="explore-v2-input" value={partsFilters.condition} onChange={(e) => setPartsFilters((prev) => ({ ...prev, condition: e.target.value }))}>
+                          <option value="">Any condition</option>
+                          {partConditions.map((condition) => <option key={condition} value={condition}>{condition}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field"><span>Area</span><input className="explore-v2-input" value={partsFilters.area} onChange={(e) => setPartsFilters((prev) => ({ ...prev, area: e.target.value }))} placeholder="Any area" /></label>
+                    </div>
                   </div>
                 )}
 
@@ -1899,6 +2085,23 @@ const ExplorePage = ({ forcedCategory } = {}) => {
                           {plateDigitOptions.map((digits) => <option key={digits} value={digits}>{digits} digits</option>)}
                         </select>
                       </label>
+                      <label className="explore-v2-field">
+                        <span>Emirate</span>
+                        <select className="explore-v2-input" value={plateFilters.city} onChange={(e) => setPlateFilters((prev) => ({ ...prev, city: e.target.value }))}>
+                          <option value="">All Emirates</option>
+                          {plateCityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Format</span>
+                        <select className="explore-v2-input" value={plateFilters.format} onChange={(e) => setPlateFilters((prev) => ({ ...prev, format: e.target.value }))}>
+                          <option value="">Any format</option>
+                          {plateFormatOptions.map((format) => <option key={format} value={format}>{format}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field"><span>Contains</span><input className="explore-v2-input" value={plateFilters.contains} onChange={(e) => setPlateFilters((prev) => ({ ...prev, contains: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" /></label>
+                      <label className="explore-v2-field"><span>Starts with</span><input className="explore-v2-input" value={plateFilters.startsWith} onChange={(e) => setPlateFilters((prev) => ({ ...prev, startsWith: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" /></label>
+                      <label className="explore-v2-field"><span>Ends with</span><input className="explore-v2-input" value={plateFilters.endsWith} onChange={(e) => setPlateFilters((prev) => ({ ...prev, endsWith: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" /></label>
                     </div>
                   </div>
                 )}
@@ -1949,6 +2152,22 @@ const ExplorePage = ({ forcedCategory } = {}) => {
                           placeholder="e.g. 2024"
                         />
                       </label>
+                      <label className="explore-v2-field"><span>Min engine (cc)</span><input className="explore-v2-input" type="number" min="0" value={bikeFilters.engineMin} onChange={(e) => setBikeFilters((prev) => ({ ...prev, engineMin: e.target.value }))} /></label>
+                      <label className="explore-v2-field"><span>Max engine (cc)</span><input className="explore-v2-input" type="number" min="0" value={bikeFilters.engineMax} onChange={(e) => setBikeFilters((prev) => ({ ...prev, engineMax: e.target.value }))} /></label>
+                      <label className="explore-v2-field">
+                        <span>Cylinders</span>
+                        <select className="explore-v2-input" value={bikeFilters.cylinders} onChange={(e) => setBikeFilters((prev) => ({ ...prev, cylinders: e.target.value }))}>
+                          <option value="all">Any</option>
+                          {bikeCylinderOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Wheels</span>
+                        <select className="explore-v2-input" value={bikeFilters.wheels} onChange={(e) => setBikeFilters((prev) => ({ ...prev, wheels: e.target.value }))}>
+                          <option value="all">Any</option>
+                          {bikeWheelOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                        </select>
+                      </label>
                     </div>
                   </div>
                 )}
@@ -1982,6 +2201,30 @@ const ExplorePage = ({ forcedCategory } = {}) => {
                     </div>
                   </div>
                 ) : null}
+
+                {activeMode === 'cars' && (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Vehicle details</span>
+                    <div className="explore-v2-drawer-grid">
+                      {[
+                        ['bodyType', 'Body type', carBodyTypes],
+                        ['fuelType', 'Fuel type', carFuelTypes],
+                        ['transmissionType', 'Transmission', carTransmissionTypes],
+                        ['regionalSpec', 'Regional spec', carRegionalSpecs],
+                      ].map(([key, label, options]) => (
+                        <label className="explore-v2-field" key={key}>
+                          <span>{label}</span>
+                          <select className="explore-v2-input" value={carFilters[key]} onChange={(e) => setCarFilters((prev) => ({ ...prev, [key]: e.target.value }))}>
+                            <option value="">Any</option>
+                            {options.map((option) => <option key={option} value={option}>{option}</option>)}
+                          </select>
+                        </label>
+                      ))}
+                      <label className="explore-v2-field"><span>Min kilometers</span><input className="explore-v2-input" type="number" min="0" value={carFilters.kilometerMin} onChange={(e) => setCarFilters((prev) => ({ ...prev, kilometerMin: e.target.value }))} /></label>
+                      <label className="explore-v2-field"><span>Max kilometers</span><input className="explore-v2-input" type="number" min="0" value={carFilters.kilometerMax} onChange={(e) => setCarFilters((prev) => ({ ...prev, kilometerMax: e.target.value }))} /></label>
+                    </div>
+                  </div>
+                )}
 
                 {activeMode === 'reddit' && (
                   <div className="explore-v2-drawer-section">

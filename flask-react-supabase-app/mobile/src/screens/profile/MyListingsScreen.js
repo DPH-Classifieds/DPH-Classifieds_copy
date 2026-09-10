@@ -23,6 +23,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { resolveMediaUrl } from '../../utils/media';
 import { toPluralType, toSingularType } from '../../utils/listingType';
+import { useResponsiveLayout } from '../../utils/responsiveLayout';
 
 const TABS = ['Active', 'Drafts', 'Saved', 'Review', 'Sold'];
 
@@ -94,6 +95,7 @@ function ListingCard({ item, index, onPress, actions, isSaved, activeTab, getDis
 
 export default function MyListingsScreen({ navigation }) {
   const { colors } = useTheme();
+  const layout = useResponsiveLayout();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
@@ -101,12 +103,14 @@ export default function MyListingsScreen({ navigation }) {
     },
     tabBar: {
       flexDirection: 'row',
-      paddingHorizontal: SPACING.md,
+      paddingHorizontal: layout.horizontalPadding,
       paddingVertical: SPACING.sm,
       gap: 6,
+      maxWidth: layout.contentMaxWidth, width: '100%', alignSelf: 'center',
     },
     tab: {
-      flex: 1,
+      flex: layout.isCompact ? 1 : 0,
+      minWidth: layout.isCompact ? 0 : 88,
       paddingVertical: 10,
       alignItems: 'center',
       borderRadius: BORDER_RADIUS.pill,
@@ -124,22 +128,24 @@ export default function MyListingsScreen({ navigation }) {
       color: colors.accent,
     },
     listContent: {
-      padding: SPACING.md,
+      paddingHorizontal: layout.horizontalPadding,
       paddingBottom: 40,
+      maxWidth: layout.contentMaxWidth, width: '100%', alignSelf: 'center',
     },
     card: {
       backgroundColor: colors.surface,
       borderRadius: BORDER_RADIUS.lg,
       marginBottom: SPACING.md,
       overflow: 'hidden',
+      width: layout.isExpanded ? '48%' : '100%',
     },
     cardContent: {
       flexDirection: 'row',
       padding: SPACING.md,
     },
     thumbnail: {
-      width: 80,
-      height: 80,
+      width: layout.isExpanded ? 120 : 88,
+      height: layout.isExpanded ? 96 : 88,
       borderRadius: BORDER_RADIUS.md,
       backgroundColor: colors.surfaceHigher,
     },
@@ -191,9 +197,24 @@ export default function MyListingsScreen({ navigation }) {
       gap: 16,
     },
     actionBtn: {
-      padding: 6,
+      padding: 8,
+      minWidth: 40,
+      minHeight: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-  }), [colors]);
+    intro: {
+      maxWidth: layout.contentMaxWidth, width: '100%', alignSelf: 'center',
+      paddingHorizontal: layout.horizontalPadding, paddingTop: SPACING.sm, paddingBottom: SPACING.xs,
+    },
+    introTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.xxl, fontWeight: '800' },
+    introSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 4 },
+    inventoryPill: {
+      alignSelf: 'flex-start', marginTop: 12, paddingHorizontal: 10, paddingVertical: 6,
+      borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    },
+    inventoryPillText: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+  }), [colors, layout]);
 
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState('Active');
@@ -385,6 +406,8 @@ export default function MyListingsScreen({ navigation }) {
       ]
     : listings;
 
+  const inventoryLabel = `${displayListings.length} ${activeTab.toLowerCase()} ${displayListings.length === 1 ? 'listing' : 'listings'}`;
+
   const renderListing = ({ item, index }) => {
     const pluralType = toPluralType(item.listing_type);
     const singularType = toSingularType(item.listing_type);
@@ -476,7 +499,7 @@ export default function MyListingsScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenEntrance>
-        <View style={styles.tabBar}>
+          <View style={styles.tabBar}>
           {TABS.map((tab) => (
             <TouchableOpacity
               key={tab}
@@ -489,16 +512,26 @@ export default function MyListingsScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+          </View>
+
+          <View style={styles.intro}>
+            <Text style={styles.introTitle}>My Listings</Text>
+            <Text style={styles.introSubtitle}>Manage the same inventory you see on DPH Classifieds web.</Text>
+            <View style={styles.inventoryPill}>
+              <Text style={styles.inventoryPillText}>{inventoryLabel}</Text>
+            </View>
+          </View>
 
         {loading && !refreshing ? (
           <LoadingSpinner message="Loading listings..." />
         ) : (
           <FlashList
-            estimatedItemSize={260}
+            key={`my-listings-${layout.windowClass}`}
+            estimatedItemSize={layout.isExpanded ? 220 : 260}
             data={displayListings}
+            numColumns={layout.columns}
             renderItem={renderListing}
-            keyExtractor={(item) => String(item.id)}
+            keyExtractor={(item) => `${item.listing_type || 'listing'}-${item.id}`}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={

@@ -11,6 +11,11 @@ jest.mock('../../utils/apiClient', () => ({
   },
 }));
 jest.mock('../../utils/listingCache', () => ({ prefetchListing: jest.fn() }));
+jest.mock('../../utils/recommendationsCache', () => ({
+  getMemoryRecommendations: jest.fn(() => null),
+  readRecommendations: jest.fn().mockResolvedValue(null),
+  writeRecommendations: jest.fn(),
+}));
 
 let mockColors;
 let mockTheme;

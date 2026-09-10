@@ -1,5 +1,6 @@
 import { API_BASE_URL as API_URL } from '../utils/apiBase';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import BrowseSellCta from './BrowseSellCta';
@@ -11,9 +12,12 @@ import useListingCounts from '../hooks/useListingCounts';
 import '../styles/CarParts.css';
 import '../styles/shell-tokens.css';
 import './ExplorePage.css';
+import { readFilterState, writeFilterState } from '../utils/searchParams';
 
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 const LIST_PAGE_SIZE = 24;
+const PART_FILTER_DEFAULTS = { query: '', category: 'all', sortBy: 'newest' };
+const PART_FILTER_ALIASES = { query: 'q', category: 'part_type', sortBy: 'sort' };
 
 const getListingImageUrl = (part) => {
   const candidate =
@@ -28,17 +32,32 @@ const getListingImageUrl = (part) => {
 };
 
 const CarParts = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lastSyncedSearchRef = useRef(searchParams.toString());
   const totalCounts = useListingCounts();
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({
-    query: '',
-    category: 'all',
-    sortBy: 'newest'
-  });
+  const [filters, setFilters] = useState(() => readFilterState(searchParams, PART_FILTER_DEFAULTS, PART_FILTER_ALIASES));
+
+  useEffect(() => {
+    if (searchParams.toString() !== lastSyncedSearchRef.current) return;
+    const next = writeFilterState(new URLSearchParams(), filters, PART_FILTER_DEFAULTS, PART_FILTER_ALIASES);
+    const nextString = next.toString();
+    if (nextString !== searchParams.toString()) {
+      lastSyncedSearchRef.current = nextString;
+      setSearchParams(next, { replace: true });
+    }
+  }, [filters, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const current = searchParams.toString();
+    if (current === lastSyncedSearchRef.current) return;
+    setFilters(readFilterState(searchParams, PART_FILTER_DEFAULTS, PART_FILTER_ALIASES));
+    lastSyncedSearchRef.current = current;
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchCarParts = async ({ reset = true, offset = 0 } = {}) => {

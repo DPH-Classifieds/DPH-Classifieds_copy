@@ -51,14 +51,16 @@ import PhotoEditorModal from '../../components/ui/PhotoEditorModal';
 import { compressImage } from '../../utils/imageCompressor';
 import { toastApiError } from '../../utils/toast';
 import { moderateImage } from '../../utils/imageModeration';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useResponsiveLayout } from '../../utils/responsiveLayout';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const CATEGORIES = [
-  { key: 'car', label: 'Car', icon: 'car' },
-  { key: 'bike', label: 'Bike', icon: 'bicycle' },
-  { key: 'plate', label: 'Plate', icon: 'key' },
-  { key: 'parts', label: 'Parts', icon: 'construct' },
+  { key: 'car', label: 'Car', subtitle: 'Sell a vehicle', icon: 'car-sport' },
+  { key: 'bike', label: 'Bike', subtitle: 'Motorcycles & scooters', icon: 'bicycle' },
+  { key: 'plate', label: 'Plate', subtitle: 'UAE number plates', icon: 'key' },
+  { key: 'parts', label: 'Parts', subtitle: 'Parts & upgrades', icon: 'construct' },
 ];
 
 const years = getYearOptions();
@@ -375,8 +377,12 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, on
           <Ionicons name="images-outline" size={40} color={colors.accent} />
           <Text style={styles.emptyAddImageTitle}>Add Photos</Text>
           <Text style={styles.emptyAddImageSubtitle}>
-            Up to 10. The first photo will be the cover image.
+            Add up to 10 clear vehicle photos. The first photo is your cover.
           </Text>
+          <View style={styles.photoSourceHint}>
+            <Ionicons name="camera-outline" size={14} color={colors.accent} />
+            <Text style={styles.photoSourceHintText}>Choose from camera or photo library</Text>
+          </View>
         </TouchableOpacity>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
@@ -395,23 +401,23 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, on
                   <Text style={styles.imageCoverText}>Cover</Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.imageRemove} onPress={() => onRemoveImage(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity accessibilityLabel={`Remove photo ${i + 1}`} style={styles.imageRemove} onPress={() => onRemoveImage(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close-circle" size={22} color={colors.error} />
               </TouchableOpacity>
               {i > 0 && (
-                <TouchableOpacity style={styles.imageReorderLeft} onPress={() => onReorderImages(i, i - 1)}>
+                <TouchableOpacity accessibilityLabel={`Move photo ${i + 1} left`} style={styles.imageReorderLeft} onPress={() => onReorderImages(i, i - 1)}>
                   <Ionicons name="chevron-back" size={14} color={colors.textPrimary} />
                 </TouchableOpacity>
               )}
               {i < images.length - 1 && (
-                <TouchableOpacity style={styles.imageReorderRight} onPress={() => onReorderImages(i, i + 1)}>
+                <TouchableOpacity accessibilityLabel={`Move photo ${i + 1} right`} style={styles.imageReorderRight} onPress={() => onReorderImages(i, i + 1)}>
                   <Ionicons name="chevron-forward" size={14} color={colors.textPrimary} />
                 </TouchableOpacity>
               )}
             </View>
           ))}
           {images.length < 10 && (
-            <TouchableOpacity style={styles.addImageBtn} onPress={onPickImages} activeOpacity={0.7}>
+            <TouchableOpacity accessibilityLabel="Add more photos" style={styles.addImageBtn} onPress={onPickImages} activeOpacity={0.7}>
               <Ionicons name="add" size={28} color={colors.accent} />
               <Text style={styles.addImageText}>Add</Text>
             </TouchableOpacity>
@@ -419,7 +425,7 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, on
         </ScrollView>
       )}
       {images.length > 0 && (
-        <Text style={styles.imageHint}>Tap a photo to crop &amp; edit. Arrows reorder. First photo is the cover.</Text>
+        <Text style={styles.imageHint}>Tap to crop or edit. Use the arrows to reorder. The first photo is the cover.</Text>
       )}
     </View>
   );
@@ -430,6 +436,7 @@ export default function PostListingScreen({ navigation, route }) {
   const isEditMode = !!editMode;
   const { user } = useAuth();
   const { theme, colors: themeColors } = useTheme();
+  const layout = useResponsiveLayout();
   const colors = theme === 'light'
     ? {
       ...themeColors,
@@ -459,14 +466,26 @@ export default function PostListingScreen({ navigation, route }) {
     headerSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginTop: 4 },
     categoryGrid: {
       flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
-      padding: SPACING.md, gap: 12,
+      paddingHorizontal: layout.horizontalPadding, paddingTop: SPACING.md, gap: 12,
+      maxWidth: layout.contentMaxWidth, width: '100%', alignSelf: 'center',
     },
     categoryCard: {
-      width: '47%', backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg,
-      paddingVertical: 32, alignItems: 'center', justifyContent: 'center',
+      width: layout.isExpanded ? '48%' : '47%', backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl,
+      paddingVertical: layout.isCompact ? 24 : 30, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center',
       borderWidth: 1, borderColor: colors.border,
+      shadowColor: colors.primary, shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3,
     },
-    categoryLabel: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: 12 },
+    categoryIconStage: {
+      width: 76, height: 76, borderRadius: 24, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: colors.surfaceHigher, borderWidth: 1, borderColor: colors.border,
+      shadowColor: colors.accent, shadowOpacity: 0.22, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 4,
+    },
+    categoryIconDepth: {
+      position: 'absolute', width: 52, height: 52, borderRadius: 18, left: 13, top: 17,
+      backgroundColor: colors.primary, opacity: 0.55,
+    },
+    categoryLabel: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', marginTop: 12 },
+    categorySubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 4, textAlign: 'center' },
     wantedCard: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       marginHorizontal: SPACING.md, marginTop: 4, padding: SPACING.md,
@@ -650,6 +669,8 @@ export default function PostListingScreen({ navigation, route }) {
       color: colors.textMuted,
       fontSize: FONT_SIZES.xs,
     },
+    photoSourceHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+    photoSourceHintText: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
     scanButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -668,7 +689,7 @@ export default function PostListingScreen({ navigation, route }) {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
   },
-  }), [colors]);
+  }), [colors, layout]);
   const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
@@ -892,13 +913,38 @@ export default function PostListingScreen({ navigation, route }) {
   const pickImages = useCallback(async () => {
     const remaining = 10 - images.length;
     if (remaining <= 0) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      selectionLimit: remaining,
-      quality: 0.8,
+    const pickFromSource = async (source) => {
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (permission.status !== 'granted') {
+          Alert.alert('Camera access needed', 'Allow camera access to take listing photos, or choose them from your library.');
+          return null;
+        }
+        return ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.82 });
+      }
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Photo access needed', 'Allow photo access to add images to your listing.');
+        return null;
+      }
+      return ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.82,
+        exif: false,
+      });
+    };
+    const source = await new Promise((resolve) => {
+      Alert.alert('Add listing photos', 'Use clear, well-lit photos. You can edit and reorder them next.', [
+        { text: 'Take photo', onPress: () => resolve('camera') },
+        { text: 'Choose from library', onPress: () => resolve('library') },
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+      ]);
     });
-    if (result.canceled || !result.assets?.length) return;
+    if (!source) return;
+    const result = await pickFromSource(source);
+    if (!result || result.canceled || !result.assets?.length) return;
 
     // Compress + run the same on-device nudity/face check as the web app on
     // every picked photo before it enters the list (parity with web's
@@ -1696,8 +1742,19 @@ export default function PostListingScreen({ navigation, route }) {
               activeOpacity={0.7}
               onPress={() => setCategory(cat.key)}
             >
-              <Ionicons name={cat.icon} size={40} color={colors.accent} />
+              <View style={styles.categoryIconStage}>
+                <View style={styles.categoryIconDepth} />
+                <LinearGradient
+                  colors={[colors.accentBright, colors.accent]}
+                  start={{ x: 0.15, y: 0.05 }}
+                  end={{ x: 0.9, y: 1 }}
+                  style={[styles.categoryIconStage, { position: 'absolute', width: 64, height: 64, left: 6, top: 6, borderRadius: 20, borderWidth: 0 }]}
+                  pointerEvents="none"
+                />
+                <Ionicons name={cat.icon} size={38} color={colors.primary} style={{ position: 'absolute' }} />
+              </View>
               <Text style={styles.categoryLabel}>{cat.label}</Text>
+              <Text style={styles.categorySubtitle}>{cat.subtitle}</Text>
             </TouchableOpacity>
           ))}
         </View>

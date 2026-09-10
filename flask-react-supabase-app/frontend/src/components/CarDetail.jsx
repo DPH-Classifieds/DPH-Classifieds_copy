@@ -29,6 +29,8 @@ import { forwardLeadToGa4 } from '../utils/analytics';
 import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
 import { getBotSignals } from '../utils/botSignals';
 import { buildCarPath } from '../utils/listingUrl';
+import { mergeListingDetail } from '../utils/listingRouteState';
+import { Maximize2 } from 'lucide-react';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -123,10 +125,11 @@ const CarDetail = () => {
           return;
         }
         
-        setCar(response.data);
-        const canonicalPath = buildCarPath(response.data);
+        const mergedCar = mergeListingDetail(preloadedCar, response.data);
+        setCar(mergedCar);
+        const canonicalPath = buildCarPath(mergedCar);
         if (canonicalPath !== `/cars/${id}`) {
-          navigate(canonicalPath, { replace: true, state: { listing: response.data } });
+          navigate(canonicalPath, { replace: true, state: { listing: mergedCar } });
         }
         
         const price = response.data.expected_selling_price || 0;
@@ -573,13 +576,14 @@ const CarDetail = () => {
       <div className="cd-main-image" ref={heroSwipeRef}>
         {getMainImageUrl() ? (
           <img
+            className="cd-main-image-photo"
             src={getMainImageUrl()}
             alt={getDisplayTitle()}
             loading="lazy"
             decoding="async"
             width="800"
             height="500"
-            style={{ objectPosition: getMainImageObjectPosition() }}
+            style={{ objectPosition: getMainImageObjectPosition() || 'center center' }}
             onClick={() => openLightboxAt(activeImageIndex)}
             onError={(e) => {
               e.target.onerror = null;
@@ -621,6 +625,17 @@ const CarDetail = () => {
                     ? `${activeImageIndex + 1} / ${galleryImages.length}`
                     : `${galleryImages.length} photo`}
                 </div>
+              )}
+              {galleryImages.length > 0 && (
+                <button
+                  type="button"
+                  className="cd-gallery-expand"
+                  onClick={(e) => { e.stopPropagation(); openLightboxAt(activeImageIndex); }}
+                  aria-label="View photos full screen"
+                >
+                  <Maximize2 aria-hidden="true" size={16} />
+                  <span>View full screen</span>
+                </button>
               )}
             </div>
 

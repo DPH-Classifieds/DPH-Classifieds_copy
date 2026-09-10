@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Modal, FlatList, StatusBar } from 'react-native';
 import Text from './ui/AppText';
 import { Image } from 'expo-image';
 import Animated, {
@@ -92,6 +92,7 @@ export default function ImageLightbox({ images = [], visible, initialIndex = 0, 
 
   return (
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={dismiss}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
       <GestureHandlerRootView style={styles.root}>
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
 

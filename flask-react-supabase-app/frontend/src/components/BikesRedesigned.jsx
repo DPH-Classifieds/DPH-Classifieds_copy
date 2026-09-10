@@ -1,5 +1,6 @@
 import { API_BASE_URL as API_URL } from '../utils/apiBase';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import BrowseSellCta from './BrowseSellCta';
@@ -10,30 +11,47 @@ import { buildListingRouteState } from '../utils/listingRouteState';
 import useListingCounts from '../hooks/useListingCounts';
 import './BikesRedesigned.css';
 import './ExplorePage.css';
+import { readFilterState, writeFilterState } from '../utils/searchParams';
 
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 const LIST_PAGE_SIZE = 24;
+const BIKE_FILTER_DEFAULTS = {
+  type: 'all', brand: 'all', priceMin: '', priceMax: '', yearMin: '', yearMax: '',
+  engineMin: '', engineMax: '', cylinders: 'all', wheels: 'all', sortBy: 'newest',
+};
+const BIKE_FILTER_ALIASES = {
+  type: 'bike_type', brand: 'bike_brand', priceMin: 'price_from', priceMax: 'price_to',
+  yearMin: 'year_from', yearMax: 'year_to', engineMin: 'engine_from', engineMax: 'engine_to',
+  sortBy: 'sort',
+};
 
 const BikesRedesigned = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lastSyncedSearchRef = useRef(searchParams.toString());
   const totalCounts = useListingCounts();
   const [bikes, setBikes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({
-    type: 'all',
-    brand: 'all',
-    priceMin: '',
-    priceMax: '',
-    yearMin: '',
-    yearMax: '',
-    engineMin: '',
-    engineMax: '',
-    cylinders: 'all',
-    wheels: 'all',
-    sortBy: 'newest'
-  });
+  const [filters, setFilters] = useState(() => readFilterState(searchParams, BIKE_FILTER_DEFAULTS, BIKE_FILTER_ALIASES));
+
+  useEffect(() => {
+    if (searchParams.toString() !== lastSyncedSearchRef.current) return;
+    const next = writeFilterState(new URLSearchParams(), filters, BIKE_FILTER_DEFAULTS, BIKE_FILTER_ALIASES);
+    const nextString = next.toString();
+    if (nextString !== searchParams.toString()) {
+      lastSyncedSearchRef.current = nextString;
+      setSearchParams(next, { replace: true });
+    }
+  }, [filters, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const current = searchParams.toString();
+    if (current === lastSyncedSearchRef.current) return;
+    setFilters(readFilterState(searchParams, BIKE_FILTER_DEFAULTS, BIKE_FILTER_ALIASES));
+    lastSyncedSearchRef.current = current;
+  }, [searchParams]);
 
   const getImageUrl = (image) => {
     if (!image) return null;

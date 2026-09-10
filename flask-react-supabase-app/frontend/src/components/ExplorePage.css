@@ -73,6 +73,8 @@
 
 .explore-v2 {
   min-height: 100%;
+  height: auto;
+  max-height: none;
   /* MainArea already follows the fixed header's .header-spacer. Keep this
      page in normal document flow so the window owns vertical scrolling. */
   padding: 16px 0 72px;
@@ -86,6 +88,34 @@
 .explore-v2-shell {
   width: min(1400px, calc(100% - 32px));
   margin: 0 auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.explore-v2-results {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.cn-similar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .cn-similar-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .cn-similar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
+
+@media (max-width: 480px) {
+  .cn-similar-grid { grid-template-columns: 1fr; }
 }
 
 /* The results section (mode tabs through the listing grid and its footer

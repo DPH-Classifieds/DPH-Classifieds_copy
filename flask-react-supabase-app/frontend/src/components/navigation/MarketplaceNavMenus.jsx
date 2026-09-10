@@ -85,7 +85,10 @@ export const browseContent = {
     eyebrow: 'CARS',
     headline: 'Find your next drive',
     description: 'From everyday cars to luxury and performance vehicles — all across the UAE.',
-    heroImage: '/images/optimized/hero-1600.jpg',
+    // Keep this asset in the tracked public root. The previous optimized JPG
+    // is locally present but ignored by the repository's media rules, which
+    // made the deployed Browse menu render its alt text instead of the image.
+    heroImage: '/hero.avif',
     heroAlt: 'Blue performance car available on DPH Classifieds',
     popularLabel: 'Popular Categories',
     popularAction: 'View All Cars',
@@ -322,7 +325,7 @@ export const SellMenu = ({ postLinks, mobile = false, showVerificationNotice = f
     {showVerificationNotice && (
       <div className="marketplace-nav__verification-note">
         <ShieldCheck aria-hidden="true" />
-        <span>Admin verification is required before you can post. <Link to="/settings">View status</Link></span>
+        <span>Admin verification required before you can post. <Link to="/settings">View status</Link></span>
       </div>
     )}
     <div className="marketplace-nav__sell-list">

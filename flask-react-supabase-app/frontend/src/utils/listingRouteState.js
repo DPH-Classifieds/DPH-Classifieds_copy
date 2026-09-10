@@ -69,6 +69,20 @@ export const buildListingRouteState = (listing, extra = {}) => ({
   ...extra,
 });
 
+// Detail pages render route state immediately for a fast transition, then
+// replace it with the authoritative API row. Some list responses intentionally
+// omit seller identity fields, so retain those already visible during that
+// refresh instead of flashing a different seller label.
+export const mergeListingDetail = (previous, next) => {
+  const merged = { ...(previous || {}), ...(next || {}) };
+  ['seller_name', 'dealer_name', 'contact_name', 'user_email', 'seller_profile_photo'].forEach((key) => {
+    if ((merged[key] === null || merged[key] === undefined || merged[key] === '') && previous?.[key]) {
+      merged[key] = previous[key];
+    }
+  });
+  return merged;
+};
+
 const inferRoute = (listing) => {
   const type = String(listing?.listingType || listing?.listing_type || listing?.categoryKey || '').toLowerCase();
   const base = type === 'car' || type === 'cars'

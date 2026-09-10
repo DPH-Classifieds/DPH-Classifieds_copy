@@ -1,5 +1,6 @@
 import { API_BASE_URL as API_URL } from '../utils/apiBase';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SearchableSelect from './ui/searchable-select';
 import SeoMeta from './SeoMeta';
 import MarketplaceListingCard from './MarketplaceListingCard';
@@ -12,12 +13,23 @@ import { buildListingRouteState } from '../utils/listingRouteState';
 import { buildCarPath } from '../utils/listingUrl';
 import { buildStaticSeo } from '../utils/seo';
 import useListingCounts from '../hooks/useListingCounts';
+import { readFilterState, writeFilterState } from '../utils/searchParams';
 import './CarList.css';
 import './ExplorePage.css';
 
 const LIST_PAGE_SIZE = 12;
 
+const CAR_FILTER_DEFAULTS = {
+  car_manufacturer: '', car_model: '', car_trim: '', car_city: '',
+  make_year_from: '', make_year_to: '', price_from: '', price_to: '',
+  body_type: '', fuel_type: '', transmission_type: '', regional_spec: '',
+  kilometer_from: '', kilometer_to: '', steering_side: '', seating_capacity: '',
+  horsepower: '', engine_capacity: '', exclude_reddit: false, extras: [],
+};
+
 const CarList = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lastSyncedSearchRef = useRef(searchParams.toString());
   const totalCounts = useListingCounts();
   const [cars, setCarsState] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,31 +57,33 @@ const CarList = () => {
       setCarsState([]);
     }
   };
-  const [filters, setFilters] = useState({
-    car_manufacturer: '',
-    car_model: '',
-    car_trim: '',
-    car_city: '',
-    make_year_from: '',
-    make_year_to: '',
-    price_from: '',
-    price_to: '',
-    body_type: '',
-    fuel_type: '',
-    transmission_type: '',
-    regional_spec: '',
-    kilometer_from: '',
-    kilometer_to: '',
-    steering_side: '',
-    seating_capacity: '',
-    horsepower: '',
-    engine_capacity: '',
-    exclude_reddit: false,
-    extras: []
-  });
+  const [filters, setFilters] = useState(() => readFilterState(searchParams, CAR_FILTER_DEFAULTS));
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [sortOption, setSortOption] = useState('created_at.desc');
+  const [sortOption, setSortOption] = useState(() => searchParams.get('sort') || 'created_at.desc');
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
+
+  // The URL is the durable search state. This keeps filters intact when a
+  // listing is opened and the browser Back button returns to this page.
+  useEffect(() => {
+    if (searchParams.toString() !== lastSyncedSearchRef.current) return;
+    const next = writeFilterState(new URLSearchParams(), filters, CAR_FILTER_DEFAULTS);
+    if (sortOption !== 'created_at.desc') next.set('sort', sortOption);
+    const nextString = next.toString();
+    if (nextString !== searchParams.toString()) {
+      lastSyncedSearchRef.current = nextString;
+      setSearchParams(next, { replace: true });
+    } else {
+      lastSyncedSearchRef.current = nextString;
+    }
+  }, [filters, sortOption, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const current = searchParams.toString();
+    if (current === lastSyncedSearchRef.current) return;
+    setFilters(readFilterState(searchParams, CAR_FILTER_DEFAULTS));
+    setSortOption(searchParams.get('sort') || 'created_at.desc');
+    lastSyncedSearchRef.current = current;
+  }, [searchParams]);
 
   // Keep a full year range so filtering is not limited by currently loaded listings
   const currentYear = new Date().getFullYear();
