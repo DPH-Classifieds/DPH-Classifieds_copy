@@ -291,8 +291,15 @@ export const BrowseHero = ({ categoryId }) => {
   );
 };
 
-export const BrowseMegaMenu = ({ selectedId, onSelect }) => (
-  <div className="marketplace-nav__browse-menu" id="dph-browse-menu" role="menu" aria-label="Browse categories">
+export const BrowseMegaMenu = ({ selectedId, onSelect, onMouseEnter, onMouseLeave }) => (
+  <div
+    className="marketplace-nav__browse-menu"
+    id="dph-browse-menu"
+    role="menu"
+    aria-label="Browse categories"
+    onMouseEnter={onMouseEnter}
+    onMouseLeave={onMouseLeave}
+  >
     <div className="marketplace-nav__browse-sidebar">
       <div className="marketplace-nav__menu-heading">
         <span className="marketplace-nav__eyebrow">DISCOVER</span>
@@ -324,8 +331,13 @@ export const SellActionCard = ({ item, mobile = false }) => {
   );
 };
 
-export const SellMenu = ({ postLinks, mobile = false, showVerificationNotice = false }) => (
-  <div className={`marketplace-nav__sell-menu ${mobile ? 'is-mobile' : ''}`} id={mobile ? undefined : 'dph-sell-menu'}>
+export const SellMenu = ({ postLinks, mobile = false, showVerificationNotice = false, onMouseEnter, onMouseLeave }) => (
+  <div
+    className={`marketplace-nav__sell-menu ${mobile ? 'is-mobile' : ''}`}
+    id={mobile ? undefined : 'dph-sell-menu'}
+    onMouseEnter={onMouseEnter}
+    onMouseLeave={onMouseLeave}
+  >
     {mobile && (
       <div className="marketplace-nav__sell-heading">
         <span className="marketplace-nav__eyebrow">SELL ON DPHCLASSIFIEDS</span>

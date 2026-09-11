@@ -44,6 +44,26 @@ const Header = () => {
   const desktopNavRef = useRef(null);
   const browseTriggerRef = useRef(null);
   const sellTriggerRef = useRef(null);
+  const desktopMenuCloseTimerRef = useRef(null);
+
+  const cancelDesktopMenuClose = () => {
+    if (desktopMenuCloseTimerRef.current === null) return;
+    window.clearTimeout(desktopMenuCloseTimerRef.current);
+    desktopMenuCloseTimerRef.current = null;
+  };
+
+  const openDesktopMenu = (menu) => {
+    cancelDesktopMenuClose();
+    setDesktopMenu(menu);
+  };
+
+  const scheduleDesktopMenuClose = () => {
+    cancelDesktopMenuClose();
+    desktopMenuCloseTimerRef.current = window.setTimeout(() => {
+      desktopMenuCloseTimerRef.current = null;
+      setDesktopMenu(null);
+    }, 180);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -57,8 +77,11 @@ const Header = () => {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    cancelDesktopMenuClose();
     setDesktopMenu(null);
   }, [location.pathname]);
+
+  useEffect(() => () => cancelDesktopMenuClose(), []);
 
   useEffect(() => {
     if (!desktopMenu) return undefined;
@@ -171,8 +194,8 @@ const Header = () => {
 
             <div
               className="site-header__desktop-menu-anchor"
-              onMouseEnter={() => setDesktopMenu('browse')}
-              onMouseLeave={() => setDesktopMenu(null)}
+              onMouseEnter={() => openDesktopMenu('browse')}
+              onMouseLeave={scheduleDesktopMenuClose}
             >
               <button
                 ref={browseTriggerRef}
@@ -191,14 +214,19 @@ const Header = () => {
                 Browse <ChevronDown aria-hidden="true" />
               </button>
               {desktopMenu === 'browse' && (
-                <BrowseMegaMenu selectedId={browseCategory} onSelect={setBrowseCategory} />
+                <BrowseMegaMenu
+                  selectedId={browseCategory}
+                  onSelect={setBrowseCategory}
+                  onMouseEnter={cancelDesktopMenuClose}
+                  onMouseLeave={scheduleDesktopMenuClose}
+                />
               )}
             </div>
 
             <div
               className="site-header__desktop-menu-anchor"
-              onMouseEnter={() => setDesktopMenu('sell')}
-              onMouseLeave={() => setDesktopMenu(null)}
+              onMouseEnter={() => openDesktopMenu('sell')}
+              onMouseLeave={scheduleDesktopMenuClose}
             >
               <button
                 ref={sellTriggerRef}
@@ -217,7 +245,12 @@ const Header = () => {
                 Sell <ChevronDown aria-hidden="true" />
               </button>
               {desktopMenu === 'sell' && (
-                <SellMenu postLinks={postLinks} showVerificationNotice={Boolean(user && !dealerCanPost)} />
+                <SellMenu
+                  postLinks={postLinks}
+                  showVerificationNotice={Boolean(user && !dealerCanPost)}
+                  onMouseEnter={cancelDesktopMenuClose}
+                  onMouseLeave={scheduleDesktopMenuClose}
+                />
               )}
             </div>
 

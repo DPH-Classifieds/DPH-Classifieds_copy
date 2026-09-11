@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { act } from 'react';
 import { fireEvent, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Header from './Header';
@@ -54,7 +54,8 @@ test('header uses theme tokens, not hardcoded rgba dark scrim', () => {
   expect(brandCls).toMatch(/var\(--ex-accent-green\)/);
 });
 
-test('desktop marketplace menu closes when the pointer leaves its anchor', () => {
+test('desktop marketplace menu stays interactive during the trigger-to-menu handoff', () => {
+  jest.useFakeTimers();
   const { container } = render(
     <MemoryRouter>
       <Header />
@@ -68,5 +69,19 @@ test('desktop marketplace menu closes when the pointer leaves its anchor', () =>
   expect(container.querySelector('#dph-browse-menu')).toBeTruthy();
 
   fireEvent.mouseLeave(browseAnchor);
+  act(() => jest.advanceTimersByTime(100));
+  expect(container.querySelector('#dph-browse-menu')).toBeTruthy();
+
+  fireEvent.mouseEnter(container.querySelector('#dph-browse-menu'));
+  act(() => jest.advanceTimersByTime(200));
+  expect(container.querySelector('#dph-browse-menu')).toBeTruthy();
+
+  fireEvent.mouseLeave(container.querySelector('#dph-browse-menu'));
+  // jsdom does not bubble the child leave event through the pointer boundary
+  // the same way a browser does, so leave the wrapper too to model the user
+  // moving out of the full trigger + menu region.
+  fireEvent.mouseLeave(browseAnchor);
+  act(() => jest.advanceTimersByTime(180));
   expect(container.querySelector('#dph-browse-menu')).toBeNull();
+  jest.useRealTimers();
 });
