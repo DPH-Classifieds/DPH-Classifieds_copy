@@ -331,8 +331,6 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
     built = build_imported_payload(parsed, owner_id, now)
     config, payload = built["config"], built["payload"]
     payload["is_approved"] = bool(visible)  # honor the admin kill switch
-    if config["table"] == "cars":
-        _enrich_car_with_vin(payload)
     table = config["table"]
     existing_entry = existing_map.get(parsed.source_id) or {}
     row_id = existing_entry.get("id")

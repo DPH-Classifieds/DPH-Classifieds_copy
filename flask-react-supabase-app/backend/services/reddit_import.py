@@ -1170,12 +1170,12 @@ def parse_listing(submission, now):
         mileage = _parse_mileage(combined)
         parts = [f"{year} {make} {model}", f"AED {price:,}"] + ([f"{mileage:,} km"] if mileage else [])
         fields = {"make": make, "model": model, "year": year, "mileage_km": mileage}
-        if category == "car":
-            # VIN + seller-stated details, decoded/merged in the worker (network I/O).
-            fields["vin"] = extract_vin(combined)
-            fields["extras"] = parse_description_extras(combined)
+        # Active car imports intentionally stay small: images, year/make/model,
+        # price, and odometer. Keep VIN/extras available to the legacy parser
+        # above, but do not infer or persist them for this import pipeline.
+        listing_title = f"{year} {make} {model}" if category == "car" else (safe_title or f"{year} {make} {model}")
         return ParsedListing(
-            category=category, title=safe_title or f"{year} {make} {model}",
+            category=category, title=listing_title,
             description=_common(submission, category, price, parts), **base,
             fields=fields,
         )
@@ -1241,45 +1241,30 @@ def build_imported_payload(parsed, owner_id, now):
     f = parsed.fields
 
     if parsed.category == "car":
-        extras = f.get("extras") or {}
         payload = {**src,
             "car_manufacturer": f["make"], "car_model": f["model"], "make_year": f["year"],
             "expected_selling_price": parsed.price_aed, "listing_title": parsed.title,
             "car_description": parsed.description,
             "kilometer_driven": f.get("mileage_km") if f.get("mileage_km") is not None else 0,
-            # Seller-stated details inherited from the post; VIN-decoded specs
-            # overlay these in the worker when the VIN decodes cleanly. Regional
-            # spec / steering default to the UAE-market norm when unstated.
-            "regional_spec": extras.get("regional_spec") or "GCC",
+            # These columns are required by the cars schema but are not part of
+            # the minimal Reddit import contract, so use stable schema-safe
+            # defaults rather than inferring facts from free-form post text.
+            "regional_spec": "GCC",
             "car_city": _DUBAI,
-            "fuel_type": extras.get("fuel_type") or "Unspecified",
-            "transmission_type": extras.get("transmission_type") or "Unspecified",
+            "fuel_type": "Unspecified",
+            "transmission_type": "Unspecified",
             "horsepower": "Unspecified",
-            "steering_side": extras.get("steering_side") or "Left",
-            "vehicle_type": "Used"}
-        if extras.get("color"):
-            payload["color"] = extras["color"]
-        for k in ("engine_capacity", "cylinders", "doors", "service_history"):
-            if extras.get(k) is not None:
-                payload[k] = extras[k]
-        if f.get("vin"):
-            payload["vin_number"] = f["vin"]
-        # Provenance: where each field came from. The worker flips fields it
-        # overwrites from a clean VIN decode to 'vin'.
-        sources = {"car_manufacturer": "title", "car_model": "title", "make_year": "title",
-                   "expected_selling_price": "post", "listing_title": "post",
-                   "regional_spec": "description" if extras.get("regional_spec") else "default",
-                   "steering_side": "description" if extras.get("steering_side") else "default",
-                   "car_city": "default", "vehicle_type": "default"}
-        if f.get("mileage_km") is not None:
-            sources["kilometer_driven"] = "description"
-        for k in ("fuel_type", "transmission_type", "color", "engine_capacity",
-                  "cylinders", "doors", "service_history"):
-            if extras.get(k) is not None:
-                sources[k] = "description"
-        if f.get("vin"):
-            sources["vin_number"] = "post"
-        payload["import_field_sources"] = sources
+            "steering_side": "Left",
+            "vehicle_type": "Used",
+            # Clear fields from older, richer imports during the backfill and
+            # on every subsequent car resync. All are nullable in the cars
+            # schema; native listings are never sent through this branch.
+            "vin_number": None,
+            "color": None,
+            "engine_capacity": None,
+            "cylinders": None,
+            "doors": None,
+            "service_history": None}
     elif parsed.category == "bike":
         payload = {**src,
             "make": f["make"], "model": f["model"], "bike_brand": f["make"], "bike_model": f["model"],

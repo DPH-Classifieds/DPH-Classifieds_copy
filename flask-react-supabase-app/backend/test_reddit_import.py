@@ -223,6 +223,28 @@ class MultiCategoryTests(unittest.TestCase):
         p = parse_listing(sub, NOW)
         self.assertEqual(p.category, "car")
 
+    def test_active_car_import_is_minimal_and_does_not_parse_rich_extras(self):
+        sub = submission(
+            title="WTS: 2018 BMW 120i GCC AED 39,000",
+            selftext="88,000 km. VIN: WBA00000000000000. White, automatic, full service history.",
+            id="minimal-car",
+            images=[IMG],
+        )
+        parsed = parse_listing(sub, NOW)
+        self.assertEqual(parsed.fields, {
+            "make": "BMW", "model": "120i", "year": 2018, "mileage_km": 88000,
+        })
+        self.assertEqual(parsed.title, "2018 BMW 120i")
+        payload = build_imported_payload(parsed, "owner", NOW)["payload"]
+        self.assertEqual(payload["car_manufacturer"], "BMW")
+        self.assertEqual(payload["car_model"], "120i")
+        self.assertEqual(payload["make_year"], 2018)
+        self.assertEqual(payload["expected_selling_price"], 39000)
+        self.assertEqual(payload["kilometer_driven"], 88000)
+        for field in ("vin_number", "color", "engine_capacity", "cylinders", "doors", "service_history"):
+            self.assertIsNone(payload[field])
+        self.assertNotIn("import_field_sources", payload)
+
     def test_bike_make_routes_to_bikes(self):
         p = self._p("WTS: Ducati Panigale V2 2022 AED 75,000")
         self.assertEqual(p.category, "bike")
@@ -597,17 +619,18 @@ class WorkerTests(unittest.TestCase):
         self.assertNotIn("example.com", blob)
         self.assertNotIn("Contact me", blob)
         self.assertNotIn("Clean car", blob)
-        # But structured facts ARE inherited from the description.
-        self.assertEqual(car.get("service_history"), "Full service history")
+        # Active car imports intentionally persist only the compact contract:
+        # photos, year/make/model, price, and odometer. Older rich fields are
+        # explicitly cleared so the backfill also normalizes existing rows.
+        self.assertIsNone(car.get("service_history"))
         self.assertEqual(car.get("kilometer_driven"), 88000)
         self.assertEqual(car.get("regional_spec"), "GCC")
-        # Provenance is recorded per field (this post has no VIN -> title/description).
-        sources = car.get("import_field_sources") or {}
-        self.assertEqual(sources.get("car_manufacturer"), "title")
-        self.assertEqual(sources.get("service_history"), "description")
-        # Title says "GCC", so regional spec is inherited, not the UAE default.
-        self.assertEqual(sources.get("regional_spec"), "description")
-        self.assertEqual(sources.get("steering_side"), "default")  # not stated
+        self.assertIsNone(car.get("vin_number"))
+        self.assertIsNone(car.get("color"))
+        self.assertIsNone(car.get("engine_capacity"))
+        self.assertIsNone(car.get("cylinders"))
+        self.assertIsNone(car.get("doors"))
+        self.assertNotIn("import_field_sources", car)
         # Price is tracked end to end.
         price_posts = [c for c in db.calls
                        if c["path"] == "/rest/v1/listing_price_history" and c["method"] == "post"]

@@ -1,5 +1,5 @@
-"""One-off backfill: import eligible r/DubaiPetrolHeads sale posts from the last
-N days (default 30) into cars/bikes/license_plates/car_parts.
+"""One-off backfill: import eligible r/DubaiPetrolHeads car sale posts from the
+last N days (default 30) into cars.
 
 Run AFTER applying migrations/2026_07_23_reddit_imported_listings.sql. It is
 idempotent (dedupes on source_external_id) so re-running is safe, and it does
@@ -7,9 +7,15 @@ NOT require REDDIT_IMPORT_ENABLED — it's an explicit manual seed. Ongoing 4-ho
 runs then pick up only new posts.
 
 Usage (uses the worker service's real env):
-    railway run --service DPH_Classifieds-worker python backend/seed_reddit_import.py [days]
+    railway run --service DPH_Classifieds-worker python backend/seed_reddit_import.py [days] [--dry-run]
 or locally (loads backend/.env):
+    python backend/seed_reddit_import.py 30 --dry-run
     python backend/seed_reddit_import.py 30
+
+The default is deliberately cars-only. It rehydrates all existing importer-owned
+car source IDs through Reddit's bounded /api/info endpoint, in addition to the
+recent discovery window. Pass --all-categories only for an explicit legacy-style
+import of bikes, plates, and parts as well.
 """
 import os
 import sys
@@ -28,9 +34,15 @@ if _env_path.exists():
 
 from services.reddit_import import (
     OAUTH_BASE_URL, RedditSubmission, LISTING_TABLES,
-    get_app_access_token, parse_listing,
+    fetch_submissions_by_ids, get_app_access_token, parse_listing,
 )
 import workers.reddit_import_worker as w
+
+
+_CAR_IMPORT_LEGACY_FIELDS = (
+    "vin_number", "color", "engine_capacity", "cylinders", "doors",
+    "service_history", "import_field_sources",
+)
 
 
 def _paginate(session, token, subreddit, user_agent, cutoff_epoch, hard_cap=1000):
@@ -63,8 +75,64 @@ def _paginate(session, token, subreddit, user_agent, cutoff_epoch, hard_cap=1000
             return
 
 
-def main():
-    days = int(sys.argv[1]) if len(sys.argv) > 1 else 30
+def _existing_source_ids(owner_id, categories):
+    """Return existing importer source IDs for the selected categories.
+
+    The /new endpoint is intentionally bounded, so a backfill must also use the
+    source IDs already stored in Supabase to cover older imported rows.
+    """
+    ids = set()
+    for category in categories:
+        table = LISTING_TABLES[category]["table"]
+        body, status = w.supabase_request(
+            "get", f"/rest/v1/{table}",
+            params={
+                "select": "source_external_id",
+                "source_platform": "eq.reddit",
+                "user_id": f"eq.{owner_id}",
+                "source_external_id": "not.is.null",
+                "limit": "1000",
+            },
+        )
+        if status < 400 and isinstance(body, list):
+            ids.update(row["source_external_id"] for row in body if row.get("source_external_id"))
+    return sorted(ids)
+
+
+def _rehydrate_source_ids(session, token, source_ids, user_agent):
+    """Fetch existing Reddit posts in API-safe batches of at most 100 IDs."""
+    found = {}
+    for start in range(0, len(source_ids), 100):
+        batch = source_ids[start:start + 100]
+        found.update(fetch_submissions_by_ids(session, token, batch, user_agent))
+    return list(found.values())
+
+
+def _clear_legacy_car_fields(owner_id):
+    """Normalize every importer-owned Reddit car, including unavailable posts."""
+    body, status = w.supabase_request(
+        "patch", "/rest/v1/cars",
+        params={
+            "source_platform": "eq.reddit",
+            "user_id": f"eq.{owner_id}",
+        },
+        data={field: None for field in _CAR_IMPORT_LEGACY_FIELDS},
+    )
+    if status >= 400:
+        raise RuntimeError(f"legacy car field cleanup failed with status {status}")
+    return len(body) if isinstance(body, list) else 0
+
+
+def _args(argv):
+    positional = [arg for arg in argv if not arg.startswith("--")]
+    days = int(positional[0]) if positional else 30
+    if days <= 0:
+        raise ValueError("days must be a positive integer")
+    return days, "--dry-run" in argv, "--all-categories" in argv
+
+
+def main(argv=None):
+    days, dry_run, all_categories = _args(list(sys.argv[1:] if argv is None else argv))
     subreddit = os.getenv("REDDIT_IMPORT_SUBREDDIT", "DubaiPetrolHeads")
     owner_id = os.getenv("REDDIT_IMPORT_OWNER_ID", "").strip()
     cid = os.getenv("REDDIT_CLIENT_ID", "").strip()
@@ -80,10 +148,16 @@ def main():
     session = requests.Session()
     token = get_app_access_token(session, cid, csec, ua)
 
-    subs = list(_paginate(session, token, subreddit, ua, cutoff_epoch))
-    print(f"Fetched {len(subs)} posts from the last {days} days.")
+    categories = list(LISTING_TABLES) if all_categories else ["car"]
+    recent_subs = list(_paginate(session, token, subreddit, ua, cutoff_epoch))
+    existing_ids = _existing_source_ids(owner_id, categories)
+    existing_subs = _rehydrate_source_ids(session, token, existing_ids, ua)
+    subs = {sub.id: sub for sub in recent_subs}
+    subs.update({sub.id: sub for sub in existing_subs})
+    subs = list(subs.values())
+    print(f"Fetched {len(recent_subs)} recent posts and rehydrated {len(existing_subs)} existing source IDs.")
 
-    by_category = {cat: [] for cat in LISTING_TABLES}
+    by_category = {cat: [] for cat in categories}
     skipped = 0
     for sub in subs:
         parsed = parse_listing(sub, now)
@@ -96,6 +170,16 @@ def main():
     # admin has switched off (env REDDIT_LISTINGS_VISIBLE / redis reddit:visible).
     visible = w._reddit_visible()
     print(f"  visibility: {'shown' if visible else 'HIDDEN'}")
+    eligible = sum(len(plist) for plist in by_category.values())
+    if dry_run:
+        scope = "all categories" if all_categories else "cars"
+        print(f"  dry-run: {eligible} eligible {scope}; no writes performed")
+        print(f"\nDry run complete. eligible={eligible} skipped={skipped}")
+        return 0
+
+    normalized = _clear_legacy_car_fields(owner_id)
+    print(f"  normalized: {normalized} existing importer-owned cars")
+
     counts = {k: 0 for k in ("created", "updated", "failed")}
     for cat, plist in by_category.items():
         if not plist:
@@ -110,7 +194,12 @@ def main():
 
     print(f"\nDone. created={counts['created']} updated={counts['updated']} "
           f"failed={counts['failed']} skipped={skipped}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main())
+    except ValueError as exc:
+        print(f"Invalid arguments: {exc}")
+        sys.exit(2)
