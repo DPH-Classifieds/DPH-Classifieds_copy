@@ -238,27 +238,29 @@ def fetch_new_submissions(session, access_token, subreddit, limit, user_agent):
 
 
 def fetch_submissions_by_ids(session, access_token, fullnames, user_agent):
-    """Bounded /api/info lookup by fullname. Returns {fullname: RedditSubmission}.
-    IDs absent from the response are simply missing (treated as deleted upstream)."""
+    """Bounded /api/info lookup by fullname in Reddit-safe batches of 100.
+    Returns {fullname: RedditSubmission}. IDs absent from the response are
+    simply missing (treated as deleted upstream)."""
     fullnames = [f for f in fullnames if f]
     if not fullnames:
         return {}
-    response = session.get(
-        INFO_URL,
-        params={"id": ",".join(fullnames[:100]), "raw_json": 1},
-        headers={"Authorization": f"Bearer {access_token}", "User-Agent": user_agent},
-        timeout=20,
-    )
-    response.raise_for_status()
-    payload = response.json() or {}
-    children = ((payload.get("data") or {}).get("children")) or []
     result = {}
-    for child in children:
-        data = (child or {}).get("data")
-        if isinstance(data, dict):
-            sub = RedditSubmission.from_api(data)
-            if sub.id:
-                result[sub.id] = sub
+    for start in range(0, len(fullnames), 100):
+        response = session.get(
+            INFO_URL,
+            params={"id": ",".join(fullnames[start:start + 100]), "raw_json": 1},
+            headers={"Authorization": f"Bearer {access_token}", "User-Agent": user_agent},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json() or {}
+        children = ((payload.get("data") or {}).get("children")) or []
+        for child in children:
+            data = (child or {}).get("data")
+            if isinstance(data, dict):
+                sub = RedditSubmission.from_api(data)
+                if sub.id:
+                    result[sub.id] = sub
     return result
 
 

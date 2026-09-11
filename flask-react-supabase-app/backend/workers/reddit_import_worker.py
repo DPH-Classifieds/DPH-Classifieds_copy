@@ -35,11 +35,13 @@ SUPABASE_SERVICE_KEY = (
     os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SERVICE_KEY", "")
 )
 DEFAULT_SUBREDDIT = os.getenv("REDDIT_IMPORT_SUBREDDIT", "DubaiPetrolHeads")
-# Reddit listings drop off the site after this many days on it (0 disables).
+# Upstream removal verification is the source of truth. An age limit remains
+# available as an explicit deployment override, but is disabled by default so
+# active subreddit listings do not disappear merely because they are older.
 try:
-    _REDDIT_MAX_AGE_DAYS = int(os.getenv("REDDIT_LISTING_MAX_AGE_DAYS", "7"))
+    _REDDIT_MAX_AGE_DAYS = int(os.getenv("REDDIT_LISTING_MAX_AGE_DAYS", "0"))
 except ValueError:
-    _REDDIT_MAX_AGE_DAYS = 7
+    _REDDIT_MAX_AGE_DAYS = 0
 EXPECTED_OWNER_EMAIL = os.getenv("REDDIT_IMPORT_OWNER_EMAIL", "admin@dphclassifieds.com").strip().lower()
 
 _SESSION = requests.Session()
@@ -327,7 +329,7 @@ def _enrich_car_with_vin(payload):
             payload["make_year"] = yr
 
 
-def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
+def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True, restore=False):
     built = build_imported_payload(parsed, owner_id, now)
     config, payload = built["config"], built["payload"]
     payload["is_approved"] = bool(visible)  # honor the admin kill switch
@@ -408,7 +410,9 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
         # source_removed check is safe to have its status/is_approved touched;
         # anything else (expired by the VIN/repost dedup sweeps, or an admin
         # decision) keeps whatever status it currently has.
-        if current_status not in ("approved", "source_removed", None):
+        if current_status not in ("approved", "source_removed", None) and not (
+            restore and current_status == "expired"
+        ):
             update.pop("status", None)
             update.pop("is_approved", None)
         _, status = supabase_request(
@@ -505,10 +509,8 @@ def sync_removed_imports(session, access_token, live_source_ids, user_agent, now
 
 
 def _expire_stale_reddit(now, owner_id):
-    """Unpublish Reddit rows that have been on the site longer than the max age
-    (default 7 days, by created_at). Sets status='expired' so they leave every
-    public feed (all require status=approved) and stay gone even if the Reddit
-    visibility toggle later flips is_approved back on."""
+    """Optionally unpublish Reddit rows older than the configured max age.
+    Disabled by default; source removal is handled by sync_removed_imports."""
     if _REDDIT_MAX_AGE_DAYS <= 0 or not owner_id:
         return {"expired": 0}
     cutoff = (now - timedelta(days=_REDDIT_MAX_AGE_DAYS)).isoformat()
@@ -533,9 +535,8 @@ def _expire_stale_reddit(now, owner_id):
 
 def run():
     # Expire stale Reddit listings FIRST, before any enable/config gate. The
-    # 7-day cutoff must hold even when importing is paused or misconfigured —
-    # otherwise old Reddit posts would stay live on the site forever instead of
-    # dropping off at REDDIT_LISTING_MAX_AGE_DAYS.
+    # If configured, the age cutoff runs even when importing is paused or
+    # misconfigured. By default it is disabled; upstream removal is authoritative.
     owner_id = os.getenv("REDDIT_IMPORT_OWNER_ID", "").strip()
     expired = _expire_stale_reddit(_now(), owner_id)["expired"]
 

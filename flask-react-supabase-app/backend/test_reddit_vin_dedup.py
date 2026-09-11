@@ -215,3 +215,27 @@ def test_resync_restores_a_source_removed_row(monkeypatch):
     patch_call = next(c for c in calls if c[0] == "patch")
     assert patch_call[2]["status"] == "approved"
     assert patch_call[2]["is_approved"] is True
+
+
+def test_explicit_backfill_can_restore_verified_expired_row(monkeypatch):
+    monkeypatch.setattr(
+        w, "build_imported_payload",
+        lambda *_: {"config": {"table": "cars"},
+                    "payload": {"status": "approved", "is_approved": True}},
+    )
+    monkeypatch.setattr(w, "_record_price_history", lambda *a, **k: None)
+    monkeypatch.setattr(w, "_sync_images", lambda *a, **k: None)
+    calls = []
+
+    def fake_req(method, path, data=None, params=None):
+        calls.append((method, path, data))
+        return ([{"id": "row-1"}], 200) if method == "patch" else ([], 200)
+
+    monkeypatch.setattr(w, "supabase_request", fake_req)
+    counts = {"created": 0, "updated": 0, "failed": 0}
+    existing_map = {"abc123": {"id": "row-1", "status": "expired"}}
+    w._upsert_listing(FakeParsed(), "owner", existing_map, "now", counts, restore=True)
+
+    patch_call = next(c for c in calls if c[0] == "patch")
+    assert patch_call[2]["status"] == "approved"
+    assert patch_call[2]["is_approved"] is True

@@ -14,6 +14,7 @@ from services.reddit_import import (
     canonical_reddit_url,
     extract_vin,
     fetch_new_submissions,
+    fetch_submissions_by_ids,
     get_app_access_token,
     parse_description_extras,
     parse_sale_post,
@@ -166,6 +167,33 @@ class ParserTests(unittest.TestCase):
 
 
 class FetchTests(unittest.TestCase):
+    def test_fetch_submissions_by_ids_batches_all_ids_in_groups_of_100(self):
+        session = MagicMock()
+
+        def response_for_batch(*args, **kwargs):
+            ids = kwargs["params"]["id"].split(",")
+            response = MagicMock()
+            response.raise_for_status.return_value = None
+            response.json.return_value = {
+                "data": {"children": [{"data": {
+                    "id": fullname.removeprefix("t3_"), "name": fullname,
+                    "title": f"WTS {fullname}", "author": "seller",
+                    "permalink": f"/r/DubaiPetrolHeads/comments/{fullname}/title/",
+                    "created_utc": 1,
+                }} for fullname in ids]}
+            }
+            return response
+
+        session.get.side_effect = response_for_batch
+        ids = [f"t3_post{i}" for i in range(205)]
+        found = fetch_submissions_by_ids(session, "tok", ids, "ua")
+
+        self.assertEqual(len(found), 205)
+        self.assertEqual(session.get.call_count, 3)
+        self.assertEqual(len(session.get.call_args_list[0].kwargs["params"]["id"].split(",")), 100)
+        self.assertEqual(len(session.get.call_args_list[1].kwargs["params"]["id"].split(",")), 100)
+        self.assertEqual(len(session.get.call_args_list[2].kwargs["params"]["id"].split(",")), 5)
+
     def test_get_app_access_token(self):
         session = MagicMock()
         resp = MagicMock()
@@ -459,8 +487,8 @@ class WorkerTests(unittest.TestCase):
         self.env_patch.stop()
 
     def test_disabled_skips_import_but_still_expires(self):
-        # When importing is disabled, run() must NOT fetch/import, but it MUST
-        # still run the 7-day expiry sweep so old Reddit listings always age out.
+        # When importing is disabled, run() must NOT fetch/import. The age sweep
+        # is also disabled by default; upstream removal is the source of truth.
         import workers.reddit_import_worker as w
         stub = MagicMock(return_value=([], 200))
         with patch.dict("os.environ", {"REDDIT_IMPORT_ENABLED": "false"}), \
@@ -470,13 +498,13 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(result["status"], "disabled")
         self.assertIn("expired", result)
         mock_fetch.assert_not_called()  # no import work when disabled
-        # The expiry sweep issued a PATCH setting status=expired on Reddit rows.
+        # No artificial age-expiry PATCH is issued under the default policy.
         expire_calls = [
             c for c in stub.call_args_list
             if c.args and c.args[0] == "patch"
             and c.kwargs.get("data", {}).get("status") == "expired"
         ]
-        self.assertTrue(expire_calls, "expiry sweep should run even when disabled")
+        self.assertFalse(expire_calls, "default policy must not age out active Reddit listings")
 
     @patch("workers.reddit_import_worker.fetch_submissions_by_ids", return_value={})
     @patch("workers.reddit_import_worker.get_app_access_token", return_value="tok")
