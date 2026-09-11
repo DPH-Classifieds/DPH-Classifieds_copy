@@ -110,7 +110,19 @@ def _rehydrate_source_ids(session, token, source_ids, user_agent):
 
 def _clear_legacy_car_fields(owner_id):
     """Normalize every importer-owned Reddit car, including unavailable posts."""
-    body, status = w.supabase_request(
+    rows, status = w.supabase_request(
+        "get", "/rest/v1/cars",
+        params={
+            "select": "id,car_manufacturer,car_model,make_year,expected_selling_price,kilometer_driven",
+            "source_platform": "eq.reddit",
+            "user_id": f"eq.{owner_id}",
+            "limit": "1000",
+        },
+    )
+    if status >= 400 or not isinstance(rows, list):
+        raise RuntimeError(f"legacy car field cleanup lookup failed with status {status}")
+
+    _, status = w.supabase_request(
         "patch", "/rest/v1/cars",
         params={
             "source_platform": "eq.reddit",
@@ -120,7 +132,32 @@ def _clear_legacy_car_fields(owner_id):
     )
     if status >= 400:
         raise RuntimeError(f"legacy car field cleanup failed with status {status}")
-    return len(body) if isinstance(body, list) else 0
+
+    normalized = 0
+    for row in rows:
+        year = row.get("make_year")
+        make = str(row.get("car_manufacturer") or "").strip()
+        model = str(row.get("car_model") or "").strip()
+        price = row.get("expected_selling_price")
+        mileage = row.get("kilometer_driven")
+        if not (row.get("id") and year and make and model and price is not None):
+            continue
+        summary = [f"{year} {make} {model}", f"AED {int(price):,}"]
+        if mileage not in (None, ""):
+            summary.append(f"{int(mileage):,} km")
+        description = (
+            "Posted by DPH Classifieds, imported from r/DubaiPetrolHeads. "
+            f"{' · '.join(summary)}. Listing details are supplied by the original Reddit post — "
+            "see the linked post for full details before transacting."
+        )
+        _, row_status = w.supabase_request(
+            "patch", f"/rest/v1/cars?id=eq.{row['id']}",
+            data={"listing_title": f"{year} {make} {model}", "car_description": description},
+        )
+        if row_status >= 400:
+            raise RuntimeError(f"car title/description cleanup failed with status {row_status}")
+        normalized += 1
+    return normalized
 
 
 def _args(argv):
