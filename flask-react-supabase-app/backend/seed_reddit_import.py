@@ -226,7 +226,11 @@ def main(argv=None):
             table, [p.source_id for p in plist], owner_id
         )
         for parsed in plist:
-            w._upsert_listing(parsed, owner_id, existing, now, counts, visible=visible)
+            # This is an explicit, verified backfill: /api/info returned the
+            # source post, so an old importer expiry can be safely restored.
+            # Routine worker syncs keep their anti-resurrection safeguards.
+            w._upsert_listing(parsed, owner_id, existing, now, counts,
+                               visible=visible, restore=True)
         print(f"  {cat:5}: {len(plist)} eligible")
 
     print(f"\nDone. created={counts['created']} updated={counts['updated']} "
