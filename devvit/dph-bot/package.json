@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "esbuild --bundle --log-level=warning --target=es2023 --format=cjs --outdir=dist/server --platform=node src/server/index.ts",
+    "test:flair": "esbuild --bundle --log-level=warning --target=es2023 --format=cjs --outfile=dist/server/flair.test.cjs --platform=node src/server/flair.test.ts && node dist/server/flair.test.cjs",
     "test:hmac": "esbuild --bundle --log-level=warning --target=es2023 --format=cjs --outfile=dist/server/hmac.test.cjs --platform=node src/server/hmac.test.ts && node dist/server/hmac.test.cjs",
     "test:payload": "esbuild --bundle --log-level=warning --target=es2023 --format=cjs --outfile=dist/server/payload.test.cjs --platform=node src/server/payload.test.ts && node dist/server/payload.test.cjs",
     "test:types": "tsc --noEmit",
-    "test": "npm run test:types && npm run build && npm run test:hmac && npm run test:payload",
+    "test": "npm run test:types && npm run build && npm run test:flair && npm run test:hmac && npm run test:payload",
     "upload": "npm run build && devvit upload"
   },
   "devDependencies": {

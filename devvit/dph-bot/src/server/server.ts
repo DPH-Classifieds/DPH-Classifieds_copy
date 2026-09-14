@@ -1,6 +1,7 @@
 import type {IncomingMessage, ServerResponse} from 'node:http'
 import {context, reddit, redis, settings} from '@devvit/web/server'
 import type {PartialJsonValue, TriggerResponse, UiResponse} from '@devvit/web/shared'
+import {flairMatches} from './flair.js'
 import {verifyPayloadSignature} from './hmac.js'
 import {validateRoundupPayload} from './payload.js'
 
@@ -85,7 +86,7 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   verifyPayloadSignature(payload, hmacSecret)
   if (!payload.count) return {count: 0, skipped: true}
   const posts = payload.posts
-  const flair = (await reddit.getPostFlairTemplates(targetSubreddit)).find(template => template.text.trim().toLowerCase() === flairText.toLowerCase())
+  const flair = (await reddit.getPostFlairTemplates(targetSubreddit)).find(template => flairMatches(template.text, flairText))
   if (!flair) throw Error(`post flair not found: ${flairText}`)
   const postedKeyPrefix = `roundup:posted:${targetSubreddit}:${payload.cycle_id}`
   const forceKey = `roundup:force:last:${targetSubreddit}`
