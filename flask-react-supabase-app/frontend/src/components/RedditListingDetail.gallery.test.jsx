@@ -10,6 +10,7 @@ jest.mock('./ImageLightbox', () => ({ __esModule: true, default: () => null }));
 const listing = {
   id: 'r1',
   source_platform: 'reddit',
+  source_url: 'https://www.reddit.com/r/DubaiPetrolHeads/comments/r1/title/',
   make_year: 2006,
   car_manufacturer: 'Infiniti',
   car_model: 'G35',
@@ -61,4 +62,10 @@ test('no arrows for a single photo', () => {
   );
   expect(screen.queryByRole('button', { name: 'Next photo' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Previous photo' })).not.toBeInTheDocument();
+});
+
+test('renders one canonical Reddit badge on an imported listing detail', () => {
+  const { container } = renderDetail();
+
+  expect(container.querySelectorAll('.cd-badge-reddit')).toHaveLength(1);
 });

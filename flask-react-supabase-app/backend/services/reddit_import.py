@@ -1022,14 +1022,25 @@ class ParsedListing:
 
 def _common(submission, category, price, summary_parts):
     """Shared attribution/description assembly for any category.
-    Posted by DPH Classifieds; no individual seller is named."""
+    Posted by DPH Classifieds; no individual seller is named. The original
+    Reddit title and selftext are retained for listing context after the same
+    URL/email/phone scrubbing used by the legacy car importer."""
     summary = " · ".join(summary_parts)
-    description = (
+    title = _scrub_pii_keep_lines(getattr(submission, "title", ""))
+    body = _scrub_pii_keep_lines(getattr(submission, "selftext", ""))
+    original_post = "\n\n".join(part for part in (title, body) if part)
+    if original_post:
+        return (
+            f"Posted by DPH Classifieds, imported from r/DubaiPetrolHeads. "
+            f"{summary}.\n\nOriginal Reddit post:\n{original_post}\n\n"
+            "Listing details are supplied by the original Reddit post — see "
+            "the linked post for full details before transacting."
+        )
+    return (
         f"Posted by DPH Classifieds, imported from r/DubaiPetrolHeads. "
         f"{summary}. Listing details are supplied by the original Reddit post — "
-        f"see the linked post for full details before transacting."
+        "see the linked post for full details before transacting."
     )
-    return description
 
 
 _VIN_TOKEN = re.compile(r"\b([A-HJ-NPR-Z0-9]{17})\b")

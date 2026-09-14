@@ -2,6 +2,7 @@ import type {IncomingMessage, ServerResponse} from 'node:http'
 import {context, reddit, redis, settings} from '@devvit/web/server'
 import type {PartialJsonValue, TriggerResponse, UiResponse} from '@devvit/web/shared'
 import {verifyPayloadSignature} from './hmac.js'
+import {validateRoundupPayload} from './payload.js'
 
 type AppResponse = TriggerResponse | UiResponse | {error: string; status: number}
 const FORCE_REPOST_COOLDOWN_MS = 10 * 60 * 1000
@@ -73,13 +74,10 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   if (!response.ok) throw Error(`GitHub roundup fetch failed: ${response.status}`)
   const source = (await response.json()) as {content?: string; encoding?: string}
   if (source.encoding !== 'base64' || !source.content) throw Error('GitHub bridge response has no base64 content')
-  const payload = JSON.parse(Buffer.from(source.content, 'base64').toString('utf8')) as {
-    schema?: string; title?: string; body?: string; posts?: Array<{title?: string; body?: string}>; count?: number; cycle_id?: string; content_hash?: string; generated_at?: string; signature?: string; signature_version?: string
-  }
-  if (payload.schema !== 'dph-reddit-roundup/v2' || !Number.isInteger(payload.count)) {
-    throw Error('GitHub bridge payload is invalid')
-  }
-  if (!payload.cycle_id || !payload.content_hash) throw Error('GitHub bridge payload has no cycle_id/content_hash')
+  const payload: Parameters<typeof validateRoundupPayload>[0] = JSON.parse(
+    Buffer.from(source.content, 'base64').toString('utf8'),
+  )
+  validateRoundupPayload(payload)
   // Schema + count checks alone don't prove this payload came from our own
   // bridge worker — a compromised repo/PAT could otherwise post arbitrary
   // content to Reddit under this app's identity. Require the signature.
@@ -87,7 +85,6 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   verifyPayloadSignature(payload, hmacSecret)
   if (!payload.count) return {count: 0, skipped: true}
   const posts = payload.posts
-  if (!posts?.length || posts.some(post => !post.title || !post.body)) throw Error('GitHub bridge payload has no posts')
   const flair = (await reddit.getPostFlairTemplates(targetSubreddit)).find(template => template.text.trim().toLowerCase() === flairText.toLowerCase())
   if (!flair) throw Error(`post flair not found: ${flairText}`)
   const postedKeyPrefix = `roundup:posted:${targetSubreddit}:${payload.cycle_id}`

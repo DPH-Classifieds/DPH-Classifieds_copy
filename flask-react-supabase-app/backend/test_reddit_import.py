@@ -273,6 +273,32 @@ class MultiCategoryTests(unittest.TestCase):
             self.assertIsNone(payload[field])
         self.assertNotIn("import_field_sources", payload)
 
+    def test_active_import_description_contains_the_full_sanitized_reddit_post(self):
+        sub = submission(
+            title="WTS: 2019 Toyota Camry SE GCC AED 62,000",
+            selftext="""Make: Toyota
+
+Model: Camry SE
+
+Year: 2019
+
+Features: sunroof, full service history
+
+Contact +971501234567 or seller@example.com""",
+            id="full-description",
+            images=[IMG],
+        )
+
+        parsed = parse_listing(sub, NOW)
+
+        self.assertIsNotNone(parsed)
+        self.assertIn("Original Reddit post:", parsed.description)
+        self.assertIn("WTS: 2019 Toyota Camry SE GCC AED 62,000", parsed.description)
+        self.assertIn("Features: sunroof, full service history", parsed.description)
+        self.assertIn("\n\n", parsed.description)
+        self.assertNotIn("+971501234567", parsed.description)
+        self.assertNotIn("seller@example.com", parsed.description)
+
     def test_bike_make_routes_to_bikes(self):
         p = self._p("WTS: Ducati Panigale V2 2022 AED 75,000")
         self.assertEqual(p.category, "bike")
@@ -641,12 +667,12 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(car["user_id"], OWNER_ID)
         self.assertEqual(car["car_manufacturer"], "BMW")
         blob = json.dumps(car)
-        # PII must never leak, and raw selftext prose must not be dumped.
+        # The full post prose is retained, but contact details are scrubbed.
         self.assertNotIn("+971", blob)
         self.assertNotIn("501234567", blob)
         self.assertNotIn("example.com", blob)
-        self.assertNotIn("Contact me", blob)
-        self.assertNotIn("Clean car", blob)
+        self.assertIn("Original Reddit post:", blob)
+        self.assertIn("Clean car", blob)
         # Active car imports intentionally persist only the compact contract:
         # photos, year/make/model, price, and odometer. Older rich fields are
         # explicitly cleared so the backfill also normalizes existing rows.

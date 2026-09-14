@@ -288,7 +288,6 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
               <div className="cd-price-value">{formatPrice(cfg.price(listing))}</div>
 
               <div className="cd-badges">
-                <span className="cd-badge cd-badge-reddit">Reddit</span>
                 {String(listing?.regional_spec || '').includes('GCC') && (
                   <span className="cd-badge cd-badge-success">GCC Specs</span>
                 )}
