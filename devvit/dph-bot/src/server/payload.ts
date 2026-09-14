@@ -20,7 +20,8 @@ export function validateRoundupPayload(value: unknown): asserts value is Roundup
     !Number.isInteger(count) ||
     count < 0 ||
     !Array.isArray(posts) ||
-    posts.length !== count ||
+    (count === 0 && posts.length !== 0) ||
+    (count > 0 && posts.length === 0) ||
     !payload.cycle_id ||
     !payload.content_hash
   ) {

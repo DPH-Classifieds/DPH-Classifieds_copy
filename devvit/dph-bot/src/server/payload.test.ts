@@ -14,8 +14,12 @@ test('accepts a complete count-matched roundup payload', () => {
   assert.doesNotThrow(() => validateRoundupPayload(base))
 })
 
-test('rejects a payload whose count does not match its posts', () => {
-  assert.throws(() => validateRoundupPayload({...base, count: 2}), /invalid/)
+test('accepts a listing count larger than the number of Reddit post chunks', () => {
+  assert.doesNotThrow(() => validateRoundupPayload({...base, count: 13}))
+})
+
+test('rejects a non-empty listing count with no Reddit post chunks', () => {
+  assert.throws(() => validateRoundupPayload({...base, count: 2, posts: []}), /invalid/)
 })
 
 test('rejects an empty post body', () => {
