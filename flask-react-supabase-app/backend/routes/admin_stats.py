@@ -42,7 +42,7 @@ def get_admin_stats(current_user):
         if not backend._require_admin_api_user(current_user):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
-        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        days = max(min(int(request.args.get("days", 30)), 365), 1)
         # 60s cache. This endpoint scans up to ~13k Supabase rows per call —
         # admin dashboards refresh on every focus, so without the cache each
         # operator session generates dozens of needless full table scans.
@@ -214,6 +214,9 @@ def get_admin_stats(current_user):
         for event in platform_events:
             if (event.get("page_kind") or "").strip() != "listing_detail":
                 continue
+            event_name = str(event.get("event_name") or "").strip()
+            if event_name and event_name not in {"page_view", "listing_view"}:
+                continue
             listing_type = (event.get("listing_type") or "").strip().rstrip("s")
             if listing_type:
                 view_counts_by_type[listing_type] += 1
@@ -311,8 +314,12 @@ def get_admin_stats(current_user):
             "active_listings_total": lifecycle_totals.get("active", 0),
             "verified_dealers": verified_dealers,
             "pending_reports": pending_reports,
-            "total_vin_reveals": len(lead_unique_actors.get("vin_reveal", set())),
-            "total_vin_reveal_events": lead_event_counts.get("vin_reveal", 0),
+            "total_vin_reveals": len(
+                lead_unique_actors.get("vin_open", set())
+                | lead_unique_actors.get("vin_reveal", set())
+            ),
+            "total_vin_reveal_events": lead_event_counts.get("vin_open", 0)
+            + lead_event_counts.get("vin_reveal", 0),
         }
         stats["cropped_at_pct"] = backend._cached_cropped_at_pct()
 

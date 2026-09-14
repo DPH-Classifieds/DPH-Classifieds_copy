@@ -219,7 +219,7 @@ const DealerListings = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.06]">
-                  {['Listing', 'Type', 'Status', 'Views', 'Sold status', 'Listed', 'Actions'].map(
+                  {['Listing', 'Type', 'Status', 'Stored views', 'Sold status', 'Listed', 'Actions'].map(
                     (h) => (
                       <th
                         key={h}
@@ -263,8 +263,11 @@ const DealerListings = () => {
                     </td>
 
                     {/* Views */}
-                    <td className="px-5 py-3 tabular-nums text-white/60 text-xs">
-                      {(l.view_count || 0).toLocaleString('en-AE')}
+                    <td
+                      className="px-5 py-3 tabular-nums text-white/60 text-xs"
+                      title="Stored listing counter. Open Analytics for canonical deduplicated detail views."
+                    >
+                      {l.view_count == null ? 'N/A' : Number(l.view_count).toLocaleString('en-AE')}
                     </td>
 
                     {/* Sold status */}

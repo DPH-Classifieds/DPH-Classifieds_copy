@@ -154,6 +154,7 @@ const AdminDashboard = () => {
   const [reports, setReports] = useState([]);
   const [liveUsers, setLiveUsers] = useState(null);
   const [liveUsersHistory, setLiveUsersHistory] = useState([]);
+  const [dataWarnings, setDataWarnings] = useState([]);
 
   // ── primary data fetch ──────────────────────────────────────────────────
   useEffect(() => {
@@ -181,6 +182,7 @@ const AdminDashboard = () => {
 
     let active = true;
     setRefreshing(true);
+    setDataWarnings([]);
 
     (async () => {
       const merged = {
@@ -196,45 +198,52 @@ const AdminDashboard = () => {
       try {
         setError('');
         const daysParam = days ? `?days=${days}` : '';
+        const recordFailure = (label, requestError) => {
+          if (!active) return;
+          setDataWarnings((previous) => previous.includes(label) ? previous : [...previous, label]);
+          if (label === 'dashboard statistics' && !cached?.value?.stats) {
+            setError(requestError?.message || 'Dashboard statistics are unavailable');
+          }
+        };
 
         const requests = [
-          apiClient.get(`/api/admin/stats${daysParam}`).catch(() => ({})).then((statsRes) => {
+          apiClient.get(`/api/admin/stats${daysParam}`).then((statsRes) => {
             if (!active) return;
             merged.stats = statsRes || {};
             setStats(merged.stats);
             statsResolved = true;
             setLoading(false);
-          }),
-          apiClient.get(`/api/admin/lead-metrics?days=${days}`).catch(() => null).then((leadRes) => {
+          }).catch((requestError) => recordFailure('dashboard statistics', requestError)),
+          apiClient.get(`/api/admin/lead-metrics?days=${days}`).then((leadRes) => {
             if (!active) return;
             merged.leadMetrics = leadRes || null;
             setLeadMetrics(merged.leadMetrics);
-          }),
-          apiClient.get(`/api/admin/contact-analytics?days=${days}`).catch(() => null).then((contactRes) => {
+          }).catch((requestError) => recordFailure('lead metrics', requestError)),
+          apiClient.get(`/api/admin/contact-analytics?days=${days}`).then((contactRes) => {
             if (!active) return;
             merged.contactAnalytics = contactRes || null;
             setContactAnalytics(merged.contactAnalytics);
-          }),
-          apiClient.get(`/api/admin/reddit-import-analytics?days=${days}`).catch(() => null).then((redditRes) => {
+          }).catch((requestError) => recordFailure('contact analytics', requestError)),
+          apiClient.get(`/api/admin/reddit-import-analytics?days=${days}`).then((redditRes) => {
             if (!active) return;
             merged.redditImport = redditRes || null;
             setRedditImport(merged.redditImport);
-          }),
-          apiClient.get('/api/admin/listing-history?limit=12').catch(() => []).then((historyRes) => {
+          }).catch((requestError) => recordFailure('Reddit analytics', requestError)),
+          apiClient.get('/api/admin/listing-history?limit=12').then((historyRes) => {
             if (!active) return;
             merged.history = Array.isArray(historyRes) ? historyRes : [];
             setHistory(merged.history);
-          }),
-          apiClient.get('/api/admin/dealers?pending=true').catch(() => []).then((dealersRes) => {
+          }).catch((requestError) => recordFailure('listing history', requestError)),
+          apiClient.get('/api/admin/dealers?pending=true').then((dealersRes) => {
             if (!active) return;
             merged.dealers = Array.isArray(dealersRes) ? dealersRes : [];
             setDealers(merged.dealers);
-          }),
-          apiClient.get('/api/admin/reports?status=pending&limit=12').catch(() => []).then((reportsRes) => {
+          }).catch((requestError) => recordFailure('dealer review queue', requestError)),
+          apiClient.get('/api/admin/reports?status=pending&limit=12').then((reportsRes) => {
             if (!active) return;
             merged.reports = Array.isArray(reportsRes) ? reportsRes : [];
             setReports(merged.reports);
-          }),
+          }).catch((requestError) => recordFailure('report queue', requestError)),
         ];
 
         await Promise.allSettled(requests);
@@ -342,8 +351,8 @@ const AdminDashboard = () => {
   const totalCalls    = clampNumber(contactSummary.unique_callers);
   const totalWhatsapp = clampNumber(contactSummary.unique_whatsapp_contacts);
   const vinReveals    = clampNumber(contactSummary.unique_vin_revealers);
-  const totalDealers  = clampNumber(stats.total_dealers  || dealers.length);
-  const totalReports  = clampNumber(stats.total_reports  || reports.length);
+  const totalDealers  = clampNumber(stats.total_dealers);
+  const totalReports  = clampNumber(stats.total_reports);
   const savedSearchesTotal = clampNumber(stats.saved_searches_total);
   const savedSearchesWindow = clampNumber(stats.saved_searches_window);
   const lifecycleTotals = stats.listing_lifecycle?.totals || {};
@@ -532,6 +541,12 @@ const AdminDashboard = () => {
         </div>
       </motion.div>
 
+      {dataWarnings.length > 0 && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          Some dashboard data is unavailable: {dataWarnings.join(', ')}. The affected values are not substituted with zeros or queue lengths.
+        </div>
+      )}
+
       {/* ── 2. Primary KPI grid (8 tiles) ───────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -542,7 +557,7 @@ const AdminDashboard = () => {
           { label: 'WhatsApp taps',     value: totalWhatsapp,                     icon: MessageSquare                   },
           { label: 'VIN reveals',       value: vinReveals,                        icon: Fingerprint, accent: 'default', onClick: () => setShowVinAnalytics(true) },
           { label: 'Total dealers',     value: totalDealers,                      icon: Store                           },
-          { label: 'Active listing views', value: totalListingViews,              icon: Activity                        },
+          { label: 'Listing detail views', value: totalListingViews,              icon: Activity                        },
           { label: 'Saved searches',    value: savedSearchesTotal,                icon: Target, delta: savedSearchesWindow },
           {
             label: pendingReports.length > 0

@@ -303,11 +303,38 @@ class AdminStatsTests(unittest.TestCase):
                 payload, status_code = resp
                 self.assertEqual(status_code, 200)
                 data = payload.get_json()
-                self.assertEqual(data["total_views"], 4)
-                self.assertEqual(data["cars_views"], 2)
-                self.assertEqual(data["bikes_views"], 1)
-                self.assertEqual(data["parts_views"], 0)
-                self.assertEqual(data["plates_views"], 0)
+        self.assertEqual(data["total_views"], 4)
+
+        self.assertEqual(data["cars_views"], 2)
+        self.assertEqual(data["bikes_views"], 1)
+        self.assertEqual(data["parts_views"], 0)
+        self.assertEqual(data["plates_views"], 0)
+
+    def test_total_views_ignores_non_view_events_on_listing_detail_pages(self):
+        now_iso = backend._isoformat_utc(backend._utc_now())
+        platform_events = [
+            {"event_name": "listing_view", "page_kind": "listing_detail", "listing_type": "car", "visitor_id": "v1", "created_at": now_iso},
+            {"event_name": "click", "page_kind": "listing_detail", "listing_type": "car", "visitor_id": "v2", "created_at": now_iso},
+        ]
+
+        def fake_supabase_request(method, path, **kwargs):
+            if "platform_events" in path:
+                return platform_events, 200
+            return [], 200
+
+        with patch("app.supabase_request", side_effect=fake_supabase_request), \
+             patch("app._fetch_listing_lifecycle_rows", return_value={"cars": [], "bikes": [], "parts": [], "plates": []}), \
+             patch("app._cached_cropped_at_pct", return_value=None), \
+             patch("app._supabase_count", return_value=1), \
+             patch("app._api_cache_get", return_value=None), \
+             patch("app._api_cache_set"), \
+             patch("app._require_admin_api_user", return_value=True), \
+             patch("services.cloudflare_analytics.is_enabled", return_value=False):
+            with backend.app.test_request_context("/api/admin/stats?days=30"):
+                payload, status_code = backend.get_admin_stats.__wrapped__("admin-1")
+
+        self.assertEqual(status_code, 200)
+        self.assertEqual(payload.get_json()["total_views"], 1)
 
 
 class AdminStatsRoutingTests(unittest.TestCase):

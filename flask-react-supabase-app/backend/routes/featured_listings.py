@@ -124,6 +124,41 @@ def _hydrate_featured_rows(featured_rows):
     return out
 
 
+def _verify_featured_target(listing_type, listing_id):
+    """Confirm that the listing exists and is eligible for public featuring."""
+    backend = _backend()
+    table_map = {
+        "car": "cars",
+        "bike": "bikes",
+        "plate": "license_plates",
+        "part": "car_parts",
+    }
+    body, code = backend.supabase_request(
+        "get",
+        f"/rest/v1/{table_map[listing_type]}",
+        params={
+            "id": f"eq.{listing_id}",
+            "select": "id,is_approved,deleted_at",
+            "limit": "1",
+        },
+        use_service_role=True,
+    )
+    if code >= 400:
+        return None, (jsonify({"error": "Failed to verify listing eligibility", "details": body}), 502)
+    if not isinstance(body, list) or not body:
+        return None, (jsonify({"error": "Listing not found", "code": "listing_not_found"}), 404)
+    listing = body[0]
+    if listing.get("is_approved") is not True or listing.get("deleted_at"):
+        return None, (
+            jsonify({
+                "error": "Only approved, non-deleted listings can be featured",
+                "code": "listing_not_eligible",
+            }),
+            409,
+        )
+    return listing, None
+
+
 FEATURED_PLACEMENT_REDIS_KEY = "featured:placement_pattern"
 DEFAULT_FEATURED_PLACEMENT_PATTERN = [{"featured": 1}, {"normal": 5}]
 FEATURED_PLACEMENT_MAX_SEGMENTS = 20
@@ -197,6 +232,10 @@ def admin_create_featured_listing(current_user):
     )
     if err:
         return jsonify(err), 400
+
+    _, target_error = _verify_featured_target(payload["listing_type"], payload["listing_id"])
+    if target_error:
+        return target_error
 
     note = (data.get("note") or "").strip() or None
     highlight = bool(data.get("highlight", True))

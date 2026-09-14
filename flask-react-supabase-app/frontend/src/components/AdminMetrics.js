@@ -28,6 +28,7 @@ import {
   EmptyState,
   SegmentedControl,
 } from './ui/dashboard';
+import AdminMarketTracker from './admin/AdminMarketTracker';
 
 // ─── local format helpers (preserved from original) ─────────────────────────
 
@@ -41,12 +42,14 @@ const formatDecimal = (value, digits = 2) => {
   return Number.isFinite(numeric) ? numeric.toFixed(digits) : `0.${'0'.repeat(digits)}`;
 };
 
-const formatMoney = (value) =>
-  new Intl.NumberFormat('en-AE', {
+const formatMoney = (value) => {
+  if (value == null || !Number.isFinite(Number(value))) return 'N/A';
+  return new Intl.NumberFormat('en-AE', {
     style: 'currency',
     currency: 'AED',
     maximumFractionDigits: 0,
-  }).format(Number(value ?? 0));
+  }).format(Number(value));
+};
 
 const formatBytes = (value) => {
   const n = Number(value ?? 0);
@@ -65,13 +68,13 @@ const formatBytes = (value) => {
 
 /** Underline-tab bar */
 const TabBar = ({ tabs, active, onChange }) => (
-  <div className="flex gap-1 border-b border-[color:var(--ex-shell-line)] mb-6">
+  <div className="flex gap-1 overflow-x-auto border-b border-[color:var(--ex-shell-line)] mb-6">
     {tabs.map((t) => (
       <button
         key={t}
         type="button"
         onClick={() => onChange(t)}
-        className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+        className={`flex-shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors relative ${
           active === t ? 'text-[color:var(--ex-shell-text)]' : 'text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text-muted)]'
         }`}
       >
@@ -145,7 +148,7 @@ const BarRow = ({ label, value, maxValue }) => {
 
 // ─── main component ──────────────────────────────────────────────────────────
 
-const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Health', 'Email', 'Errors'];
+const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Market tracker', 'Health', 'Email', 'Errors'];
 const WINDOW_OPTIONS = [
   { label: '24h', value: 1  },
   { label: '7d',  value: 7  },
@@ -248,6 +251,9 @@ const AdminMetrics = () => {
   const financialMetrics = metrics?.financial_metrics || {};
   const carMetrics       = metrics?.car_metrics       || {};
   const plateMetrics     = metrics?.plate_metrics     || {};
+  const unavailableSources = Object.entries(metrics?.data_health?.sources || {})
+    .filter(([, status]) => status !== 'ok')
+    .map(([source]) => source);
 
   const healthCurrent   = health?.current  || null;
   const healthLatest    = health?.latest   || null;
@@ -345,6 +351,12 @@ const AdminMetrics = () => {
         </div>
         <SegmentedControl options={WINDOW_OPTIONS} value={days} onChange={setDays} />
       </motion.div>
+
+      {unavailableSources.length > 0 && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          Some metric sources are unavailable ({unavailableSources.join(', ')}). Affected totals may be incomplete; unavailable sources are not represented as real zero activity.
+        </div>
+      )}
 
       {/* ── Tab bar ─────────────────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
@@ -485,28 +497,28 @@ const AdminMetrics = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   {
-                    label: 'GMV',
-                    value: formatMoney(financialMetrics.gross_merchandise_value),
+                    label: 'Listed inventory value',
+                    value: formatMoney(financialMetrics.listed_inventory_value),
                     icon: DollarSign,
                     accent: 'emerald',
                   },
                   {
-                    label: 'Avg listing price',
+                    label: 'Avg current listing price',
                     value: formatMoney(financialMetrics.average_listing_price),
                     icon: ShoppingBag,
                   },
                   {
-                    label: 'New users',
+                    label: `New users (${days}d)`,
                     value: Number(financialMetrics.new_users || 0),
                     icon: Users,
                   },
                   {
-                    label: 'Unique sellers',
+                    label: 'Current unique sellers',
                     value: Number(financialMetrics.unique_sellers || 0),
                     icon: Users,
                   },
                   {
-                    label: 'Listings / seller',
+                    label: 'Current listings / seller',
                     value: formatDecimal(financialMetrics.listings_per_seller_avg || 0),
                     icon: Layers,
                   },
@@ -538,7 +550,7 @@ const AdminMetrics = () => {
                   <SectionTitle>Lifetime value detail</SectionTitle>
                   <KvList
                     items={[
-                      { label: 'Estimated LTV', value: formatMoney(financialMetrics.estimated_ltv), note: 'Value pool per visitor proxy' },
+                      { label: 'Estimated LTV', value: formatMoney(financialMetrics.estimated_ltv), note: 'Unavailable until transaction or revenue events are recorded' },
                       { label: 'Estimated CAC', value: financialMetrics.estimated_cac == null ? 'N/A' : formatMoney(financialMetrics.estimated_cac), note: financialMetrics.estimated_cac == null ? 'Add spend data to compute CAC' : 'Spend ÷ new users' },
                     ]}
                   />
@@ -717,6 +729,9 @@ const AdminMetrics = () => {
               </div>
             </div>
           )}
+
+          {/* ── MARKET TRACKER tab ───────────────────────────────────── */}
+          {activeTab === 'Market tracker' && <AdminMarketTracker days={days} />}
 
           {/* ── HEALTH tab ────────────────────────────────────────────── */}
           {activeTab === 'Health' && (

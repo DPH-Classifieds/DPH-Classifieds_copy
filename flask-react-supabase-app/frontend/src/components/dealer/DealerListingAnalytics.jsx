@@ -97,7 +97,7 @@ const KpiTile = ({ label, value, Icon, suffix, index }) => (
     </div>
     <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">{label}</p>
     <p className="text-3xl font-semibold tabular-nums text-white">
-      <AnimatedNumber value={value} suffix={suffix} />
+      {value == null || !Number.isFinite(value) ? 'N/A' : <AnimatedNumber value={value} suffix={suffix} />}
     </p>
   </motion.div>
 );
@@ -396,7 +396,7 @@ const DealerListingAnalytics = () => {
               key={key}
               index={i}
               label={label}
-              value={tiles[key] ?? 0}
+              value={tiles[key] == null ? null : Number(tiles[key])}
               Icon={Icon}
               suffix={suffix}
             />

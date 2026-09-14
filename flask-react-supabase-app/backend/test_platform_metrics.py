@@ -149,6 +149,33 @@ class PlatformAnalyticsHelperTests(unittest.TestCase):
 
         self.assertEqual(metrics["user_metrics"]["page_views"], 1)
 
+    def test_listing_value_is_not_reported_as_gmv_or_ltv(self):
+        metrics = build_platform_metrics(
+            [
+                {
+                    "event_name": "page_view",
+                    "page_path": "/cars/car-1",
+                    "visitor_id": "visitor-1",
+                    "session_id": "session-1",
+                    "created_at": "2026-09-08T10:00:00Z",
+                }
+            ],
+            car_rows=[
+                {
+                    "id": "car-1",
+                    "expected_selling_price": 100000,
+                    "user_id": "seller-1",
+                }
+            ],
+            days=30,
+        )
+
+        financial = metrics["financial_metrics"]
+        self.assertIsNone(financial["gross_merchandise_value"])
+        self.assertEqual(financial["listed_inventory_value"], 100000)
+        self.assertIsNone(financial["estimated_ltv"])
+        self.assertIsNone(financial["ltv_cac_ratio"])
+
 
 class PlatformAnalyticsRouteTests(unittest.TestCase):
     @patch.object(backend, "ensure_platform_events_table")

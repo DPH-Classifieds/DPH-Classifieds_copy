@@ -11,6 +11,8 @@ from functools import wraps
 
 from flask import Flask, current_app, jsonify, request
 
+from services.market_tracker import build_market_summary, cohort_key
+
 
 class _BackendProxy:
     def __getattr__(self, name):
@@ -45,10 +47,26 @@ def get_admin_metrics_overview(current_user):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
         days = max(min(int(request.args.get("days", 30)), 365), 1)
-        cutoff = (backend._utc_now() - backend.datetime.timedelta(days=days)).isoformat()
+        now = backend._utc_now()
+        cutoff = (now - backend.datetime.timedelta(days=days)).isoformat()
+
+        market_make = request.args.get("market_make", "").strip()
+        market_model = request.args.get("market_model", "").strip()
+        market_year = request.args.get("market_year", "").strip()
+        has_market_query = any((market_make, market_model, market_year))
+        if has_market_query and not all((market_make, market_model, market_year)):
+            return jsonify({
+                "error": "market_make, market_model, and market_year are required together",
+                "code": "invalid_market_query",
+            }), 400
+        market_key = cohort_key(market_make, market_model, market_year) if has_market_query else None
+        if has_market_query and not market_key:
+            return jsonify({"error": "market_year must be a valid model year", "code": "invalid_market_year"}), 400
 
         overview_metrics_ttl = 60
         overview_cache_key = f"api-cache:/api/admin/metrics/overview?days={days}"
+        if market_key:
+            overview_cache_key += f"&market={market_key}"
         overview_cached = backend._api_cache_get(overview_cache_key)
         if overview_cached is not None:
             return jsonify(overview_cached), 200
@@ -121,6 +139,15 @@ def get_admin_metrics_overview(current_user):
         if user_status >= 400:
             user_rows_resp = []
 
+        source_statuses = {
+            "platform_events": "ok" if events_status < 400 else "unavailable",
+            "cars": "ok" if car_status < 400 else "unavailable",
+            "license_plates": "ok" if plate_status < 400 else "unavailable",
+            "bikes": "ok" if bike_status < 400 else "unavailable",
+            "car_parts": "ok" if part_status < 400 else "unavailable",
+            "users": "ok" if user_status < 400 else "unavailable",
+        }
+
         metrics = backend.build_platform_metrics(
             events_resp or [],
             car_rows=car_rows_resp or [],
@@ -129,7 +156,12 @@ def get_admin_metrics_overview(current_user):
             bike_rows=bike_rows_resp or [],
             part_rows=part_rows_resp or [],
             days=days,
+            now=now,
         )
+        metrics["data_health"] = {
+            "sources": source_statuses,
+            "incomplete": any(status != "ok" for status in source_statuses.values()),
+        }
 
         live_cutoff = backend._utc_now() - backend.datetime.timedelta(minutes=5)
         live_visitor_ids = set()
@@ -151,6 +183,39 @@ def get_admin_metrics_overview(current_user):
 
         metrics["live_users"] = len(live_visitor_ids)
         metrics.setdefault("user_metrics", {})["live_users"] = len(live_visitor_ids)
+
+        if market_key:
+            history_rows, history_status = backend._fetch_all_rows(
+                "/rest/v1/market_price_snapshots",
+                {
+                    "select": "snapshot_date,listing_count,average_price,median_price,p25_price,p75_price,min_price,max_price,source",
+                    "cohort_key": f"eq.{market_key}",
+                    "snapshot_date": f"gte.{(now - backend.datetime.timedelta(days=days)).date().isoformat()}",
+                    "order": "snapshot_date.asc",
+                    "limit": "366",
+                },
+            )
+            history = history_rows if history_status < 400 else []
+            market = build_market_summary(
+                car_rows_resp or [],
+                market_make,
+                market_model,
+                market_year,
+                history=history,
+            )
+            market["history_available"] = history_status < 400
+            market["history_note"] = (
+                "Daily history is available from platform snapshots."
+                if history_status < 400
+                else "Apply the market price snapshots migration; current results are still computed from live platform cars."
+            )
+            metrics["market_tracker"] = market
+            metrics["data_health"]["sources"]["market_price_snapshots"] = (
+                "ok" if history_status < 400 else "unavailable"
+            )
+            metrics["data_health"]["incomplete"] = any(
+                status != "ok" for status in metrics["data_health"]["sources"].values()
+            )
 
         # Cloudflare may replace headline traffic metrics, while listing-level
         # engagement stays sourced from platform_events.

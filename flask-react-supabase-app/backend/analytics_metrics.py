@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from statistics import median
 import re
 
@@ -204,6 +204,7 @@ def build_platform_metrics(
     bike_rows=None,
     part_rows=None,
     days=30,
+    now=None,
 ):
     events = [dict(event) for event in (platform_events or [])]
     for event in events:
@@ -359,20 +360,21 @@ def build_platform_metrics(
     new_users = 0
     if user_rows:
         cutoff_days = days
-        now = max((_parse_timestamp(event.get("created_at")) for event in events if _parse_timestamp(event.get("created_at"))), default=None)
-        if now:
+        effective_now = _parse_timestamp(now) if now else max(
+            (_parse_timestamp(event.get("created_at")) for event in events if _parse_timestamp(event.get("created_at"))),
+            default=None,
+        )
+        if effective_now:
             for row in user_rows:
                 created_at = _parse_timestamp(row.get("created_at"))
-                if created_at and (now - created_at).days <= cutoff_days:
+                if created_at and effective_now - timedelta(days=cutoff_days) <= created_at <= effective_now:
                     new_users += 1
 
-    total_gmv = round(sum(total_price_pool), 2)
+    listed_inventory_value = round(sum(total_price_pool), 2)
     avg_listing_price = round((sum(total_price_pool) / len(total_price_pool)) if total_price_pool else 0, 2)
     unique_sellers = {str(row.get("user_id")) for row in all_listing_rows if row.get("user_id")}
     listings_per_seller_avg = round(len(all_listing_rows) / max(len(unique_sellers), 1), 2) if all_listing_rows else 0
-    estimated_ltv = round(total_gmv / max(unique_visitors, 1), 2) if total_gmv else 0
     estimated_cac = round(acquisition_spend / max(new_users, 1), 2) if acquisition_spend > 0 and new_users > 0 else None
-    ltv_cac_ratio = round(estimated_ltv / estimated_cac, 2) if estimated_cac else None
 
     car_event_counts = Counter()
     plate_event_counts = Counter()
@@ -451,17 +453,19 @@ def build_platform_metrics(
             ],
         },
         "financial_metrics": {
-            "gross_merchandise_value": total_gmv,
+            "gross_merchandise_value": None,
+            "listed_inventory_value": listed_inventory_value,
             "average_listing_price": avg_listing_price,
             "new_users": new_users,
             "unique_sellers": len(unique_sellers),
             "listings_per_seller_avg": listings_per_seller_avg,
-            "estimated_ltv": estimated_ltv,
+            "estimated_ltv": None,
             "estimated_cac": estimated_cac,
-            "ltv_cac_ratio": ltv_cac_ratio,
+            "ltv_cac_ratio": None,
             "notes": [
-                "CAC only computes when spend data is attached to events.",
-                "LTV uses the current marketplace value pool as a proxy until transaction revenue is available.",
+                "Listed inventory value is the sum of current asking prices; it is not GMV or transaction revenue.",
+                "GMV, LTV, and the LTV/CAC ratio remain unavailable until transaction or revenue events are recorded.",
+                "CAC only computes when marketing spend and new-user data are both available.",
             ],
         },
         "car_metrics": {

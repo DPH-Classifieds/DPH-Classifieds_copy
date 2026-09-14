@@ -212,6 +212,7 @@ const DealerTrends = ({ window: windowDays }) => {
 
   const sources = data?.leads_by_source || {};
   const totalLeads = Object.values(sources).reduce((s, v) => s + v, 0);
+  const vinReveals = Number(data?.vin_reveals || 0);
 
   return (
     <motion.div
@@ -286,9 +287,9 @@ const DealerTrends = ({ window: windowDays }) => {
               Icon={MessageSquare}
             />
             <SourceChip
-              label="VIN reveal"
-              count={sources.vin_open || 0}
-              total={totalLeads}
+              label="VIN reveals"
+              count={vinReveals}
+              total={vinReveals}
               Icon={Eye}
             />
           </div>

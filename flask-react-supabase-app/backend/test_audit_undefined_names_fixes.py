@@ -30,6 +30,24 @@ def test_admin_create_featured_listing_runs_validate_featured_input():
         assert status == 400
 
 
+def test_admin_create_featured_listing_rejects_unapproved_target_before_upsert():
+    with app_module.app.test_request_context(
+        "/api/admin/featured-listings", method="POST",
+        json={"listing_type": "car", "listing_id": "car-123"},
+    ), patch.object(
+        app_module, "_require_admin_api_user", return_value={"id": "admin-1"}
+    ), patch.object(
+        app_module,
+        "supabase_request",
+        return_value=([{"id": "car-123", "is_approved": False, "deleted_at": None}], 200),
+    ) as supabase:
+        response, status = app_module.admin_create_featured_listing.__wrapped__("admin-1")
+
+    assert status == 409
+    assert response.get_json()["code"] == "listing_not_eligible"
+    assert supabase.call_count == 1
+
+
 def test_public_featured_listings_type_filter_uses_allowed_listing_types():
     with app_module.app.test_request_context("/api/featured-listings?type=bogus"):
         resp = app_module.public_list_featured_listings()

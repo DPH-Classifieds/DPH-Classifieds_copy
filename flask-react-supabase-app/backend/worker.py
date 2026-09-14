@@ -47,6 +47,7 @@ _SCHEDULED_WORKER_DEFINITIONS = (
     ("auto_review_worker", "auto-review", "AUTO_REVIEW_INTERVAL_SECONDS", 15),
     ("dealer_auto_approval_worker", "dealer-auto-approval", "DEALER_AUTO_APPROVAL_INTERVAL_SECONDS", 60),
     ("price-drop-alerts", "price-drop-alerts", "PRICE_DROP_ALERT_INTERVAL_SECONDS", 300),
+    ("market-price-tracker", "market-price-tracker", "MARKET_PRICE_TRACKER_INTERVAL_SECONDS", 60 * 60 * 24),
     ("reddit_vin_dedup_sweep", "reddit-vin-dedup", "REDDIT_DEDUP_INTERVAL_SECONDS", 60 * 60),
 )
 
@@ -237,6 +238,7 @@ def main():
             store_health_snapshot,
         )
         from workers.dealer_lead_aggregator import run as _run_dealer_lead_aggregator_once
+        from workers.market_price_tracker import run as _run_market_price_tracker_once
 
         logger.info("health_monitoring imported successfully")
     except Exception as exc:
@@ -279,6 +281,7 @@ def main():
         "auto_review_worker": _run_auto_review_once,
         "dealer_auto_approval_worker": _run_dealer_auto_approval_once,
         "price-drop-alerts": _run_price_drop_alerts_once,
+        "market-price-tracker": _run_market_price_tracker_once,
         "reddit_vin_dedup_sweep": _run_reddit_vin_dedup_sweep_once,
     })
     intervals = {worker.name: worker.interval_seconds for worker in scheduled_workers}

@@ -7,8 +7,9 @@
 // - Once featured items run out, "featured" slots are silently backfilled
 //   with normal items so the feed never renders short.
 export function applyFeaturedPlacement(normalItems, featuredItems, pattern, getId = (x) => x.id) {
-  if (!Array.isArray(normalItems) || normalItems.length === 0) return normalItems || [];
+  if (!Array.isArray(normalItems)) return [];
   if (!Array.isArray(featuredItems) || featuredItems.length === 0) return normalItems;
+  if (normalItems.length === 0) return featuredItems;
   if (!Array.isArray(pattern) || pattern.length === 0) return normalItems;
 
   const featuredIds = new Set(featuredItems.map(getId));

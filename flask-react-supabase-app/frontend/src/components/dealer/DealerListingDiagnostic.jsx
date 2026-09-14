@@ -15,6 +15,13 @@ const VERDICT_CFG = {
     glow: 'border-slate-500/30 bg-slate-500/5',
     text: 'text-slate-300',
   },
+  insufficient_benchmark_data: {
+    label: 'Not enough benchmark data yet',
+    desc: 'This listing has activity, but there are not enough comparable marketplace results to make a fair comparison.',
+    stripe: 'bg-slate-500',
+    glow: 'border-slate-500/30 bg-slate-500/5',
+    text: 'text-slate-300',
+  },
   underperforming_visibility: {
     label: 'Underperforming on visibility',
     desc: "Buyers aren't seeing this listing in search results.",

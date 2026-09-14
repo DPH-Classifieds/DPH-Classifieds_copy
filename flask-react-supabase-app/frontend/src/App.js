@@ -29,6 +29,7 @@ const DealerDashboard = lazy(() => import('./components/dealer/DealerDashboard')
 const DealerListings = lazy(() => import('./components/dealer/DealerListings'));
 const DealerListingAnalytics = lazy(() => import('./components/dealer/DealerListingAnalytics'));
 const DealerListingDiagnostic = lazy(() => import('./components/dealer/DealerListingDiagnostic'));
+const DealerListingMarket = lazy(() => import('./components/dealer/DealerListingMarket'));
 const DealerTeam = lazy(() => import('./components/dealer/DealerTeam'));
 const DealerSettings = lazy(() => import('./components/dealer/DealerSettings'));
 const DealerInviteAccept = lazy(() => import('./components/dealer/DealerInviteAccept'));
@@ -385,6 +386,7 @@ function App() {
                 <Route path="listings" element={<DealerListings />} />
                 <Route path="listings/:listing_type/:listing_id/analytics" element={<DealerListingAnalytics />} />
                 <Route path="listings/:listing_type/:listing_id/diagnostic" element={<DealerListingDiagnostic />} />
+                <Route path="listings/:listing_type/:listing_id/market" element={<DealerListingMarket />} />
                 <Route path="leads" element={<DealerLeads />} />
                 <Route path="leads/:id" element={<DealerLeadDetail />} />
                 <Route path="inventory" element={<DealerInventory />} />

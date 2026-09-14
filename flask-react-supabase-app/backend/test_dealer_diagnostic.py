@@ -1,7 +1,7 @@
 from services.dealer_diagnostic import (
     PriceVsMarketRule, PhotoCountRule, TitleCompletenessRule,
     VinRule, DescriptionLengthRule, DaysOnMarketRule,
-    MissingFieldsRule, Finding,
+    MissingFieldsRule, Finding, verdict_from,
 )
 
 
@@ -25,6 +25,11 @@ def test_photo_count_low_flags():
     assert f is not None
 
 
+def test_photo_count_without_cohort_data_does_not_invent_benchmark():
+    listing = {"image_count": 3}
+    assert PhotoCountRule().evaluate(listing, {}, {}) is None
+
+
 def test_title_missing_trim_flags():
     listing = {"car_model": "Camry", "trim": None}
     f = TitleCompletenessRule().evaluate(listing, {}, {})
@@ -43,10 +48,28 @@ def test_description_short_flags():
     assert f is not None
 
 
+def test_description_without_cohort_data_does_not_invent_benchmark():
+    listing = {"description": "short"}
+    assert DescriptionLengthRule().evaluate(listing, {}, {}) is None
+
+
 def test_days_on_market_long_flags():
     listing = {"days_on_market": 60}
     f = DaysOnMarketRule().evaluate(listing, {"cohort_dom_p75": 30}, {})
     assert f is not None
+
+
+def test_days_on_market_without_cohort_data_does_not_invent_benchmark():
+    listing = {"days_on_market": 60}
+    assert DaysOnMarketRule().evaluate(listing, {}, {}) is None
+
+
+def test_verdict_requires_real_cohort_benchmark_for_visibility_comparison():
+    assert verdict_from(
+        {"impressions": 200, "days_on_market": 10},
+        {},
+        [],
+    ) == "insufficient_benchmark_data"
 
 
 def test_missing_fields_flags():

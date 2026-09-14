@@ -18,9 +18,16 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 import requests
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
+from functools import wraps
 
-from services.dealer_kpi import dedupe_impressions, dedupe_leads
+from services.dealer_kpi import (
+    CONTACT_LEAD_ACTIONS,
+    VIN_ACTIONS,
+    dedupe_impressions,
+    dedupe_leads,
+    normalize_lead_events,
+)
 from ._decorators import dealer_required
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -57,8 +64,11 @@ def _bounded_rows(response, remaining):
 
 def _token_required(fn):
     """Late-binding shim so app.py imports cleanly before routes register."""
-    from app import token_required
-    return token_required(fn)
+    @wraps(fn)
+    def decorated(*args, **kwargs):
+        return current_app.extensions["dph_user_backend"]["token_required"](fn)(*args, **kwargs)
+
+    return decorated
 
 
 def _svc():
@@ -113,7 +123,7 @@ def _fetch_platform_events(dealership_id, start, end, page_kind=None):
                 raise AnalyticsVolumeExceeded()
             chunk = ids_list[i:i + 200]
             params = {
-                "select": "visitor_id,listing_id,listing_type,event_name,page_kind,created_at,metadata",
+                "select": "visitor_id,user_id,session_id,listing_id,listing_type,event_name,page_kind,created_at,metadata,duration_ms",
                 "listing_type": f"eq.{kind}",
                 "listing_id": f"in.({','.join(chunk)})",
                 "created_at": f"gte.{start.isoformat()}",
@@ -130,7 +140,7 @@ def _fetch_platform_events(dealership_id, start, end, page_kind=None):
     return events
 
 
-def _fetch_lead_events(dealership_id, start, end):
+def _fetch_lead_events(dealership_id, start, end, platform_events):
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/lead_events",
         headers=_svc(),
@@ -142,7 +152,7 @@ def _fetch_lead_events(dealership_id, start, end):
         },
         timeout=20,
     )
-    return _bounded_rows(r, MAX_SYNC_EVENTS)
+    return normalize_lead_events(platform_events, _bounded_rows(r, MAX_SYNC_EVENTS))
 
 
 @analytics_bp.route("/analytics/kpis", methods=["GET"])
@@ -173,7 +183,7 @@ def kpis(current_user):
     # Current window events.
     impressions_events = _fetch_platform_events(dealership_id, start, end)
     detail_events = [e for e in impressions_events if e.get("page_kind") == "listing_detail"]
-    lead_events = _fetch_lead_events(dealership_id, start, end)
+    lead_events = _fetch_lead_events(dealership_id, start, end, impressions_events)
 
     impressions = dedupe_impressions(impressions_events)
     detail_views = dedupe_impressions(detail_events)
@@ -204,7 +214,9 @@ def kpis(current_user):
 
     # Previous-window deltas for impressions + leads (active_count snapshot has no prior comparison).
     prev_impressions_ev = _fetch_platform_events(dealership_id, prev_start, start)
-    prev_leads_ev = _fetch_lead_events(dealership_id, prev_start, start)
+    prev_leads_ev = _fetch_lead_events(
+        dealership_id, prev_start, start, prev_impressions_ev
+    )
     prev_impressions = dedupe_impressions(prev_impressions_ev)
     prev_leads = dedupe_leads(prev_leads_ev)
 
@@ -234,7 +246,7 @@ def trends(current_user):
     start, end, _, n = _window()
 
     impressions_events = _fetch_platform_events(dealership_id, start, end)
-    lead_events = _fetch_lead_events(dealership_id, start, end)
+    lead_events = _fetch_lead_events(dealership_id, start, end, impressions_events)
 
     # Group by day, dedupe within day.
     imps_by_day = defaultdict(list)
@@ -257,12 +269,21 @@ def trends(current_user):
         })
         cursor += timedelta(days=1)
 
-    # Leads by source breakdown.
-    by_source = defaultdict(int)
-    for e in lead_events:
-        by_source[e.get("action") or "other"] += 1
+    # Contact leads are deduped by the same rule as the KPI tile. VIN reveals
+    # are product engagement, not buyer leads, but remain visible separately.
+    by_source = {
+        action: dedupe_leads(
+            [e for e in lead_events if e.get("action") == action],
+            actions={action},
+        )
+        for action in sorted(CONTACT_LEAD_ACTIONS)
+    }
+    vin_reveals = dedupe_leads(
+        [e for e in lead_events if e.get("action") in VIN_ACTIONS],
+        actions=VIN_ACTIONS,
+    )
 
-    return jsonify({"daily": days, "leads_by_source": dict(by_source)})
+    return jsonify({"daily": days, "leads_by_source": by_source, "vin_reveals": vin_reveals})
 
 
 @analytics_bp.route("/analytics/funnel", methods=["GET"])
@@ -274,7 +295,7 @@ def funnel(current_user):
 
     all_events = _fetch_platform_events(dealership_id, start, end)
     detail_events = [e for e in all_events if e.get("page_kind") == "listing_detail"]
-    lead_events = _fetch_lead_events(dealership_id, start, end)
+    lead_events = _fetch_lead_events(dealership_id, start, end, all_events)
 
     impressions = dedupe_impressions(all_events)
     detail_views = dedupe_impressions(detail_events)
@@ -317,7 +338,7 @@ def top_performers(current_user):
     start, end, _, _ = _window()
 
     impressions_events = _fetch_platform_events(dealership_id, start, end)
-    lead_events = _fetch_lead_events(dealership_id, start, end)
+    lead_events = _fetch_lead_events(dealership_id, start, end, impressions_events)
 
     # Aggregate by listing.
     imps_by_listing = defaultdict(list)
@@ -355,7 +376,7 @@ def underperformers(current_user):
 
     listings = _listing_ids_for_dealership(dealership_id)
     impressions_events = _fetch_platform_events(dealership_id, start, end)
-    lead_events = _fetch_lead_events(dealership_id, start, end)
+    lead_events = _fetch_lead_events(dealership_id, start, end, impressions_events)
 
     imps_by_listing = defaultdict(list)
     for e in impressions_events:
@@ -421,7 +442,7 @@ def listing_analytics(current_user, listing_type, listing_id):
         f"{SUPABASE_URL}/rest/v1/platform_events",
         headers=_svc(),
         params={
-            "select": "visitor_id,event_name,page_kind,created_at,metadata,duration_ms",
+            "select": "visitor_id,user_id,session_id,event_name,page_kind,created_at,metadata,duration_ms",
             "listing_type": f"eq.{listing_type}",
             "listing_id": f"eq.{listing_id}",
             "created_at": f"gte.{start.isoformat()}",
@@ -442,7 +463,10 @@ def listing_analytics(current_user, listing_type, listing_id):
         },
         timeout=20,
     )
-    lead_events = _bounded_rows(leads_r, MAX_SYNC_EVENTS)
+    lead_events = normalize_lead_events(
+        events,
+        _bounded_rows(leads_r, MAX_SYNC_EVENTS),
+    )
 
     impressions = dedupe_impressions(events)
     detail_events = [e for e in events if e.get("page_kind") == "listing_detail"]
@@ -463,7 +487,8 @@ def listing_analytics(current_user, listing_type, listing_id):
     for e in events:
         if (e.get("event_name") or "").startswith("image_"):
             sessions[e.get("visitor_id") or ""]["image_events"] += 1
-    for e in lead_events:
+    contact_lead_events = [e for e in lead_events if e.get("action") in CONTACT_LEAD_ACTIONS]
+    for e in contact_lead_events:
         sessions[e.get("visitor_id") or ""]["had_lead"] = True
     eng_no_contact = sum(
         1 for s in sessions.values()
@@ -497,7 +522,7 @@ def listing_analytics(current_user, listing_type, listing_id):
             "whatsapp_clicks": whatsapp,
             "vin_reveals": vin,
             "engagement_no_contact": eng_no_contact,
-            "conversion_pct": round((calls + whatsapp + vin) / detail_views * 100, 2) if detail_views else 0,
+            "conversion_pct": round((calls + whatsapp) / detail_views * 100, 2) if detail_views else 0,
         },
         "series": series,
     })

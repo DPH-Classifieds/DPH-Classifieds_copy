@@ -99,12 +99,122 @@ test.describe('local simulated authenticated feature contracts', () => {
     await assertScroll(page);
   });
 
+  test('normal user signup reaches phone verification with the submitted account contract', async ({ page }) => {
+    const state = await installLocalSimulation(page);
+    await page.goto('/signup');
+    await page.locator('#firstName').fill('Synthetic');
+    await page.locator('#lastName').fill('User');
+    await page.locator('#username').fill('synthetic_user_2026');
+    await page.locator('#email').fill('synthetic.user@example.test');
+    await page.locator('#phone').fill('501234567');
+    await page.locator('#password').fill('SyntheticUser!2026');
+    await page.locator('#confirmPassword').fill('SyntheticUser!2026');
+    await page.locator('input[name="acceptTerms"]').check();
+    await page.locator('input[name="acceptPrivacy"]').check();
+    await page.getByRole('button', { name: 'Create Account' }).click();
+    await expect(page).toHaveURL(/\/verify-phone/);
+    await expect(page.getByRole('heading', { name: 'Enter verification code' })).toBeVisible();
+    expect(state.signupPayload).toMatchObject({
+      email: 'synthetic.user@example.test', username: 'synthetic_user_2026', isDealer: false,
+    });
+  });
+
+  test('dealer completes the settings application submission and multipart document flow', async ({ page }) => {
+    const state = await installLocalSimulation(page);
+    await signInWithLocalUser(page, 'dealer');
+    await page.goto('/dealer/settings');
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    await expect(page.getByText('Application: draft')).toBeVisible();
+
+    await page.locator('#dealer-doc-date-trade_license').fill('2027-09-01');
+    await page.locator('#dealer-doc-trade_license').setInputFiles({
+      name: 'trade-license.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-local-simulation%'),
+    });
+    await expect(page.getByText(/Uploaded\. PaddleOCR is verifying/i)).toBeVisible();
+    await page.locator('#dealer-doc-tax_registration').setInputFiles({
+      name: 'tax-registration.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-local-simulation%'),
+    });
+    await expect(page.getByText(/Uploaded\. PaddleOCR is verifying/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Submit application' }).click();
+    await expect(page.getByText(/Application submitted/i)).toBeVisible();
+    expect(state.dealerApplicationStatus).toBe('submitted');
+  });
+
+  test('dealer runs the inventory, listing intelligence, lead, integration, and webhook flows', async ({ page }) => {
+    const state = await installLocalSimulation(page);
+    await signInWithLocalUser(page, 'dealer');
+
+    await page.goto('/dealer/listings');
+    await expect(page.getByRole('heading', { name: 'Inventory' })).toBeVisible();
+    await expect(page.getByText('Current limit')).toBeVisible();
+    await page.getByRole('button', { name: 'Analytics' }).click();
+    await expect(page.locator('p').filter({ hasText: 'Impressions' }).first()).toBeVisible();
+    await page.getByRole('link', { name: 'Market position', exact: true }).click();
+    await expect(page.getByText('Price position', { exact: true })).toBeVisible();
+
+    await page.goto('/dealer/listings/car/local-car-1/diagnostic');
+    await expect(page.getByRole('heading', { name: /Why isn't this listing selling/i })).toBeVisible();
+    await expect(page.getByText(/Performing at par with the market/i)).toBeVisible();
+
+    await page.goto('/dealer/leads');
+    await expect(page.getByRole('heading', { name: 'Leads' })).toBeVisible();
+    await page.goto('/dealer/leads/local-lead-1');
+    await expect(page.getByRole('heading', { name: /Lead · whatsapp/i })).toBeVisible();
+    await page.locator('select').first().selectOption('contacted');
+    await expect.poll(() => state.dealerLeads[0].status).toBe('contacted');
+    await page.locator('textarea[placeholder="Add a note…"]').fill('Followed up from local browser simulation.');
+    await page.getByRole('button', { name: 'Post' }).click();
+
+    await page.goto('/dealer/webhooks');
+    await expect(page.getByRole('heading', { name: 'Outbound webhooks' })).toBeVisible();
+    await page.goto('/dealer/integrations');
+    await expect(page.getByRole('heading', { name: 'API Integrations' })).toBeVisible();
+
+    const token = await page.evaluate(() => sessionStorage.getItem('supabase_access_token'));
+    const lifecycle = await page.evaluate(async (accessToken) => {
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` };
+      const webhook = await fetch('/api/dealer/webhooks', { method: 'POST', headers, body: JSON.stringify({ label: 'Local CRM', url: 'https://local.test/webhook', events: ['lead.created'] }) });
+      const webhookBody = await webhook.json();
+      const test = await fetch(`/api/dealer/webhooks/${webhookBody.id}/test`, { method: 'POST', headers, body: '{}' });
+      const source = await fetch('/api/dealer/api-sources', { method: 'POST', headers, body: JSON.stringify({ label: 'Local DMS', adapter: 'generic_json', endpoint_url: 'https://local.test/inventory', auth_type: 'none', field_mapping: {} }) });
+      const sourceBody = await source.json();
+      const sourceTest = await fetch(`/api/dealer/api-sources/${sourceBody.id}/test`, { method: 'POST', headers, body: '{}' });
+      return { webhookStatus: webhook.status, testStatus: test.status, sourceStatus: source.status, sourceTest: await sourceTest.json() };
+    }, token);
+    expect(lifecycle).toMatchObject({ webhookStatus: 201, testStatus: 200, sourceStatus: 201, sourceTest: { rows_valid: 2 } });
+    expect(state.dealerWebhooks).toHaveLength(1);
+    expect(state.dealerApiSources).toHaveLength(1);
+  });
+
+  test('super admin reviews a dealer application and tracks an exact vehicle market cohort', async ({ page }) => {
+    const state = await installLocalSimulation(page);
+    await signInWithLocalUser(page, 'admin');
+    await page.goto('/admin/dealerships/hub');
+    await expect(page.getByRole('heading', { name: 'Dealers' })).toBeVisible();
+    await expect(page.getByText('Synthetic Motors')).toBeVisible();
+    await page.getByTitle('Approve dealer').click();
+    await expect.poll(() => state.dealerApplicants[0].dealer_verified).toBe(true);
+    await page.getByRole('button', { name: 'Approved', exact: true }).click();
+    await expect(page.getByText('Synthetic Motors')).toBeVisible();
+
+    await page.goto('/admin/metrics');
+    await page.getByRole('button', { name: 'Market tracker', exact: true }).click();
+    await page.getByLabel('Make').fill('Toyota');
+    await page.getByRole('textbox', { name: 'Model', exact: true }).fill('Camry');
+    await page.getByRole('spinbutton', { name: 'Model year', exact: true }).fill('2019');
+    await page.getByRole('button', { name: 'Track market' }).click();
+    await expect(page.getByRole('heading', { name: /Toyota Camry · 2019/i })).toBeVisible();
+    await expect(page.getByText('AED 68,500')).toBeVisible();
+    await expect(page.getByText(/below the 5-listing reliability threshold/i)).toBeVisible();
+    await assertScroll(page);
+  });
+
   test('admin metrics loads all tabs and health data', async ({ page }) => {
     await installLocalSimulation(page);
     await signInWithLocalUser(page, 'admin');
     await page.goto('/admin/metrics');
     await expect(page.getByRole('heading', { name: 'Platform metrics' })).toBeVisible();
-    for (const tab of ['Acquisition', 'Conversion', 'Health', 'Email', 'Errors', 'Engagement']) {
+    for (const tab of ['Acquisition', 'Conversion', 'Market tracker', 'Health', 'Email', 'Errors', 'Engagement']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await expect(page.locator('body')).not.toContainText('ChunkLoadError');
     }

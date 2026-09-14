@@ -2,9 +2,11 @@
 """GET /api/dealer/listings/<type>/<id>/diagnostic"""
 import os
 import requests
-from flask import Blueprint, g, jsonify
+from functools import wraps
+from flask import Blueprint, current_app, g, jsonify
 
 from services.dealer_diagnostic import build_findings, verdict_from
+from services.dealer_kpi import dedupe_impressions
 from services.dealer_market import compute_snapshot
 from ._decorators import dealer_required
 
@@ -23,8 +25,11 @@ def _svc():
 
 
 def _token_required(fn):
-    from app import token_required
-    return token_required(fn)
+    @wraps(fn)
+    def decorated(*args, **kwargs):
+        return current_app.extensions["dph_user_backend"]["token_required"](fn)(*args, **kwargs)
+
+    return decorated
 
 
 @diagnostic_bp.route("/listings/<listing_type>/<listing_id>/diagnostic", methods=["GET"])
@@ -56,20 +61,39 @@ def listing_diagnostic(current_user, listing_type, listing_id):
             "limit": 1,
         }, timeout=10,
     )
-    market = (ms_r.json()[0] if ms_r.status_code == 200 and ms_r.json() else None) or {}
+    market = (ms_r.json()[0] if ms_r.status_code == 200 and ms_r.json() else None)
     if not market or market.get("comp_count", 0) < 5:
         snap = compute_snapshot(listing_type, listing_id, g.dealer_ctx["dealership_id"])
         if snap and not snap.get("insufficient_comps"):
             market = snap
 
+    if not market or market.get("comp_count", 0) < 5:
+        market = None
+
+    events_r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/platform_events",
+        headers=_svc(),
+        params={
+            "select": "visitor_id,user_id,session_id,event_name,page_kind,created_at",
+            "listing_type": f"eq.{listing_type}",
+            "listing_id": f"eq.{listing_id}",
+            "limit": "5000",
+        },
+        timeout=15,
+    )
+    impression_events = events_r.json() if events_r.status_code == 200 else []
+    impressions = dedupe_impressions(impression_events if isinstance(impression_events, list) else [])
+
     kpi = {
-        "impressions": listing.get("view_count") or 0,
+        "impressions": impressions,
         "days_on_market": _days_between(listing.get("created_at")),
         "days_since_edit": _days_between(listing.get("updated_at")),
-        "cohort_photo_median": 8,
-        "cohort_desc_p75": 200,
-        "cohort_dom_p75": 30,
-        "cohort_impressions_median": 50,
+        # Cohort thresholds must come from real comparable data. Until that
+        # aggregation exists, rules that depend on them stay unavailable.
+        "cohort_photo_median": None,
+        "cohort_desc_p75": None,
+        "cohort_dom_p75": None,
+        "cohort_impressions_median": None,
     }
     listing["days_on_market"] = kpi["days_on_market"]
     listing["days_since_edit"] = kpi["days_since_edit"]
@@ -83,12 +107,12 @@ def listing_diagnostic(current_user, listing_type, listing_id):
             "code": f.code, "problem": f.problem, "evidence": f.evidence,
             "action": f.action, "severity": round(f.severity, 2),
         } for f in findings],
-        "cohort_meta": {
+        "cohort_meta": ({
             "comp_count": market.get("comp_count"),
             "median_price": market.get("median_price"),
             "p25_price": market.get("p25_price"),
             "p75_price": market.get("p75_price"),
-        },
+        } if market else None),
     })
 
 

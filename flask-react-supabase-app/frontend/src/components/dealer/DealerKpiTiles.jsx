@@ -84,7 +84,7 @@ const KpiTile = ({ label, value, delta, Icon, suffix, accent, index }) => (
 
     {/* Value */}
     <p className={`text-3xl font-semibold tabular-nums ${accent ? 'text-emerald-400' : 'text-white'}`}>
-      <AnimatedNumber value={value} suffix={suffix} />
+      {value == null || !Number.isFinite(value) ? 'N/A' : <AnimatedNumber value={value} suffix={suffix} />}
     </p>
 
     {/* Delta */}
@@ -142,7 +142,7 @@ const DealerKpiTiles = ({ window: windowDays }) => {
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
       {TILE_CONFIG.map(({ key, label, Icon, suffix, accent }, i) => {
         const tile = tiles[key] || {};
-        const rawVal = tile.value ?? 0;
+        const rawVal = tile.value == null ? null : Number(tile.value);
         return (
           <KpiTile
             key={key}

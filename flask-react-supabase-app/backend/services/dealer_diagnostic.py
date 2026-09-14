@@ -55,7 +55,9 @@ class PhotoCountRule(Rule):
 
     def evaluate(self, listing, kpi, market):
         n = listing.get("image_count") or 0
-        median = kpi.get("cohort_photo_median") or 8
+        median = kpi.get("cohort_photo_median")
+        if median is None or median <= 0:
+            return None
         if n >= median * 0.7:
             return None
         return Finding(
@@ -107,7 +109,9 @@ class DescriptionLengthRule(Rule):
     def evaluate(self, listing, kpi, market):
         desc = (listing.get("description") or "").strip()
         words = len(desc.split())
-        target = kpi.get("cohort_desc_p75") or 150
+        target = kpi.get("cohort_desc_p75")
+        if target is None or target <= 0:
+            return None
         if words >= target * 0.6:
             return None
         return Finding(
@@ -125,7 +129,9 @@ class DaysOnMarketRule(Rule):
 
     def evaluate(self, listing, kpi, market):
         dom = listing.get("days_on_market") or 0
-        p75 = kpi.get("cohort_dom_p75") or 30
+        p75 = kpi.get("cohort_dom_p75")
+        if p75 is None or p75 <= 0:
+            return None
         if dom <= p75:
             return None
         return Finding(
@@ -214,10 +220,12 @@ ALL_RULES = [
 def verdict_from(kpi, market, findings):
     impressions = kpi.get("impressions", 0)
     days_on_market = kpi.get("days_on_market") or 0
-    cohort_imp_median = kpi.get("cohort_impressions_median") or 1
+    cohort_imp_median = kpi.get("cohort_impressions_median")
 
     if days_on_market < 3 or impressions < 100:
         return "not_enough_data"
+    if cohort_imp_median is None or cohort_imp_median <= 0:
+        return "insufficient_benchmark_data"
     if impressions < cohort_imp_median * 0.5:
         return "underperforming_visibility"
     if findings and any(f.code == "engagement_no_contact" for f in findings):

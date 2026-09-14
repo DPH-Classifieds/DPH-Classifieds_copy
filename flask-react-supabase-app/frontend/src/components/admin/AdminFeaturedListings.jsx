@@ -147,7 +147,7 @@ export default function AdminFeaturedListings() {
         <div>
           <h1 className="text-2xl font-semibold">Featured listings</h1>
           <p className="text-sm text-white/50 mt-1">
-            {stats.active} active · {rows.length - stats.active} expired · {Object.entries(stats.byType).map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}
+            {stats.active} active{showInactive ? ` · ${rows.length - stats.active} expired` : ' · expired hidden'} · {Object.entries(stats.byType).map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}
           </p>
         </div>
         <div className="flex items-center gap-2">
