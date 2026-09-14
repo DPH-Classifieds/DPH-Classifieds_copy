@@ -12,9 +12,9 @@
     "upload": "npm run build && devvit upload"
   },
   "devDependencies": {
-    "@devvit/web": "^0.14.2",
+    "@devvit/web": "^0.14.3",
     "@types/node": "22.20.1",
-    "devvit": "^0.14.2",
+    "devvit": "^0.14.3",
     "esbuild": "0.28.1",
     "typescript": "7.0.2"
   },
