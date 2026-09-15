@@ -17,6 +17,18 @@
       "destination": "/api/cars/$1"
     },
     {
+      "source": "/bikes/(.*)",
+      "destination": "/api/bikes/$1"
+    },
+    {
+      "source": "/car-parts/(.*)",
+      "destination": "/api/parts/$1"
+    },
+    {
+      "source": "/plates/(.*)",
+      "destination": "/api/plates/$1"
+    },
+    {
       "source": "/((?!static/|images/|favicon.ico|manifest.json|robots.txt|sitemap.xml|asset-manifest.json).*)",
       "destination": "/index.html"
     }

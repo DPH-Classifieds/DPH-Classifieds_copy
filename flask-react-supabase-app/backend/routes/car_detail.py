@@ -35,7 +35,9 @@ def get_car_by_id(car_id):
         cache_key = None
 
         if not requesting_user:
-            cache_key = f"api-cache:{request.path}"
+            # Bump the anonymous detail cache namespace with the redaction
+            # contract so old payloads cannot hide vin_available after deploy.
+            cache_key = f"api-cache:v2:{request.path}"
             cached_payload = backend._api_cache_get(cache_key)
             if cached_payload is not None:
                 backend.logger.debug(f"Redis cache hit for car detail {car_id}")
@@ -143,11 +145,16 @@ def get_car_by_id(car_id):
         backend.logger.info(
             f"Returning car with {len(car['images'])} images (Views: {car.get('view_count', 0)})"
         )
+        vin_available = bool(car.get("vin_number"))
         if not is_owner:
             for _f in backend._PUBLIC_STRIP_FIELDS:
                 car.pop(_f, None)
         if not backend._requester_can_view_vin(requesting_user, is_owner):
             car.pop("vin_number", None)
+            # This reveals only that a VIN exists, never the VIN itself, so the
+            # client can explain the sign-in gate instead of showing "Not
+            # provided" for a redacted value.
+            car["vin_available"] = vin_available
         if cache_key:
             backend._api_cache_set(cache_key, car)
             return backend._cached_json_response(car)

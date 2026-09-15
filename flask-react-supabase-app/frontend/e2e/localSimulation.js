@@ -39,7 +39,13 @@ const readJson = async (request) => {
 
 const userForToken = (request) => {
   const auth = request.headers().authorization || '';
-  const role = ['user', 'dealer', 'admin'].find((candidate) => auth.startsWith(`Bearer local.${candidate}.`));
+  const token = auth.replace(/^Bearer\s+/i, '');
+  const directRole = ['user', 'dealer', 'admin'].find((candidate) => token.startsWith(`local.${candidate}.`));
+  let encodedRole = null;
+  try {
+    encodedRole = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64').toString('utf8')).role;
+  } catch { /* guest or malformed token */ }
+  const role = directRole || (['user', 'dealer', 'admin'].includes(encodedRole) ? encodedRole : null);
   return role ? users[role] : null;
 };
 
@@ -231,7 +237,12 @@ async function installLocalSimulation(page) {
       return response(route, { token: 'local-upload-token', path: 'local/simulated-upload.jpg', public_url: 'https://local.test/simulated-upload.jpg' });
     }
     if (path === '/api/listings/counts') return response(route, { cars: 1, parts: 1, plates: 1, bikes: 1, total: 4 });
-    if (/^\/api\/cars\/[^/]+\/?$/.test(path) && method === 'GET') return response(route, baseCar);
+    if (/^\/api\/cars\/[^/]+\/?$/.test(path) && method === 'GET') {
+      const viewer = userForToken(request);
+      if (viewer) return response(route, baseCar);
+      const { vin_number, ...publicCar } = baseCar;
+      return response(route, { ...publicCar, vin_available: true });
+    }
     if (path === '/api/cars' || path === '/api/parts' || path === '/api/plates' || path === '/api/bikes') {
       if (method === 'POST') {
         const type = path.split('/').pop().replace(/s$/, '').replace('part', 'part');

@@ -6218,23 +6218,9 @@ def _resolve_car_listing_id(identifier):
 
 
 def _requester_can_view_vin(requesting_user, is_owner):
-    """VIN is PII; gate it the same way the frontend does (phone-verified
-    account), not just 'not the owner'. Owners/admins always see it."""
-    if is_owner:
-        return True
-    if not requesting_user:
-        return False
-    try:
-        resp, status = supabase_request(
-            "get",
-            f"/rest/v1/users?id=eq.{requesting_user}&select=phone_verified,is_admin",
-            use_service_role=True,
-        )
-        if status < 400 and resp:
-            return bool(resp[0].get("phone_verified") or resp[0].get("is_admin"))
-    except Exception as vin_gate_err:
-        logger.warning(f"Failed to resolve VIN visibility for {requesting_user}: {vin_gate_err}")
-    return False
+    """Allow VINs to authenticated users while keeping them private to guests."""
+    # Keep the owner argument for compatibility with existing route callers.
+    return bool(requesting_user or is_owner)
 
 
 

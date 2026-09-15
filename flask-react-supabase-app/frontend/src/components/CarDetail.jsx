@@ -4,14 +4,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
-import { getCurrentUser } from '../utils/authService';
 import { resolveMediaUrl } from '../utils/media';
 import useSwipe from '../hooks/useSwipe';
 import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
-import PhoneVerificationFlow from './PhoneVerificationFlow';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
 import RedditListingDetail from './RedditListingDetail';
@@ -70,18 +67,12 @@ const CarDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, updateUser } = useAuth();
   const preloadedCar = location.state?.listing ?? null;
   const [car, setCar] = useState(() => preloadedCar);
   const [loading, setLoading] = useState(() => !preloadedCar);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [viewerProfile, setViewerProfile] = useState(null);
-  const [showPhoneVerifyModal, setShowPhoneVerifyModal] = useState(false);
-  const [vinVisible, setVinVisible] = useState(false);
-  const [verificationPhone, setVerificationPhone] = useState('');
-  const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
   const [shareFeedback, setShareFeedback] = useState('');
   const seoData = useMemo(
     () =>
@@ -152,35 +143,6 @@ const CarDetail = () => {
     
     fetchCarDetails();
   }, [id, preloadedCar, navigate]);
-
-  useEffect(() => {
-    const fetchViewerProfile = async () => {
-      try {
-        const token = await getAccessToken();
-        if (!token) {
-          setViewerProfile(null);
-          return;
-        }
-
-        const response = await fetch(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          setViewerProfile(null);
-          return;
-        }
-        const data = await response.json();
-        setViewerProfile(data);
-        if (data?.phone) {
-          setVerificationPhone((prev) => prev || data.phone);
-        }
-      } catch (profileError) {
-        console.warn('Failed to fetch viewer profile:', profileError);
-      }
-    };
-
-    fetchViewerProfile();
-  }, [user?.id]);
 
   useEffect(() => {
     const { carPrice, downPayment, loanTerm, interestRate } = loanCalculator;
@@ -273,13 +235,6 @@ const CarDetail = () => {
     } catch (trackingError) {
       console.warn('Lead tracking failed:', trackingError);
     }
-  };
-
-  const maskVin = (vin) => {
-    if (!vin) return 'Not provided';
-    const cleaned = String(vin).trim();
-    if (cleaned.length <= 4) return cleaned;
-    return `${'•'.repeat(Math.max(0, cleaned.length - 4))}${cleaned.slice(-4)}`;
   };
 
   const getGalleryImages = () => {
@@ -427,13 +382,17 @@ const CarDetail = () => {
     });
   };
 
-  const isPhoneVerified = Boolean(viewerProfile?.phone_verified || user?.phone_verified);
-  const canViewVin = isPhoneVerified;
-  const visibleVin = vinVisible ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
+  const vinAvailable = Boolean(car?.vin_available || car?.vin_number);
+  // The API is the authority here: an authorized response contains the VIN;
+  // an anonymous response contains only vin_available.
+  const canViewVin = Boolean(car?.vin_number);
+  const visibleVin = car?.vin_number || (vinAvailable ? 'Sign in / Log in to view' : 'Not provided');
+  const vinInteractive = vinAvailable;
 
   // Phone + WhatsApp are public: no login / phone-verify required. The click is
   // still tracked anonymously (trackLeadEvent posts visitor/session identity, no
-  // token needed). VIN reveal below stays phone-verified — separate path.
+  // token needed). VIN clicks are tracked for both redacted guests and signed-in
+  // viewers; the API remains the authority for whether the value is returned.
   const handleCallClick = () => {
     trackLeadEvent('call_click', { listing_id: id });
     return true;
@@ -472,16 +431,11 @@ const CarDetail = () => {
   const handleVinReveal = async () => {
     const listingId = car?.id || id;
     await trackLeadEvent('vin_open', { listing_id: listingId });
-    if (!user?.id) {
+    if (!car?.vin_number) {
       navigate(`/login?redirect=${encodeURIComponent(buildCarPath(car || { id }))}`);
       return;
     }
-    if (canViewVin) {
-      setVinVisible(true);
-      await trackLeadEvent('vin_reveal', { listing_id: listingId, source: 'direct_unlock' });
-      return;
-    }
-    setShowPhoneVerifyModal(true);
+    await trackLeadEvent('vin_reveal', { listing_id: listingId, source: 'authenticated_view' });
   };
 
   const heroSwipeRef = useSwipe({
@@ -876,24 +830,19 @@ const CarDetail = () => {
               </div>
               <div className="cd-vin-block">
                 <span className="cd-vin-label">Vehicle Identification Number</span>
-                <div className="cd-vin-value" onClick={handleVinReveal} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') handleVinReveal(); }}>
+                <div
+                  className="cd-vin-value"
+                  onClick={vinInteractive ? handleVinReveal : undefined}
+                  role={vinInteractive ? 'button' : undefined}
+                  tabIndex={vinInteractive ? 0 : undefined}
+                  onKeyDown={vinInteractive ? (event) => { if (event.key === 'Enter') handleVinReveal(); } : undefined}
+                >
                   {visibleVin}
                 </div>
-                {!canViewVin && (
+                {vinAvailable && !canViewVin && (
                   <button type="button" className="cd-button cd-button-secondary" onClick={handleVinReveal}>
-                    Verify phone to reveal VIN
+                    Sign in / Log in to view
                   </button>
-                )}
-                {canViewVin && !vinVisible && (
-                  <span
-                    onClick={handleVinReveal}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => { if (event.key === 'Enter') handleVinReveal(); }}
-                    style={{ cursor: 'pointer', fontSize: 12, color: '#8bd6b4', opacity: 0.7, textDecoration: 'underline', marginTop: 4, display: 'inline-block' }}
-                  >
-                    Click to reveal
-                  </span>
                 )}
               </div>
             </div>
@@ -1086,42 +1035,6 @@ const CarDetail = () => {
 
         <RecommendedListings listingType="car" listingId={car.id} limit={6} />
 
-	        {showPhoneVerifyModal && (
-	          <PhoneVerificationFlow
-	            mode="modal"
-	            open={showPhoneVerifyModal}
-	            title="Phone verification required"
-	            description="Check your phone number, then choose Send OTP to reveal contact details (and VIN where applicable)."
-	            phone={verificationPhone || viewerProfile?.phone || user?.phone || ''}
-	            countryCode={viewerProfile?.country_code || user?.country_code || '+971'}
-	            purpose="vin_reveal"
-	            listingId={car.id}
-	            verificationId={phoneVerificationSession?.verificationId || null}
-	            onClose={() => {
-	              setShowPhoneVerifyModal(false);
-	              setPhoneVerificationSession(null);
-	            }}
-	            onVerified={async (result) => {
-	              setPhoneVerificationSession(null);
-	              setShowPhoneVerifyModal(false);
-	              setVinVisible(true);
-	              setViewerProfile((prev) => ({
-	                ...(prev || {}),
-	                phone_verified: true,
-	              }));
-	              // Refresh global user state so phone_verified is up-to-date
-	              try {
-	                const { user: refreshedUser } = await getCurrentUser(true);
-	                if (refreshedUser && refreshedUser.id) {
-	                  updateUser(refreshedUser);
-	                }
-	              } catch (err) {
-	                console.error('Failed to refresh user after phone verification:', err);
-	              }
-	              await trackLeadEvent('vin_reveal', { listing_id: car.id, verification: result?.verification });
-	            }}
-	          />
-	        )}
       </div>
     </div>
   );

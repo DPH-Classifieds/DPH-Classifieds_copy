@@ -71,13 +71,14 @@ def test_anonymous_car_detail_strips_vin():
 
     assert response.status_code == 200
     assert "vin_number" not in response.get_json()
+    assert response.get_json()["vin_available"] is True
 
 
-def test_unverified_viewer_car_detail_strips_vin():
+def test_any_authenticated_viewer_receives_vin():
     response = _get_car(requester="viewer-1", phone_verified=False)
 
     assert response.status_code == 200
-    assert "vin_number" not in response.get_json()
+    assert response.get_json()["vin_number"] == VIN
 
 
 def test_phone_verified_viewer_receives_vin():

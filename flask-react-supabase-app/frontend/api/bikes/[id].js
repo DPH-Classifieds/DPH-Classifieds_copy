@@ -1,3 +1,3 @@
 const createListingPreviewHandler = require('../_listingPreview');
 
-module.exports = createListingPreviewHandler('cars', 'slug');
+module.exports = createListingPreviewHandler('bikes');

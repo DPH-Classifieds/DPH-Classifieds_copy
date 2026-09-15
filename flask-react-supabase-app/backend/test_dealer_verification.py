@@ -279,7 +279,7 @@ class TestDealerPendingBanner(unittest.TestCase):
 
 
 class TestVINRevealText(unittest.TestCase):
-    """Test the VIN reveal 'Click to reveal' text in CarDetail.jsx."""
+    """Test the authenticated/anonymous VIN gate in CarDetail.jsx."""
 
     def _read_cardetail_source(self):
         path = os.path.join(
@@ -293,26 +293,24 @@ class TestVINRevealText(unittest.TestCase):
         with open(path, "r") as f:
             return f.read()
 
-    def test_click_to_reveal_text_exists(self):
-        """CarDetail must include 'Click to reveal' text."""
+    def test_sign_in_prompt_exists(self):
+        """CarDetail must explain that guests need to sign in to view a VIN."""
         source = self._read_cardetail_source()
-        self.assertIn("Click to reveal", source)
+        self.assertIn("Sign in / Log in to view", source)
+        self.assertIn("vin_available", source)
 
-    def test_click_to_reveal_only_shows_when_can_view(self):
-        """'Click to reveal' should only show when canViewVin is true and vinVisible is false."""
+    def test_sign_in_prompt_only_shows_for_a_redacted_available_vin(self):
+        """The sign-in prompt is tied to an available VIN without a returned value."""
         source = self._read_cardetail_source()
-        # Find the click-to-reveal section
-        idx = source.index("Click to reveal")
-        # Look backwards for the condition
+        idx = source.rfind("Sign in / Log in to view")
         preceding = source[max(0, idx - 500) : idx]
-        self.assertIn("canViewVin", preceding)
-        self.assertIn("!vinVisible", preceding)
+        self.assertIn("vinAvailable", preceding)
+        self.assertIn("!canViewVin", preceding)
 
-    def test_click_to_reveal_calls_handleVinReveal(self):
-        """Clicking the reveal text should call handleVinReveal."""
+    def test_sign_in_prompt_calls_handleVinReveal(self):
+        """Clicking the sign-in prompt should navigate through handleVinReveal."""
         source = self._read_cardetail_source()
-        idx = source.index("Click to reveal")
-        # The span element with onClick is ~6 lines before "Click to reveal"
+        idx = source.rfind("Sign in / Log in to view")
         preceding = source[max(0, idx - 400) : idx + 100]
         self.assertIn("handleVinReveal", preceding)
 

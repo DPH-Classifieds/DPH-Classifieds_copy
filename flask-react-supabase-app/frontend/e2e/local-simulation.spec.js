@@ -75,17 +75,26 @@ test.describe('local simulated authenticated feature contracts', () => {
     expect(state.created).toHaveLength(4);
   });
 
-  test('VIN reveal records the open and reveal analytics events after phone verification', async ({ page }) => {
+  test('authenticated users see the VIN and reveal analytics remains available', async ({ page }) => {
     const state = await installLocalSimulation(page);
     await signInWithLocalUser(page);
     await page.goto('/cars/2022-toyota-land-cruiser-dubai-local-ca');
     await expect(page.getByRole('heading', { name: /VIN \/ Chassis Number/i })).toBeVisible();
-    await expect(page.locator('.cd-vin-value')).toContainText('8901');
-    await page.locator('.cd-vin-value').click();
     await expect(page.locator('.cd-vin-value')).toContainText('JTEBU5JR2K5678901');
+    await page.locator('.cd-vin-value').click();
     await expect.poll(() => state.events.filter((event) => event.payload?.action === 'vin_open').length).toBe(1);
     await expect.poll(() => state.events.filter((event) => event.payload?.action === 'vin_reveal').length).toBe(1);
     await assertScroll(page);
+  });
+
+  test('guests see the sign-in VIN gate and are sent to login', async ({ page }) => {
+    await installLocalSimulation(page);
+    await page.goto('/cars/2022-toyota-land-cruiser-dubai-local-ca');
+    await expect(page.getByRole('heading', { name: /VIN \/ Chassis Number/i })).toBeVisible();
+    await expect(page.locator('.cd-vin-value')).toHaveText('Sign in / Log in to view');
+    await expect(page.locator('.cd-vin-value')).not.toContainText('JTEBU5JR2K5678901');
+    await page.locator('button.cd-button-secondary', { hasText: 'Sign in / Log in to view' }).click();
+    await expect(page).toHaveURL(/\/login\?redirect=/);
   });
 
   test('dealer dashboard loads metrics and switches windows without breaking scroll', async ({ page }) => {
