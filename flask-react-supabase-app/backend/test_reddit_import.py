@@ -243,7 +243,76 @@ from services.reddit_import import parse_listing, build_imported_payload
 
 class MultiCategoryTests(unittest.TestCase):
     def _p(self, title, id="x"):
-        return parse_listing(submission(title=title, id=id, images=[IMG]), NOW)
+        return parse_listing(submission(title=title, id=id, images=[IMG], link_flair_text="📈 Selling"), NOW)
+
+    def test_rejects_help_question_post_that_mentions_selling(self):
+        sub = submission(
+            title="Question in Selling MAZDA 3 2019 with odo 135K",
+            selftext="""HI petrol people, just want to ask how much do you think i should price my CAR
+
+Model: MAZDA 3 Sedan 2019 2.0 Skyactive with Sunroof.
+Odo: 135,000
+I'm not in a hurry in the selling the car. any thoughts what would be the best price guys?""",
+            id="help-question",
+            images=[IMG],
+            link_flair_text="🔰 Help/Question",
+        )
+        self.assertIsNone(parse_listing(sub, NOW))
+
+    def test_parses_inline_model_label_and_k_mileage(self):
+        sub = submission(
+            title="[WTS] Mazda 6 2014 Spec V",
+            selftext="""Make: Mazda Model: 6 S
+
+Year: 2014
+
+Odometer: 272K
+
+Price - 22,000AED (Negotiable)""",
+            id="mazda-6-inline-labels",
+            images=[IMG],
+            link_flair_text="📈 Selling",
+        )
+        parsed = parse_listing(sub, NOW)
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.fields["make"], "Mazda")
+        self.assertEqual(parsed.fields["model"], "6 S")
+        self.assertEqual(parsed.fields["year"], 2014)
+        self.assertEqual(parsed.fields["mileage_km"], 272000)
+        self.assertEqual(parsed.price_aed, 22000)
+
+    def test_does_not_treat_placeholder_mileage_as_a_real_value(self):
+        sub = submission(
+            title="WTS: (urgent) 04 Chevrolet Trailblazer Ext",
+            selftext="""2004 Trailblazer EXT LT (7-seater)
+
+Mileage 115,xxx will confirm exact mileage.
+
+Asking price 10,500""",
+            id="trailblazer-placeholder-mileage",
+            images=[IMG],
+            link_flair_text="📈 Selling",
+        )
+        parsed = parse_listing(sub, NOW)
+        self.assertIsNotNone(parsed)
+        self.assertIsNone(parsed.fields["mileage_km"])
+
+    def test_preserves_full_labeled_model_instead_of_title_fragment(self):
+        sub = submission(
+            title="[WTS] 2013 BMW 35i X6",
+            selftext="""Make: BMW
+Model: X6 xDrive35i
+Year: 2013
+Odometer: 352,000 km
+Price: 20,000 negotiable""",
+            id="bmw-x6-labeled-model",
+            images=[IMG],
+            link_flair_text="📈 Selling",
+        )
+        parsed = parse_listing(sub, NOW)
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.fields["model"], "X6 xDrive35i")
+        self.assertEqual(parsed.fields["mileage_km"], 352000)
 
     def test_car_selftext_full_of_part_nouns_is_still_a_car(self):
         sub = submission(title="WTS: 2018 BMW 120i GCC AED 39,000",
@@ -511,6 +580,30 @@ class WorkerTests(unittest.TestCase):
 
     def tearDown(self):
         self.env_patch.stop()
+
+    def test_hides_existing_row_when_fresh_reddit_post_is_ineligible(self):
+        import workers.reddit_import_worker as w
+
+        calls = []
+
+        def fake_request(method, path, data=None, params=None):
+            calls.append((method, path, data, params))
+            if method == "get" and path == "/rest/v1/cars":
+                return [{"id": "old-help-row", "source_external_id": "t3_help", "status": "approved"}], 200
+            if method == "get":
+                return [], 200
+            return [], 204
+
+        with patch.object(w, "supabase_request", side_effect=fake_request):
+            hidden = w._hide_ineligible_imports(["t3_help"], OWNER_ID)
+
+        assert hidden == 1
+        assert any(
+            method == "patch"
+            and path == f"/rest/v1/cars?id=eq.old-help-row&user_id=eq.{OWNER_ID}"
+            and data == {"status": "expired", "is_approved": False}
+            for method, path, data, _params in calls
+        )
 
     def test_disabled_skips_import_but_still_expires(self):
         # When importing is disabled, run() must NOT fetch/import. The age sweep

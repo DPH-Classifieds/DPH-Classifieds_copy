@@ -35,6 +35,41 @@ def test_fetch_listings_only_requests_reddit_source_rows(monkeypatch):
     }]
 
 
+def test_fetch_listings_uses_original_reddit_post_time_and_display_fields(monkeypatch):
+    """The roundup window follows Reddit publication, not import timing."""
+    import workers.reddit_daily_post_worker as worker
+
+    def fake_supabase_request(method, path, data=None, params=None):
+        assert "source_created_at" in params["select"]
+        assert params["and"] == (
+            "(source_created_at.gte.2026-09-01T00:00:00+00:00,"
+            "source_created_at.lt.2026-09-02T00:00:00+00:00)"
+        )
+        assert params["order"] == "source_created_at.desc"
+        return ([{
+            "id": "reddit-1",
+            "source_platform": "reddit",
+            "source_url": "https://www.reddit.com/r/DubaiPetrolHeads/comments/reddit-1",
+            "source_created_at": "2026-09-01T12:00:00+00:00",
+            "car_manufacturer": "Toyota",
+            "car_model": "Land Cruiser",
+            "make_year": 2020,
+            "kilometer_driven": 85000,
+            "expected_selling_price": 180000,
+        }], 200)
+
+    monkeypatch.setattr(worker, "supabase_request", fake_supabase_request)
+
+    rows = worker._fetch_listings("2026-09-01T00:00:00+00:00", "2026-09-02T00:00:00+00:00")
+
+    assert rows[0]["source_created_at"] == "2026-09-01T12:00:00+00:00"
+    assert rows[0]["car_manufacturer"] == "Toyota"
+    assert rows[0]["car_model"] == "Land Cruiser"
+    assert rows[0]["make_year"] == 2020
+    assert rows[0]["kilometer_driven"] == 85000
+    assert rows[0]["expected_selling_price"] == 180000
+
+
 def test_price():
     assert _format_price(450000) == "AED 450,000"
     assert _format_price("120000.0") == "AED 120,000"

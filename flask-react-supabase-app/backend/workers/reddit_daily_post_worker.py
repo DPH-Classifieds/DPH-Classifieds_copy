@@ -42,7 +42,7 @@ DUBAI_OFFSET = timedelta(hours=4)  # ponytail: UAE is UTC+4 year-round, no DST �
 # and the query loop + url builder already handle the rest.
 LISTING_QUERIES = [
     {"table": "cars", "type": "car",
-     "select": "id,car_manufacturer,car_model,make_year,kilometer_driven,expected_selling_price,source_platform,source_url,created_at"},
+     "select": "id,car_manufacturer,car_model,make_year,kilometer_driven,expected_selling_price,source_platform,source_url,source_created_at"},
 ]
 
 _SESSION = requests.Session()
@@ -265,8 +265,9 @@ def _fetch_listings(since_iso, until_iso):
     """
     rows = []
     for q in LISTING_QUERIES:
-        # Two predicates on created_at → PostgREST `and=(...)` group (a params
-        # dict can't hold the same key twice).
+        # Two predicates on source_created_at → PostgREST `and=(...)` group (a
+        # params dict can't hold the same key twice). This is the timestamp of
+        # the Reddit submission, not when the importer wrote the DPH row.
         body, status = supabase_request(
             "get", f"/rest/v1/{q['table']}",
             params={
@@ -274,8 +275,8 @@ def _fetch_listings(since_iso, until_iso):
                 "is_approved": "eq.true",
                 "status": "in.(approved,active)",
                 "source_platform": "eq.reddit",
-                "and": f"(created_at.gte.{since_iso},created_at.lt.{until_iso})",
-                "order": "created_at.desc",
+                "and": f"(source_created_at.gte.{since_iso},source_created_at.lt.{until_iso})",
+                "order": "source_created_at.desc",
             },
         )
         if status < 400 and isinstance(body, list):

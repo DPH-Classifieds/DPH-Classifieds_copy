@@ -423,12 +423,26 @@ def _parse_year(text: str, now: datetime) -> Optional[int]:
 def _parse_mileage(text: str) -> Optional[int]:
     low = text.lower()
     # 1. Labeled odometer/mileage is the reliable signal ("Odometer: 71,350",
-    #    "Mileage: 239,000 km"). Beats an in-body "service done at 64k kms".
-    m = re.search(r"(?:odometer|mileage|kms?\s*driven)\s*[:\-]?\s*([\d][\d,]*\d)", low)
+    #    "Odo: 272K"). Beats an in-body "service done at 64k kms". Read the
+    #    entire line so placeholders such as "115,xxx" cannot be truncated to
+    #    the misleading number 115.
+    m = re.search(r"(?im)^\s*(?:odometer|odo|mileage|kms?\s*driven)\s*[:\-]?\s*([^\n]+)", text or "")
     if m:
-        digits = m.group(1).replace(",", "")
-        if digits.isdigit() and 0 < int(digits) <= 2_000_000:
-            return int(digits)
+        value = m.group(1).strip().lower()
+        if re.match(r"^\d[\d,]*\s*x", value):
+            return None
+        number = re.match(
+            r"^(\d[\d,]*(?:\.\d+)?)\s*(?:(k)(?:\s*km)?|km|kms)?\b",
+            value,
+        )
+        if number:
+            raw = number.group(1).replace(",", "")
+            try:
+                parsed = float(raw) * (1000 if number.group(2) else 1)
+                if 0 < parsed <= 2_000_000:
+                    return int(parsed)
+            except ValueError:
+                pass
     # 2. "88k km" shorthand.
     m = re.search(r"(\d{1,4})\s?k\s?(?:km|kms)\b", low)
     if m:
@@ -481,7 +495,12 @@ def _first_model_token(tail: str) -> Optional[str]:
             continue
         if re.fullmatch(r"\d{4}", cleaned):  # a year, not a model
             continue
-        if re.fullmatch(r"[\d,]+k?", low):  # a price/number
+        if re.fullmatch(r"[\d,]+k?", low):
+            digits = cleaned.replace(",", "")
+            # Short numeric model names (e.g. Mazda 6 or Toyota 86) are valid;
+            # comma-grouped, k-suffixed, and long numbers are prices/values.
+            if len(digits) <= 3 and "," not in cleaned and not low.endswith("k"):
+                return cleaned[:100]
             continue
         if not re.search(r"[A-Za-z0-9]", cleaned):
             continue
@@ -519,6 +538,18 @@ def _labeled(text: str, *labels: str) -> Optional[str]:
     """
     for label in labels:
         m = re.search(rf"(?im)^[\s•\-\*]*{re.escape(label)}\s*[:\-]\s*(.+?)\s*$", text or "")
+        if m:
+            val = m.group(1).strip()
+            if val and val.lower() not in ("n/a", "na", "-", "none"):
+                return val
+        # Some real posts put multiple fields on one line, e.g.
+        # "Make: Mazda Model: 6 S". Keep the line-oriented behavior above and
+        # add a bounded inline fallback that stops at the next label.
+        m = re.search(
+            rf"(?i)(?<!\w){re.escape(label)}\s*[:\-]\s*(.+?)"
+            r"(?=\s+[A-Za-z][A-Za-z /]*\s*[:\-]|$)",
+            text or "",
+        )
         if m:
             val = m.group(1).strip()
             if val and val.lower() not in ("n/a", "na", "-", "none"):
@@ -1151,6 +1182,11 @@ def parse_listing(submission, now):
     combined = f"{title}\n{submission.selftext or ''}"
     if _SELF_ORIGIN_DOMAIN in combined.lower():
         return None
+    # The multi-category importer must only publish actual selling posts. A
+    # help/question post can mention "selling" and still have a price/year,
+    # but its flair is not an authorization to create a marketplace listing.
+    if not _is_wts_flair(submission):
+        return None
     if not _looks_like_sale(combined):
         return None
     if not submission.images:
@@ -1179,7 +1215,12 @@ def parse_listing(submission, now):
         mm = _resolve_bike_make_any(title) if category == "bike" else _resolve_make_model(title)
         if not (year and mm and mm[1]):
             return None
-        make, model = mm[0], mm[1]
+        make = _labeled_make(submission.selftext) or mm[0]
+        labeled_model = _labeled(submission.selftext, "model")
+        labeled_mm = _resolve_make_model(labeled_model) if labeled_model else None
+        model = labeled_mm[1] if labeled_mm else (labeled_model or mm[1])
+        if labeled_mm and not _labeled_make(submission.selftext):
+            make = labeled_mm[0]
         mileage = _parse_mileage(combined)
         parts = [f"{year} {make} {model}", f"AED {price:,}"] + ([f"{mileage:,} km"] if mileage else [])
         fields = {"make": make, "model": model, "year": year, "mileage_km": mileage}

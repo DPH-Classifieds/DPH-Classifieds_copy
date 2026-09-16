@@ -210,6 +210,43 @@ def _retire_misclassified_rows(rows, owner_id, counts):
     return True
 
 
+def _hide_ineligible_imports(source_ids, owner_id):
+    """Hide existing rows for live Reddit posts that no longer qualify.
+
+    A post can remain live upstream while changing from a Selling listing to a
+    help/question post. Removal verification intentionally does not catch that
+    case, so reconcile the bounded fresh-fetch set without touching unrelated
+    or already-hidden rows.
+    """
+    ids = [source_id for source_id in source_ids if source_id]
+    if not ids or not owner_id:
+        return 0
+    hidden = 0
+    for config in LISTING_TABLES.values():
+        table = config["table"]
+        body, status = supabase_request(
+            "get", f"/rest/v1/{table}",
+            params={
+                "select": "id,source_external_id,status",
+                "source_platform": "eq.reddit",
+                "user_id": f"eq.{owner_id}",
+                "source_external_id": f"in.({','.join(ids)})",
+            },
+        )
+        if status >= 400 or not isinstance(body, list):
+            continue
+        for row in body:
+            if row.get("status") not in ("approved", "active"):
+                continue
+            _, patch_status = supabase_request(
+                "patch", f"/rest/v1/{table}?id=eq.{row['id']}&user_id=eq.{owner_id}",
+                data={"status": "expired", "is_approved": False},
+            )
+            if patch_status < 400:
+                hidden += 1
+    return hidden
+
+
 def _sync_images(config, row_id, image_urls):
     """Sync the full imported gallery (first = primary). Idempotent: leaves the
     rows untouched when the set already matches, else replaces them wholesale."""
@@ -574,13 +611,20 @@ def run():
 
         # Parse + group eligible listings by category (dedupe is per-table).
         by_category = {cat: [] for cat in LISTING_TABLES}
+        ineligible_source_ids = []
         for sub in subs:
             parsed = parse_listing(sub, now)
             if parsed and parsed.category in by_category:
                 by_category[parsed.category].append(parsed)
             else:
                 counts["skipped"] += 1
+                if sub.id:
+                    ineligible_source_ids.append(sub.id)
         counts["eligible"] = sum(len(v) for v in by_category.values())
+
+        hidden_ineligible = _hide_ineligible_imports(ineligible_source_ids, owner_id)
+        if hidden_ineligible:
+            logger.info("reddit_import: hid %s existing ineligible listing(s)", hidden_ineligible)
 
         visible = _reddit_visible()
         if not visible:
