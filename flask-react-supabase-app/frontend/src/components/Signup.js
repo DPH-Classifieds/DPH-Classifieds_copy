@@ -440,6 +440,10 @@ const Signup = () => {
         updatedErrors.password,
         updatedErrors.confirmPassword,
         updatedErrors.companyName,
+        updatedErrors.legalBusinessName,
+        updatedErrors.trn,
+        updatedErrors.tradeLicenseFile,
+        updatedErrors.taxRegistrationFile,
         updatedErrors.acceptTerms,
         updatedErrors.acceptPrivacy
       ].filter(Boolean);
@@ -618,7 +622,7 @@ const Signup = () => {
     if (!touchedFields[fieldName] || !fieldErrors[fieldName]) {
       return null;
     }
-    return <div className="field-error">{fieldErrors[fieldName]}</div>;
+    return <div id={`${fieldName}-error`} className="field-error" role="alert">{fieldErrors[fieldName]}</div>;
   };
 
   return (
@@ -688,7 +692,7 @@ const Signup = () => {
             </div>
             {formData.isDealer && (
               <div className="dealer-note">
-                <strong>Note:</strong> Approved dealers start with a 4-listing limit. After you confirm your email you'll upload your Trade License and TRN certificate on the verification page — PaddleOCR checks both automatically.
+                <strong>Note:</strong> Approved dealers start with a 4-listing limit. After you confirm your email you'll upload your Trade License and TRN certificate on the verification page.
               </div>
             )}
           </div>
@@ -976,7 +980,7 @@ const Signup = () => {
                   onChange={handleInputChange}
                   required
                   placeholder="501234567"
-                  className="phone-number-input"
+                  className={`phone-number-input ${touchedFields.phone && fieldErrors.phone ? 'error-input' : ''}`}
                 />
               </div>
               {renderFieldError('phone')}
@@ -1150,7 +1154,7 @@ const Signup = () => {
           {/* Terms and Conditions */}
           <div className="form-section">
             <div className="checkbox-group terms-group">
-              <label className="checkbox-label required-checkbox">
+              <label className={`checkbox-label required-checkbox ${touchedFields.acceptTerms && fieldErrors.acceptTerms ? 'error-checkbox-label' : ''}`}>
                 <input
                   type="checkbox"
                   name="acceptTerms"
@@ -1163,7 +1167,7 @@ const Signup = () => {
                 </span>
               </label>
               {renderFieldError('acceptTerms')}
-              <label className="checkbox-label required-checkbox">
+              <label className={`checkbox-label required-checkbox ${touchedFields.acceptPrivacy && fieldErrors.acceptPrivacy ? 'error-checkbox-label' : ''}`}>
                 <input
                   type="checkbox"
                   name="acceptPrivacy"

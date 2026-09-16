@@ -225,9 +225,19 @@
   color: var(--dvp-text-strong);
 }
 
+.dvp-item-confidence {
+  font-size: 0.78rem;
+  color: var(--dvp-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .dvp-item-note {
   margin: 4px 0 0;
   font-size: 0.85rem;
+  color: var(--dvp-danger-text);
+}
+
+.dvp-item-note-error {
   color: var(--dvp-danger-text);
 }
 

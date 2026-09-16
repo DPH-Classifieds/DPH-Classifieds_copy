@@ -26,10 +26,18 @@ function formatDate(value) {
   }
 }
 
+export function formatConfidence(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(1)}%` : '—';
+}
+
 function statusChipForDoc(doc) {
   const status = String(doc?.status || '').toLowerCase();
   if (status === 'approved') return { label: 'Approved', kind: 'success' };
   if (status === 'denied') return { label: 'Denied', kind: 'danger' };
+  if (doc?.ocr_status === 'needs_clearer_scan' || doc?.ocr_status === 'needs_manual_expiry') {
+    return { label: 'Needs clearer document', kind: 'danger' };
+  }
   if (status === 'pending') return { label: 'Pending review', kind: 'pending' };
   return { label: 'Awaiting upload', kind: 'muted' };
 }
@@ -67,7 +75,7 @@ const DealerVerificationPage = () => {
   const [uploadingDocType, setUploadingDocType] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  // The backend rejects a trade licence whose expiry PaddleOCR can't read and
+  // The backend rejects a trade licence whose expiry the document checker can't read and
   // tells the dealer to "enter the expiry date manually" — so give them a way.
   const [expiryPrompt, setExpiryPrompt] = useState(null); // { file, message }
   const [expiryValue, setExpiryValue] = useState('');
@@ -184,7 +192,7 @@ const DealerVerificationPage = () => {
       if (!ok) {
         if (data.code === 'trade_license_expiry_not_detected') {
           // Keep the file so the retry doesn't make them pick it again.
-          setExpiryPrompt({ file, message: data.error });
+          setExpiryPrompt({ file, message: data.error, ocr: data.ocr });
           return;
         }
         throw new Error(data.error || 'Failed to upload document');
@@ -286,6 +294,8 @@ const DealerVerificationPage = () => {
               : 'missing',
         meta: chip.label,
         doc,
+        confidence: doc?.ocr_scanned_at ? formatConfidence(doc.ocr_confidence) : null,
+        threshold: doc?.ocr_scanned_at ? formatConfidence(doc.ocr_threshold ?? readiness.ocr_threshold) : null,
       });
     }
     return items;
@@ -336,6 +346,14 @@ const DealerVerificationPage = () => {
               <div className="dvp-item-body">
                 <span className="dvp-item-label">{item.label}</span>
                 {item.meta ? <span className={`dvp-chip dvp-chip-${item.state === 'ok' ? 'success' : item.state === 'error' ? 'danger' : item.state === 'pending' ? 'pending' : 'muted'}`}>{item.meta}</span> : null}
+                {item.confidence ? (
+                  <span className="dvp-item-confidence" aria-label={`${item.label} document confidence`}>
+                    Document confidence: {item.confidence} · {item.threshold} required
+                  </span>
+                ) : null}
+                {item.doc?.ocr_message && item.doc?.ocr_status !== 'passed' && item.state !== 'ok' ? (
+                  <p className="dvp-item-note dvp-item-note-error">{item.doc.ocr_message}</p>
+                ) : null}
                 {item.doc?.denial_reason ? (
                   <p className="dvp-item-note">{item.doc.denial_reason}</p>
                 ) : null}
@@ -366,6 +384,11 @@ const DealerVerificationPage = () => {
                 {item.docType === 'trade_license' && expiryPrompt ? (
                   <form className="dvp-expiry-prompt" onSubmit={onSubmitExpiry}>
                     <p className="dvp-item-note">{expiryPrompt.message}</p>
+                    {expiryPrompt.ocr?.confidence != null ? (
+                      <p className="dvp-item-confidence">
+                        Document confidence: {formatConfidence(expiryPrompt.ocr.confidence)} · {formatConfidence(expiryPrompt.ocr.threshold)} required
+                      </p>
+                    ) : null}
                     <label className="dvp-field dvp-field-inline">
                       <span>Trade licence expiry date</span>
                       <input

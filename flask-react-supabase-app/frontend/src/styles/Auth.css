@@ -934,11 +934,21 @@
 }
 
 .error-input {
-  border-color: rgba(255, 143, 143, 0.42) !important;
+  border-color: #ef4444 !important;
+  background: rgba(127, 29, 29, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35) !important;
 }
 
 .error-input:focus {
-  box-shadow: 0 0 0 4px rgba(255, 143, 143, 0.12) !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2) !important;
+}
+
+.error-checkbox-label {
+  color: #fecaca;
+  outline: 1px solid #ef4444;
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 
 .bottom-error ul {

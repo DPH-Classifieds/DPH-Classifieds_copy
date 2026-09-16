@@ -163,6 +163,37 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
         self.assertIn("scan_trn_document", upload_section)
         self.assertIn('insert_payload["ocr_confidence"]', upload_section)
 
+    def test_low_quality_upload_notifies_dealer_by_email_and_push(self):
+        app_source = self._read_app_source()
+        route_path = os.path.join(
+            os.path.dirname(__file__), "routes", "dealer_verification.py"
+        )
+        with open(route_path, "r") as f:
+            route_source = f.read()
+        self.assertIn("def _send_dealer_document_quality_email", app_source)
+        self.assertIn('email_type="dealer_document_quality"', app_source)
+        self.assertIn("_notify_user_push", app_source)
+        upload_section = route_source[
+            route_source.index("def upload_dealer_document") : route_source.index(
+                "def dealer_submit_application"
+            )
+        ]
+        self.assertIn("_notify_dealer_document_quality_alert", upload_section)
+        self.assertIn('"quality_alert": quality_alert', upload_section)
+
+    def test_document_quality_alert_is_not_triggered_by_status_polling(self):
+        route_path = os.path.join(
+            os.path.dirname(__file__), "routes", "dealer_verification.py"
+        )
+        with open(route_path, "r") as f:
+            source = f.read()
+        status_section = source[
+            source.index("def get_dealer_verification_status") : source.index(
+                "def upload_dealer_document"
+            )
+        ]
+        self.assertNotIn("_notify_dealer_document_quality_alert", status_section)
+
     def test_listing_endpoints_have_dealer_check(self):
         """All 4 listing creation endpoints must call _require_dealer_verified."""
         source = self._read_app_source()

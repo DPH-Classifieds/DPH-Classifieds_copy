@@ -207,6 +207,92 @@ def scan_trade_license_expiry(image_file, ocr_provider=None):
 REQUIRED_DEALER_DOCS_FOR_AUTO_APPROVAL = ("trade_license", "tax_registration")
 
 
+def dealer_document_ocr_status(document, threshold=DEFAULT_ACCEPTANCE_THRESHOLD):
+    """Return safe, dealer-facing OCR feedback for one document row.
+
+    The raw OCR text stays private. Dealers only need to know whether the
+    automatic read is complete, whether the scan needs replacing, and what to
+    do next. ``ocr_expires_at`` is intentionally checked for trade licences:
+    a manually supplied expiry is a valid recovery path, but it does not mean
+    OCR successfully read the expiry date.
+    """
+    document = document or {}
+    confidence = float(document.get("ocr_confidence") or 0.0)
+    scanned = bool(document.get("ocr_scanned_at"))
+    threshold = float(threshold)
+    if not scanned:
+        return {
+            "status": "not_scanned",
+            "confidence": confidence,
+            "threshold": threshold,
+            "message": "Automatic document check is still pending.",
+        }
+    if document.get("document_type") == "trade_license" and not document.get("ocr_expires_at"):
+        return {
+            "status": "needs_manual_expiry",
+            "confidence": confidence,
+            "threshold": threshold,
+            "message": "We couldn't read the trade-license expiry date. Upload a sharper full-page scan or enter the expiry date manually.",
+        }
+    if confidence < threshold:
+        return {
+            "status": "needs_clearer_scan",
+            "confidence": confidence,
+            "threshold": threshold,
+            "message": "We couldn't read this document clearly enough. Upload a sharper, well-lit full-page scan so automatic verification can continue.",
+        }
+    return {
+        "status": "passed",
+        "confidence": confidence,
+        "threshold": threshold,
+        "message": "Automatic document check passed. Final approval will follow once both required documents are ready.",
+    }
+
+
+DEALER_DOCUMENT_LABELS = {
+    "trade_license": "Trade License",
+    "tax_registration": "TRN Certificate",
+}
+
+
+def dealer_document_reupload_prompt(document, threshold=DEFAULT_ACCEPTANCE_THRESHOLD):
+    """Build a safe notification payload when a dealer document needs action.
+
+    This is deliberately pure and contains no OCR text or storage data. It is
+    shared by email, push, and tests so every channel uses the same threshold,
+    score, status, and next-step wording.
+    """
+    status = dealer_document_ocr_status(document, threshold=threshold)
+    if status["status"] not in {"needs_clearer_scan", "needs_manual_expiry"}:
+        return None
+    document_type = str((document or {}).get("document_type") or "document")
+    label = DEALER_DOCUMENT_LABELS.get(document_type, document_type.replace("_", " ").title())
+    confidence = status["confidence"]
+    threshold_value = status["threshold"]
+    if status["status"] == "needs_manual_expiry":
+        message = (
+            f"Your {label} needs attention. We read it at {confidence:.1%} confidence, "
+            f"below the {threshold_value:.1%} automatic-check threshold, and could not "
+            "read the trade-license expiry date. Please re-upload a sharper, well-lit "
+            "full-page scan or enter the expiry date manually."
+        )
+    else:
+        message = (
+            f"Your {label} needs to be re-uploaded. The automatic check read it at "
+            f"{confidence:.1%} confidence, below the {threshold_value:.1%} threshold. "
+            "Please upload a sharper, well-lit full-page scan so verification can continue."
+        )
+    return {
+        "status": status["status"],
+        "document_type": document_type,
+        "document_label": label,
+        "confidence": confidence,
+        "threshold": threshold_value,
+        "title": f"Action needed: re-upload your {label}",
+        "message": message,
+    }
+
+
 def _overall_text_confidence(lines):
     """Mean recognition confidence across all OCR lines (PaddleOCR's per-line
     confidence). Returns 0.0 if there are no lines."""

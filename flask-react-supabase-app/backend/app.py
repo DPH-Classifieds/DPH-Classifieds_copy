@@ -5126,17 +5126,36 @@ def _get_dealer_application_readiness(user_id):
         params={
             "user_id": f"eq.{user_id}",
             "replaced_at": "is.null",
-            "select": "id,document_type,status,expires_at,replaced_at,uploaded_at,denial_reason,denial_fix",
+            "select": "id,document_type,status,expires_at,replaced_at,uploaded_at,denial_reason,denial_fix,ocr_confidence,ocr_scanned_at,ocr_expires_at",
         },
         use_service_role=True,
     )
     if docs_status >= 400:
         return None, "Could not load dealer documents"
     readiness = _evaluate_dealer_application(user, docs or [])
+    try:
+        ocr_threshold = float(os.getenv("DEALER_AUTO_APPROVAL_OCR_THRESHOLD", "0.90"))
+    except (TypeError, ValueError):
+        ocr_threshold = 0.90
+    from services.registration_ocr import dealer_document_ocr_status
+
+    dealer_docs = []
+    for doc in docs or []:
+        # Never send raw OCR text back to the dealer-facing status endpoint.
+        # Confidence and an actionable status are enough to guide a re-upload.
+        client_doc = {key: value for key, value in doc.items() if key != "ocr_raw_text"}
+        ocr_status = dealer_document_ocr_status(doc, threshold=ocr_threshold)
+        client_doc.update({
+            "ocr_status": ocr_status["status"],
+            "ocr_message": ocr_status["message"],
+            "ocr_threshold": ocr_status["threshold"],
+        })
+        dealer_docs.append(client_doc)
     readiness.update({
         "application_status": user.get("dealer_application_status") or "draft",
         "dealer_verified": bool(user.get("dealer_verified")),
-        "documents": docs or [],
+        "documents": dealer_docs,
+        "ocr_threshold": ocr_threshold,
     })
     return readiness, None
 
@@ -7186,14 +7205,16 @@ def _notify_user_push(user_id, title, body, data=None):
     try:
         tokens = _get_user_push_tokens(user_id)
         if not tokens:
-            return
+            return False
         resp, err = send_expo_push(tokens, title, body, data=data)
         if err:
             logger.info("Push send failed user=%s err=%s", user_id, str(err)[:200])
-            return
+            return False
         _prune_dead_push_tokens(dead_push_tokens(tokens, resp))
+        return True
     except Exception as e:
         logger.debug("push notify error: %s", e)
+        return False
 
 
 def _format_auth_email_error(error_data, fallback_message):
@@ -7496,6 +7517,124 @@ def _send_dealer_status_email(
         payload["reply_to"] = reply_to
 
     return _send_resend_email(payload, email_type="dealer_status")
+
+
+def _dealer_ocr_threshold():
+    try:
+        return float(os.getenv("DEALER_AUTO_APPROVAL_OCR_THRESHOLD", "0.90"))
+    except (TypeError, ValueError):
+        return 0.90
+
+
+def _send_dealer_document_quality_email(
+    user_email, document, request_origin=None, user_id=None, threshold=None
+):
+    """Tell a dealer when OCR could not safely read an uploaded document."""
+    from services.registration_ocr import dealer_document_reupload_prompt
+
+    prompt = dealer_document_reupload_prompt(
+        document,
+        threshold=threshold if threshold is not None else _dealer_ocr_threshold(),
+    )
+    if not prompt:
+        return None, None
+    if not user_email:
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    base_url = _get_safe_frontend_origin(request_origin).rstrip("/")
+    verification_url = f"{base_url}/dealer/verification"
+    confidence = f"{prompt['confidence']:.1%}"
+    threshold = f"{prompt['threshold']:.1%}"
+    html_content = f"""
+    <div style="font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:32px 20px;background:#041008;color:#f0fdf4;border-radius:24px;border:1px solid rgba(139,214,180,.12);">
+      <div style="text-align:center;margin-bottom:24px;"><div style="font-size:28px;font-weight:800;color:#8bd6b4;">DPH<span style="color:#fff;">CLASSIFIEDS</span></div></div>
+      <div style="background:rgba(255,255,255,.03);border-radius:18px;padding:26px;border:1px solid rgba(255,255,255,.06);">
+        <h2 style="margin:0 0 12px;color:#fff;font-size:22px;">{xml_escape(prompt['title'])}</h2>
+        <p style="color:#cbd5e1;line-height:1.6;">{xml_escape(prompt['message'])}</p>
+        <div style="margin:20px 0;padding:14px 16px;border-radius:12px;background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.25);">
+          <strong style="color:#fecaca;">Document confidence: {confidence}</strong><br>
+          <span style="color:#cbd5e1;font-size:13px;">Automatic verification threshold: {threshold}</span>
+        </div>
+        <a href="{xml_escape(verification_url)}" style="display:inline-block;background:#8bd6b4;color:#041008;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:700;">Re-upload document</a>
+      </div>
+      <p style="text-align:center;color:#64748b;font-size:13px;margin-top:22px;">This verification message is about your dealer application.</p>
+    </div>
+    """
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": prompt["title"],
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+    return _send_resend_email(
+        payload,
+        email_type="dealer_document_quality",
+        user_id=user_id,
+    )
+
+
+def _notify_dealer_document_quality_alert(
+    user_id, document, request_origin=None, threshold=None
+):
+    """Send one low-quality-document email and mobile push after an upload.
+
+    This is intentionally called by the upload mutation only. Status polling
+    must remain read-only so it cannot send repeated alerts.
+    """
+    from services.registration_ocr import dealer_document_reupload_prompt
+
+    effective_threshold = threshold if threshold is not None else _dealer_ocr_threshold()
+    prompt = dealer_document_reupload_prompt(document, threshold=effective_threshold)
+    if not prompt:
+        return {"needed": False, "email_sent": False, "push_sent": False}
+
+    user_rows, user_status = supabase_request(
+        "get",
+        "/rest/v1/users",
+        params={"id": f"eq.{user_id}", "select": "email"},
+        use_service_role=True,
+    )
+    user_email = user_rows[0].get("email") if user_status < 400 and user_rows else None
+    email_sent = False
+    if user_email:
+        _, email_error = _send_dealer_document_quality_email(
+            user_email,
+            document,
+            request_origin=request_origin,
+            user_id=user_id,
+            threshold=effective_threshold,
+        )
+        email_sent = not email_error
+        if email_error:
+            logger.warning("dealer document quality email failed user=%s: %s", user_id, email_error)
+    else:
+        logger.warning("dealer document quality email skipped: user email unavailable user=%s", user_id)
+
+    # The mobile app's existing Expo handler opens Settings, where the dealer
+    # can replace the document. Push delivery is best-effort when no device
+    # token is registered or the user has disabled notifications.
+    push_sent = bool(_notify_user_push(
+        user_id,
+        prompt["title"],
+        prompt["message"],
+        data={
+            "type": "dealer_document_quality",
+            "document_type": prompt["document_type"],
+            "confidence": prompt["confidence"],
+            "threshold": prompt["threshold"],
+            "path": "/(tabs)/(profile)/Settings",
+        },
+    ))
+    return {"needed": True, "email_sent": email_sent, "push_sent": push_sent}
 
 
 def _fetch_all_admin_emails():

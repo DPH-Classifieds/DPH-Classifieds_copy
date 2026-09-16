@@ -139,11 +139,11 @@ test.describe('local simulated authenticated feature contracts', () => {
     await page.locator('#dealer-doc-trade_license').setInputFiles({
       name: 'trade-license.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-local-simulation%'),
     });
-    await expect(page.getByText(/Uploaded\. PaddleOCR is verifying/i)).toBeVisible();
+    await expect(page.getByText(/Uploaded\. Automatic document checks are running/i)).toBeVisible();
     await page.locator('#dealer-doc-tax_registration').setInputFiles({
       name: 'tax-registration.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-local-simulation%'),
     });
-    await expect(page.getByText(/Uploaded\. PaddleOCR is verifying/i)).toBeVisible();
+    await expect(page.getByText(/Uploaded\. Automatic document checks are running/i)).toBeVisible();
     await page.getByRole('button', { name: 'Submit application' }).click();
     await expect(page.getByText(/Application submitted/i)).toBeVisible();
     expect(state.dealerApplicationStatus).toBe('submitted');

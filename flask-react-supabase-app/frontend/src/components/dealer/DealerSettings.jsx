@@ -20,6 +20,15 @@ const statusToClass = (status, days) => {
   return 'text-white/40 bg-white/[0.04] border-white/[0.10]';
 };
 
+const ocrNeedsReplacement = (doc) => (
+  doc?.ocr_status === 'needs_clearer_scan' || doc?.ocr_status === 'needs_manual_expiry'
+);
+
+const formatOcrConfidence = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(1)}%` : '—';
+};
+
 const DealerDocumentsSection = () => {
   const [docs, setDocs] = useState([]);
   const [readiness, setReadiness] = useState(null);
@@ -71,7 +80,7 @@ const DealerDocumentsSection = () => {
         const body = await resp.json().catch(() => ({}));
         throw new Error(body?.error || 'Upload failed');
       }
-      setMessage('Uploaded. PaddleOCR is verifying this document.');
+      setMessage('Uploaded. Automatic document checks are running.');
       await load();
     } catch (err) {
       setMessage(err?.message || 'Upload failed');
@@ -157,12 +166,20 @@ const DealerDocumentsSection = () => {
                   ) : (
                     <p className="text-[11px] text-white/30 mt-0.5">Not uploaded yet</p>
                   )}
+                  {doc?.ocr_scanned_at && (
+                    <p className="text-[11px] text-white/55 mt-1 tabular-nums">
+                      Document confidence: {formatOcrConfidence(doc.ocr_confidence)} · {formatOcrConfidence(doc.ocr_threshold ?? readiness?.ocr_threshold ?? 0.9)} required
+                    </p>
+                  )}
                   {doc?.status === 'denied' && doc.denial_reason && (
                     <p className="text-[11px] text-rose-300 mt-1">Denied: {doc.denial_reason}</p>
                   )}
+                  {ocrNeedsReplacement(doc) && doc.ocr_message && (
+                    <p className="text-[11px] text-rose-300 mt-1">{doc.ocr_message}</p>
+                  )}
                 </div>
-                <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border ${statusToClass(doc?.status, days)}`}>
-                  {doc?.status || 'missing'}
+                <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border ${ocrNeedsReplacement(doc) ? 'text-rose-300 bg-rose-500/10 border-rose-500/20' : statusToClass(doc?.status, days)}`}>
+                  {ocrNeedsReplacement(doc) ? 'needs clearer scan' : doc?.status || 'missing'}
                 </span>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {meta.requiresExpiry && (
@@ -209,7 +226,7 @@ const DealerDocumentsSection = () => {
       )}
       <DealerApplicationSubmit
         hasAllDocuments={DOC_TYPES.every((type) => Boolean(byType(type.key)))}
-        onSubmitted={() => setMessage('Application submitted — PaddleOCR verification is in progress.')}
+        onSubmitted={() => setMessage('Application submitted — automatic document checks are in progress.')}
       />
     </motion.div>
   );

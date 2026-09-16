@@ -4,8 +4,10 @@ These routes keep their legacy contracts while living outside the compatibility 
 """
 
 from functools import wraps
+import os
 
 from flask import Blueprint, current_app, jsonify, request
+from services.registration_ocr import dealer_document_ocr_status
 
 
 dealer_verification_bp = Blueprint("dealer_verification", __name__)
@@ -21,6 +23,26 @@ _BACKEND = _BackendProxy()
 
 def _backend():
     return _BACKEND
+
+
+def _ocr_threshold():
+    try:
+        return float(os.getenv("DEALER_AUTO_APPROVAL_OCR_THRESHOLD", "0.90"))
+    except (TypeError, ValueError):
+        return 0.90
+
+
+def _dealer_document_for_client(document):
+    """Return signed document data without exposing raw OCR text."""
+    client_document = _with_private_dealer_document_url(dict(document or {}))
+    client_document.pop("ocr_raw_text", None)
+    ocr_status = dealer_document_ocr_status(document, threshold=_ocr_threshold())
+    client_document.update({
+        "ocr_status": ocr_status["status"],
+        "ocr_message": ocr_status["message"],
+        "ocr_threshold": ocr_status["threshold"],
+    })
+    return client_document
 
 
 def _token_required(function):
@@ -49,7 +71,7 @@ def get_dealer_documents(current_user):
         if resp.status_code != 200:
             return jsonify({"error": "Failed to fetch documents"}), 500
 
-        docs = [_with_private_dealer_document_url(doc) for doc in resp.json()]
+        docs = [_dealer_document_for_client(doc) for doc in resp.json()]
         readiness, readiness_error = _get_dealer_application_readiness(current_user)
         if readiness_error:
             return jsonify({"error": readiness_error}), 500
@@ -166,11 +188,40 @@ def upload_dealer_document(current_user):
             except ValueError:
                 return jsonify({"error": "Invalid expiry date"}), 400
         elif document_type == "trade_license" and not expires_at_iso:
+            low_quality_ocr = dealer_document_ocr_status(
+                {
+                    "document_type": document_type,
+                    "ocr_confidence": (ocr_payload or {}).get("confidence", 0.0),
+                    "ocr_scanned_at": _isoformat_utc(_utc_now()),
+                    "ocr_expires_at": None,
+                },
+                threshold=_ocr_threshold(),
+            )
+            try:
+                quality_alert = _notify_dealer_document_quality_alert(
+                    current_user,
+                    {
+                        "document_type": document_type,
+                        "ocr_confidence": (ocr_payload or {}).get("confidence", 0.0),
+                        "ocr_scanned_at": _isoformat_utc(_utc_now()),
+                        "ocr_expires_at": None,
+                    },
+                    request_origin=request.headers.get("Origin"),
+                    threshold=_ocr_threshold(),
+                )
+                logger.info("dealer document quality alert: %s", quality_alert)
+            except Exception as alert_error:
+                logger.warning("dealer document quality alert failed: %s", alert_error)
             return jsonify(
                 {
                     "error": "We could not read the trade license expiry date. Upload a clearer document or enter the expiry date manually.",
                     "code": "trade_license_expiry_not_detected",
-                    "ocr": {"confidence": ocr_payload.get("confidence", 0.0) if ocr_payload else 0.0},
+                    "ocr": {
+                        "status": low_quality_ocr["status"],
+                        "confidence": low_quality_ocr["confidence"],
+                        "threshold": low_quality_ocr["threshold"],
+                        "message": low_quality_ocr["message"],
+                    },
                 }
             ), 422
 
@@ -279,18 +330,45 @@ def upload_dealer_document(current_user):
         # threshold, queue a delayed auto-approval. The minute-tick worker
         # re-verifies at fire time, so a doc-replace between upload and fire
         # is handled safely.
+        schedule_result = {"scheduled": False, "reason": "not_run"}
         try:
             schedule_result = _schedule_dealer_auto_approval_if_eligible(current_user)
             logger.info("dealer auto-approval schedule: %s", schedule_result)
         except Exception as exc:
             logger.warning("dealer auto-approval scheduling failed: %s", exc)
 
-        safe_docs = [_with_private_dealer_document_url(doc) for doc in all_docs]
+        persisted_doc = next(
+            (doc for doc in all_docs if str(doc.get("id")) == str(doc_data.get("id"))),
+            doc_data,
+        )
+        quality_alert = {"needed": False, "email_sent": False, "push_sent": False}
+        try:
+            quality_alert = _notify_dealer_document_quality_alert(
+                current_user,
+                persisted_doc,
+                request_origin=request.headers.get("Origin"),
+                threshold=_ocr_threshold(),
+            )
+            logger.info("dealer document quality alert: %s", quality_alert)
+        except Exception as alert_error:
+            # A notification provider must never turn a successful document
+            # upload into a failed request.
+            logger.warning("dealer document quality alert failed: %s", alert_error)
+        safe_doc = _dealer_document_for_client(persisted_doc)
+        safe_docs = [_dealer_document_for_client(doc) for doc in all_docs]
         return jsonify({
             "message": "Document uploaded successfully",
-            "document": _with_private_dealer_document_url(doc_data),
+            "document": safe_doc,
             "documents": safe_docs,
             "readiness": readiness,
+            "ocr": {
+                "status": safe_doc["ocr_status"],
+                "confidence": safe_doc.get("ocr_confidence") or 0.0,
+                "threshold": safe_doc["ocr_threshold"],
+                "message": safe_doc["ocr_message"],
+            },
+            "auto_approval": schedule_result,
+            "quality_alert": quality_alert,
         }), 200
 
     except Exception as e:
@@ -473,6 +551,7 @@ def register_dealer_verification_routes(app, backend_symbols):
         "ensure_storage_bucket",
         "upload_to_supabase_storage",
         "_send_dealer_verification_update_admin_notification",
+        "_notify_dealer_document_quality_alert",
     ):
         def _live_helper(*args, _name=name, **kwargs):
             return backend_symbols[_name](*args, **kwargs)
