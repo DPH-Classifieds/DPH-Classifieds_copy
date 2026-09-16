@@ -1,6 +1,6 @@
 # DPH Bot
 
-Independent Devvit posting app. It reads a prepared, versioned rolling 48-hour
+Independent Devvit posting app. It reads a prepared, versioned Reddit-only
 roundup from the GitHub Contents API and posts it to the installation subreddit.
 The backend prepares the payload; this app is the only Reddit submitter.
 
@@ -17,8 +17,9 @@ The backend prepares the payload; this app is the only Reddit submitter.
 The scheduled job is daily at 12:00 PM Dubai time (08:00 UTC). It has an
 exactly-once daily guard; consecutive daily posts deliberately overlap by 48
 hours because each contains the preceding rolling 72-hour window. Titles use
-the format `[31 Aug - 2 Sept] Cars listed in the last 3 days`. Imported rows
-link to their original Reddit post. On a quiet cycle (no cars in the last 72
+the format `[31 Aug - 2 Sept] Cars listed in the last 3 days`. Every row links
+to its original Reddit post; native DPH website listings are not included. On
+a quiet cycle (no Reddit cars in the last 72
 hours), the backend widens its lookback (7 → 14 → 30 days) before publishing,
 so the bot still posts daily in the same format; the day count in the title
 reflects whatever window was actually used.

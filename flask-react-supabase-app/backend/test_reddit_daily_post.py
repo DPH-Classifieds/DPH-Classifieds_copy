@@ -8,6 +8,33 @@ from workers.reddit_daily_post_worker import (
 SITE = "https://www.dphclassifieds.com"
 
 
+def test_fetch_listings_only_requests_reddit_source_rows(monkeypatch):
+    """The Reddit roundup must never include native DPH website listings."""
+    import workers.reddit_daily_post_worker as worker
+
+    calls = []
+
+    def fake_supabase_request(method, path, data=None, params=None):
+        calls.append((method, path, params))
+        assert params["source_platform"] == "eq.reddit"
+        return ([{
+            "id": "reddit-1",
+            "source_platform": "reddit",
+            "source_url": "https://www.reddit.com/r/DubaiPetrolHeads/comments/reddit-1",
+        }], 200)
+
+    monkeypatch.setattr(worker, "supabase_request", fake_supabase_request)
+
+    rows = worker._fetch_listings("2026-09-01T00:00:00+00:00", "2026-09-02T00:00:00+00:00")
+
+    assert len(calls) == 1
+    assert rows == [{
+        "id": "reddit-1",
+        "source_platform": "reddit",
+        "source_url": "https://www.reddit.com/r/DubaiPetrolHeads/comments/reddit-1",
+    }]
+
+
 def test_price():
     assert _format_price(450000) == "AED 450,000"
     assert _format_price("120000.0") == "AED 120,000"

@@ -1,9 +1,9 @@
 """Daily Reddit roundup poster (backend worker only).
 
-Once a day, submits a self-post to r/DubaiPetrolHeads listing the cars that went
-live on DPH Classifieds during the previous three full days. Each row shows year / make
-/ model / price and a link: DPH listings link to the site, Reddit-imported
-listings link back to their original post.
+Once a day, submits a self-post to r/DubaiPetrolHeads listing the cars imported
+from Reddit during the previous three full days. Each row shows year / make /
+model / price and links back to its original Reddit post. Native DPH website
+listings are intentionally excluded from this roundup.
 
 Distinct from reddit_import_worker (which READS Reddit). This WRITES, so it needs
 a user-context token (refresh_token grant) from the DPH account — see
@@ -257,6 +257,12 @@ def _window(days=1):
 
 
 def _fetch_listings(since_iso, until_iso):
+    """Fetch only approved listings whose source is Reddit.
+
+    This is the source boundary for both Reddit posting paths: the legacy
+    direct poster and the GitHub bridge consumed by Devvit. Keep the filter in
+    the provider query so native DPH rows cannot enter the roundup payload.
+    """
     rows = []
     for q in LISTING_QUERIES:
         # Two predicates on created_at → PostgREST `and=(...)` group (a params
@@ -267,6 +273,7 @@ def _fetch_listings(since_iso, until_iso):
                 "select": q["select"],
                 "is_approved": "eq.true",
                 "status": "in.(approved,active)",
+                "source_platform": "eq.reddit",
                 "and": f"(created_at.gte.{since_iso},created_at.lt.{until_iso})",
                 "order": "created_at.desc",
             },
