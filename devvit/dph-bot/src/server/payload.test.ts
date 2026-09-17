@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {validateRoundupPayload} from './payload.js'
+import {normalizeRoundupPost, validateRoundupPayload} from './payload.js'
 
 const base = {
   schema: 'dph-reddit-roundup/v2',
@@ -27,4 +27,22 @@ test('rejects an empty post body', () => {
     () => validateRoundupPayload({...base, posts: [{title: 'Cars', body: '  '}]}),
     /incomplete post/,
   )
+})
+
+test('normalizes mileage and odometer to the canonical Odometer display label', () => {
+  const post = normalizeRoundupPost({
+    title: 'Mileage: 88,000 km cars',
+    body: [
+      'Mileage: 88,000 km',
+      '',
+      '| Year | Make | Mileage (km) | Price |',
+      '|:---:|:---|---:|---:|',
+      '| 2020 | Toyota | 88,000 km | AED 50,000 |',
+    ].join('\n'),
+  })
+
+  assert.equal(post.title, 'Odometer: 88,000 km cars')
+  assert.match(post.body, /Odometer: 88,000 km/)
+  assert.match(post.body, /\| Year \| Make \| Odometer \| Price \|/)
+  assert.match(post.body, /\| 2020 \| Toyota \| 88,000 km \| AED 50,000 \|/)
 })

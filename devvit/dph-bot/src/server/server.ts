@@ -3,7 +3,7 @@ import {context, reddit, redis, settings} from '@devvit/web/server'
 import type {PartialJsonValue, TriggerResponse, UiResponse} from '@devvit/web/shared'
 import {flairMatches} from './flair.js'
 import {verifyPayloadSignature} from './hmac.js'
-import {validateRoundupPayload} from './payload.js'
+import {normalizeRoundupPost, validateRoundupPayload} from './payload.js'
 
 type AppResponse = TriggerResponse | UiResponse | {error: string; status: number}
 const FORCE_REPOST_COOLDOWN_MS = 10 * 60 * 1000
@@ -101,7 +101,8 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   for (const [index, item] of posts.entries()) {
     const postedKey = `${postedKeyPrefix}:${index}`
     if (!force && await redis.get(postedKey)) continue
-    const post = await reddit.submitPost({subredditName: targetSubreddit, title: item.title!, text: item.body!})
+    const normalized = normalizeRoundupPost({title: item.title!, body: item.body!})
+    const post = await reddit.submitPost({subredditName: targetSubreddit, title: normalized.title, text: normalized.body})
     // Flair passed inline to submitPost doesn't reliably render; the dedicated
     // flair endpoint does.
     await reddit.setPostFlair({postId: post.id, subredditName: targetSubreddit, flairTemplateId: flair.id, text: flair.text})
