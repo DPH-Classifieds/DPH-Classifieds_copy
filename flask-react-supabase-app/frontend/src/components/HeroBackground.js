@@ -113,7 +113,7 @@ const EnergyRings = () => {
   );
 };
 
-const Scene3D = ({ active }) => {
+const Scene3D = ({ active, onContextLost }) => {
   return (
     <Canvas
       camera={{ position: [0, 0, 8], fov: 50 }}
@@ -121,6 +121,14 @@ const Scene3D = ({ active }) => {
       gl={{ alpha: true }}
       dpr={[1, 1.5]}
       frameloop={active ? 'always' : 'never'}
+      onCreated={({ gl }) => {
+        const canvas = gl.domElement;
+        const handleContextLost = (event) => {
+          event.preventDefault();
+          onContextLost?.();
+        };
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+      }}
     >
       <ambientLight intensity={0.3} />
       <pointLight position={[8, 8, 8]} intensity={1.1} color="#8de191" />
@@ -146,6 +154,7 @@ const HeroBackground = () => {
     typeof document === 'undefined' || document.visibilityState === 'visible'
   );
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -178,7 +187,9 @@ const HeroBackground = () => {
 
   return (
     <div ref={containerRef} className="cn-hero-3d" aria-hidden="true">
-      <Scene3D active={active} />
+      {!webglUnavailable && (
+        <Scene3D active={active} onContextLost={() => setWebglUnavailable(true)} />
+      )}
       <div className="cn-hero-3d-overlay" />
     </div>
   );

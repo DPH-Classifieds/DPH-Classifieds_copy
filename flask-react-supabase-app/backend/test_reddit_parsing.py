@@ -59,6 +59,11 @@ def test_mileage_prefers_odometer_label():
     assert _parse_mileage(GOLF) == 239000
 
 
+def test_mileage_accepts_odometer_and_mileage_unit_variants():
+    assert _parse_mileage("Mileage (km): 88,000") == 88000
+    assert _parse_mileage("Odometer reading - 72k km") == 72000
+
+
 def test_description_keeps_line_breaks():
     body = _scrub_pii_keep_lines(DEFENDER)
     assert "\n" in body                          # layout preserved, not flattened

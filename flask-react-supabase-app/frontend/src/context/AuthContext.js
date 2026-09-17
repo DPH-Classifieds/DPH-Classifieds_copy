@@ -4,6 +4,11 @@ import { supabase, getSession } from '../utils/supabaseClient';
 import { trackEvent } from '../utils/analytics';
 
 const AuthContext = createContext();
+const authTrace = (...args) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(...args);
+  }
+};
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -18,18 +23,18 @@ export const AuthProvider = ({ children }) => {
   // Function to sync with Supabase's session
   const syncWithSupabase = async ({ forceBackendCheck = false } = {}) => {
     if (isAuthCheckingRef.current) {
-      console.log('Auth check already in progress, skipping');
+      authTrace('Auth check already in progress, skipping');
       return false;
     }
 
     isAuthCheckingRef.current = true;
-    console.log('Syncing auth state with Supabase');
+    authTrace('Syncing auth state with Supabase');
 
     try {
       // First, refresh the Supabase session to ensure we have a fresh token
       const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
       if (refreshedSession?.access_token) {
-        console.log('Session refreshed, storing new token');
+        authTrace('Session refreshed, storing new token');
         authService.setAuthHeader(refreshedSession.access_token);
       }
 
@@ -38,7 +43,7 @@ export const AuthProvider = ({ children }) => {
         const { user: backendUser, error: userError } = await authService.getCurrentUser(forceBackendCheck);
 
         if (backendUser) {
-          console.log('Backend user found:', backendUser.email, 'Admin:', backendUser.is_admin);
+          authTrace('Backend user found:', backendUser.email, 'Admin:', backendUser.is_admin);
           // Keep any existing values but update with backend data
           setUser(prevUser => ({
             ...(prevUser || {}),
@@ -57,7 +62,7 @@ export const AuthProvider = ({ children }) => {
       // Continue with Supabase session check as backup
       const { session, error } = await getSession();
       
-      console.log('Supabase session check result:', { 
+      authTrace('Supabase session check result:', {
         hasSession: !!session, 
         hasUser: !!(session?.user),
         error: error || 'none',
@@ -65,8 +70,8 @@ export const AuthProvider = ({ children }) => {
       });
       
       if (session && session.user) {
-        console.log('Supabase session found, setting user:', session.user.email);
-        console.log('Access token exists:', !!session.access_token);
+        authTrace('Supabase session found, setting user:', session.user.email);
+        authTrace('Access token exists:', !!session.access_token);
         
         // Include the access_token and full session data in the user object
         const enhancedUser = {
@@ -75,7 +80,7 @@ export const AuthProvider = ({ children }) => {
           session: session
         };
         
-        console.log('Setting enhanced user object with access_token');
+        authTrace('Setting enhanced user object with access_token');
         setUser(enhancedUser);
         
         // Force update the authService's headers with new token
@@ -83,12 +88,12 @@ export const AuthProvider = ({ children }) => {
         
         return true;
       } else if (user) {
-        console.log('Supabase session not found, but AuthContext has user:', user.email);
+        authTrace('Supabase session not found, but AuthContext has user:', user.email);
         
         // Try to recover token from storage if it exists
         const storedToken = authService.getAccessToken();
         if (storedToken && !user.access_token) {
-          console.log('Recovering access token from storage');
+          authTrace('Recovering access token from storage');
           
           // Let's validate the token before using it
           try {
@@ -101,7 +106,7 @@ export const AuthProvider = ({ children }) => {
             });
             
             if (response.ok) {
-              console.log('Recovered token is valid');
+              authTrace('Recovered token is valid');
               const updatedUser = {
                 ...user,
                 access_token: storedToken
@@ -118,11 +123,11 @@ export const AuthProvider = ({ children }) => {
               authService.clearAuthData();
               
               // Let's try to refresh the session
-              console.log('Attempting to refresh the session...');
+              authTrace('Attempting to refresh the session...');
               const { data } = await supabase.auth.refreshSession();
               
               if (data?.session?.access_token) {
-                console.log('Session refreshed successfully');
+                authTrace('Session refreshed successfully');
                 const refreshedUser = {
                   ...user,
                   access_token: data.session.access_token
@@ -143,12 +148,12 @@ export const AuthProvider = ({ children }) => {
         // If we have a user but no valid token, we should try to reauthenticate
         return false;
       } else {
-        console.log('No session or user found in context');
+        authTrace('No session or user found in context');
         
         // Try to recover token from storage if it exists
         const storedToken = authService.getAccessToken();
         if (storedToken) {
-          console.log('Found token in storage, but no user - attempting to validate token');
+          authTrace('Found token in storage, but no user - attempting to validate token');
           
           try {
             // Attempt a simple validation request to Supabase
@@ -160,11 +165,11 @@ export const AuthProvider = ({ children }) => {
             });
             
             if (response.ok) {
-              console.log('Token is valid, retrieving user details');
+              authTrace('Token is valid, retrieving user details');
               const userData = await response.json();
               
               if (userData) {
-                console.log('User data retrieved from token validation');
+                authTrace('User data retrieved from token validation');
                 const recoveredUser = {
                   ...userData,
                   access_token: storedToken
@@ -207,7 +212,7 @@ export const AuthProvider = ({ children }) => {
         const { user: backendUser, error: userError } = await authService.getCurrentUser();
         
         if (backendUser) {
-          console.log('Backend user found:', backendUser.email);
+          authTrace('Backend user found:', backendUser.email);
           setUser(backendUser);
           // Refresh the Supabase token so downstream API calls (saved-listings,
           // dealer/me, etc.) have a valid JWT by the time isLoading goes false.
@@ -313,7 +318,7 @@ export const AuthProvider = ({ children }) => {
 
       // Update user state - Use user data from the login response directly if available
       if (data && data.user) {
-        console.log("Login successful, using user data from response:", data.user.email);
+        authTrace("Login successful, using user data from response:", data.user.email);
         setUser(data.user);
         
         // Also sync with Supabase after login
@@ -323,7 +328,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       // If the login response doesn't include user data, try to fetch it
-      console.log("Login successful, fetching user data");
+      authTrace("Login successful, fetching user data");
       try {
         const { user, error: userError } = await authService.getCurrentUser(true);
         
@@ -333,7 +338,7 @@ export const AuthProvider = ({ children }) => {
         }
         
         if (user) {
-          console.log("User data successfully retrieved:", user.email);
+          authTrace("User data successfully retrieved:", user.email);
           setUser(user);
           
           // Also sync with Supabase after login
@@ -350,7 +355,7 @@ export const AuthProvider = ({ children }) => {
           email: email,
           id: data.user?.id || "unknown"
         };
-        console.log("Setting minimal user data:", minimalUser);
+        authTrace("Setting minimal user data:", minimalUser);
         setUser(minimalUser);
         
         // Also sync with Supabase after login

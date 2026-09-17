@@ -205,6 +205,15 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertTrue(result["label_matched"])
         self.assertGreaterEqual(result["confidence"], 0.99)
 
+    def test_trade_license_expiry_accepts_named_month_and_rtl_extraction_order(self):
+        result = registration_ocr.extract_trade_license_expiry(
+            "تاريخ الإنتهاء 2026 Nov 23 Date Expiry",
+            [{"text": "2026 Nov 23", "conf": 1.0}],
+        )
+        self.assertEqual(result["expires_at"], "2026-11-23")
+        self.assertTrue(result["label_matched"])
+        self.assertEqual(result["confidence"], 1.0)
+
     def test_trade_license_expiry_scores_date_split_across_ocr_boxes(self):
         result = registration_ocr.extract_trade_license_expiry(
             "Expiry Date 31 / 12 / 2027",

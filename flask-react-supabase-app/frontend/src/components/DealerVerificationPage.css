@@ -331,6 +331,11 @@
   border: 1px solid var(--dvp-row-border);
 }
 
+.dvp-item-ok {
+  border-color: rgba(74, 181, 104, 0.42);
+  background: linear-gradient(135deg, rgba(143, 230, 148, 0.13), var(--dvp-row-bg));
+}
+
 .dvp-item-dot {
   flex: 0 0 28px;
   height: 28px;

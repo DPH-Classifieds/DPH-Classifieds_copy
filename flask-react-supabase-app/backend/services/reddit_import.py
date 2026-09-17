@@ -423,10 +423,18 @@ def _parse_year(text: str, now: datetime) -> Optional[int]:
 def _parse_mileage(text: str) -> Optional[int]:
     low = text.lower()
     # 1. Labeled odometer/mileage is the reliable signal ("Odometer: 71,350",
-    #    "Odo: 272K"). Beats an in-body "service done at 64k kms". Read the
-    #    entire line so placeholders such as "115,xxx" cannot be truncated to
-    #    the misleading number 115.
-    m = re.search(r"(?im)^\s*(?:odometer|odo|mileage|kms?\s*driven)\s*[:\-]?\s*([^\n]+)", text or "")
+    #    "Mileage (km): 272K"). Beats an in-body "service done at 64k kms".
+    #    Accept both labels and common unit/reading qualifiers, while reading
+    #    the entire line so placeholders such as "115,xxx" cannot be truncated
+    #    to the misleading number 115.
+    m = re.search(
+        r"(?im)^\s*(?:odometer|odo|mileage|mileage\s*reading|"
+        r"miles?\s*driven|kms?\s*driven)"
+        r"(?:\s*(?:reading|value))?"
+        r"(?:\s*\(?\s*(?:km|kms|kilometres|kilometers)\s*\)?)?"
+        r"\s*[:\-]?\s*([^\n]+)",
+        text or "",
+    )
     if m:
         value = m.group(1).strip().lower()
         if re.match(r"^\d[\d,]*\s*x", value):

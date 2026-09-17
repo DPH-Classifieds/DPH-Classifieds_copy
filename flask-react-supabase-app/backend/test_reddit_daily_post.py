@@ -92,6 +92,13 @@ def test_mileage_normalizes_reddit_shorthand():
     assert _format_mileage("137,000") == "137,000 km"
 
 
+def test_row_uses_legacy_mileage_or_odometer_when_canonical_field_is_empty():
+    row = {"kilometer_driven": 0, "mileage": "88k", "odometer": "72k"}
+    assert _row_cells(row, SITE)[3] == "88,000 km"
+    row = {"kilometer_driven": None, "odometer": "72k"}
+    assert _row_cells(row, SITE)[3] == "72,000 km"
+
+
 def test_row_and_post():
     rows = [
         {"id": "1", "make_year": 2021, "car_manufacturer": "Nissan", "car_model": "GT-R",

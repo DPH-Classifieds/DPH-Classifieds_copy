@@ -257,6 +257,7 @@ def _build_content_security_policy():
         [
             "https://challenges.cloudflare.com",
             "https://www.googletagmanager.com",
+            "https://static.cloudflareinsights.com",
         ]
     )
     return (
@@ -267,7 +268,8 @@ def _build_content_security_policy():
         "img-src 'self' data: blob: https://*.supabase.co https://*.railway.app "
         "https://tile.openstreetmap.org https://*.tile.openstreetmap.org; "
         "connect-src 'self' https://*.supabase.co https://dph-classifieds-production.up.railway.app "
-        "https://dphclassifieds.com https://www.dphclassifieds.com https://challenges.cloudflare.com; "
+        "https://dphclassifieds.com https://www.dphclassifieds.com https://challenges.cloudflare.com "
+        "https://cloudflareinsights.com https://static.cloudflareinsights.com; "
         "frame-src https://challenges.cloudflare.com;"
     )
 

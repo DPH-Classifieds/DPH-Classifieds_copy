@@ -147,12 +147,9 @@ export const getBestAccessToken = async () => {
       }
     }
 
-    // Missing token IS signal (every API call will 401 from here), so keep
-    // this one at warn level — once per page is fine, it's not in a hot loop.
-    if (!_seenTraceKeys.has('no-token')) {
-      _seenTraceKeys.add('no-token');
-      console.warn('No valid token found — all sources expired or missing');
-    }
+    // Anonymous pages are expected to have no token. Keep this diagnostic
+    // behind the existing opt-in auth trace flag instead of alarming users.
+    _trace('no-token', 'No valid token found — all sources expired or missing');
     return null;
   } catch (error) {
     console.error('getBestAccessToken error:', error);

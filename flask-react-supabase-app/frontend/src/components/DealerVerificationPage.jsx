@@ -39,13 +39,20 @@ export function guessDocumentType(filename, remainingTypes = []) {
   return remainingTypes[0] || 'trade_license';
 }
 
-function statusChipForDoc(doc) {
+export function statusChipForDoc(doc) {
   const status = String(doc?.status || '').toLowerCase();
-  if (status === 'approved') return { label: 'Approved', kind: 'success' };
-  if (status === 'denied') return { label: 'Denied', kind: 'danger' };
+  if (status === 'denied' || status === 'rejected') return { label: 'Denied', kind: 'danger' };
+  // An admin decision is authoritative even for older rows that predate the
+  // OCR fields. Accepted/verified are retained as compatibility statuses for
+  // review providers that do not use the canonical `approved` value.
+  if (['approved', 'accepted', 'verified'].includes(status)) return { label: 'Accepted — no re-upload needed', kind: 'success' };
+  // A passed OCR check means the file is readable and should not be presented
+  // as something the dealer needs to replace while it waits for final review.
+  if (doc?.ocr_status === 'passed') return { label: 'Automatic check passed', kind: 'success' };
   if (doc?.ocr_status === 'needs_clearer_scan' || doc?.ocr_status === 'needs_manual_expiry') {
     return { label: 'Needs clearer document', kind: 'danger' };
   }
+  if (doc?.ocr_status === 'not_scanned') return { label: 'Scan pending — no re-upload needed yet', kind: 'pending' };
   if (status === 'pending') return { label: 'Pending review', kind: 'pending' };
   return { label: 'Awaiting upload', kind: 'muted' };
 }

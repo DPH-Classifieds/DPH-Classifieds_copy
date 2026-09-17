@@ -159,3 +159,32 @@ def test_platform_analytics_duplicate_insert_returns_200_duplicate_envelope():
     assert response.status_code == 200
     assert response.get_json() == {"success": True, "duplicate": True}
     assert insert.call_count == 1
+
+
+def test_platform_analytics_retries_without_event_id_for_legacy_schema():
+    missing_event_id = {
+        "code": "42703",
+        "message": 'column "event_id" of relation "platform_events" does not exist',
+    }
+
+    with patch.object(
+        backend,
+        "supabase_request",
+        side_effect=[(missing_event_id, 400), ({}, 201)],
+    ) as insert:
+        response = backend.app.test_client().post(
+            "/api/analytics/events",
+            json={
+                "event_id": EVENT_ID,
+                "event_name": "page_view",
+                "page_path": "/",
+                "visitor_id": "visitor-1",
+                "session_id": "session-1",
+            },
+        )
+
+    assert response.status_code == 201
+    assert response.get_json() == {"success": True}
+    assert insert.call_count == 2
+    legacy_row = insert.call_args.kwargs["data"]
+    assert all(field not in legacy_row for field in ("event_id", "platform", "occurred_at", "received_at"))

@@ -123,6 +123,26 @@ def track_platform_event():
             data=row,
             use_service_role=True,
         )
+        # Older staging databases may have the original platform_events
+        # schema, which predates the idempotency and timing fields. Retry once
+        # without those additive fields while the migration is being applied;
+        # all new environments still use the canonical schema.
+        if status_code >= 400:
+            error_text = str(response).lower()
+            legacy_fields = {"event_id", "platform", "occurred_at", "received_at"}
+            if "column" in error_text and any(field in error_text for field in legacy_fields):
+                legacy_row = {
+                    key: value for key, value in row.items() if key not in legacy_fields
+                }
+                logger.warning(
+                    "platform_events is missing event_id; retrying legacy insert until schema migration is applied"
+                )
+                response, status_code = backend.supabase_request(
+                    "post",
+                    "/rest/v1/platform_events",
+                    data=legacy_row,
+                    use_service_role=True,
+                )
         if status_code >= 400 and (
             status_code == 404
             or "does not exist" in str(response).lower()

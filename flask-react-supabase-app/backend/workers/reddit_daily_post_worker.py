@@ -138,6 +138,15 @@ def _format_mileage(value) -> str:
     return "—"
 
 
+def _row_mileage(row) -> object:
+    """Return the first usable odometer value across legacy field names."""
+    for field in ("kilometer_driven", "mileage", "odometer"):
+        value = row.get(field)
+        if value not in (None, "", 0, "0"):
+            return value
+    return None
+
+
 def _row_cells(row, site_url=SITE_URL, link_as_url=False):
     """One listing → 6 cells with a source-aware destination and label."""
     link = _listing_url(row, site_url)
@@ -147,7 +156,7 @@ def _row_cells(row, site_url=SITE_URL, link_as_url=False):
         _cell(row.get("make_year")),
         _cell(row.get("car_manufacturer")),
         _cell(row.get("car_model")),
-        _format_mileage(row.get("kilometer_driven")),
+        _format_mileage(_row_mileage(row)),
         _format_price(row.get("expected_selling_price")),
         link if link_as_url else f"[{link_label}]({link})",
     ]

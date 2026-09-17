@@ -43,7 +43,19 @@ _LABEL_VALUE_WINDOW = 60
 # a misread, not a date.
 _MAX_EXPIRY_YEARS_AHEAD = 30
 _DATE_RE = re.compile(
-    r"(?<!\d)(?:\d{1,4}(?:\s*[./-]\s*|\s+)\d{1,2}(?:\s*[./-]\s*|\s+)\d{1,4})(?!\d)"
+    r"(?<!\d)(?:"
+    r"\d{1,4}(?:\s*[./-]\s*|\s+)\d{1,2}(?:\s*[./-]\s*|\s+)\d{1,4}"
+    r"|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
+    r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|"
+    r"Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{2,4}"
+    r"|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|"
+    r"Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|"
+    r"Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},?\s+\d{2,4}"
+    r"|\d{4}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
+    r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|"
+    r"Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}"
+    r")(?!\d)",
+    re.IGNORECASE,
 )
 _TRN_RE = re.compile(
     r"(?<!\d)(?:(?:\d|[٠-٩])[\s-]*){15}(?!\d|[٠-٩])"
@@ -256,7 +268,39 @@ def _label_confidence(label_pattern, lines):
 
 
 def _parse_document_date(candidate):
-    parts = [part for part in re.findall(r"\d+", _normalise_document_digits(candidate))]
+    normalised = re.sub(r"\s+", " ", _normalise_document_digits(candidate)).strip()
+    month_names = {
+        "jan": 1, "january": 1, "feb": 2, "february": 2,
+        "mar": 3, "march": 3, "apr": 4, "april": 4,
+        "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+        "aug": 8, "sep": 9, "sept": 9, "september": 9,
+        "oct": 10, "october": 10, "nov": 11, "november": 11,
+        "dec": 12, "december": 12,
+    }
+    named = re.fullmatch(
+        r"(?:(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})|"
+        r"([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{2,4})|"
+        r"(\d{4})\s+([A-Za-z]+)\s+(\d{1,2}))",
+        normalised,
+    )
+    if named:
+        try:
+            if named.group(1):
+                day, month_name, year = int(named.group(1)), named.group(2), int(named.group(3))
+            elif named.group(4):
+                month_name, day, year = named.group(4), int(named.group(5)), int(named.group(6))
+            else:
+                year, month_name, day = int(named.group(7)), named.group(8), int(named.group(9))
+            month = month_names.get(month_name.lower())
+            if month is None:
+                return None
+            if year < 100:
+                year += 2000
+            return datetime(year, month, day).date()
+        except (TypeError, ValueError):
+            return None
+
+    parts = [part for part in re.findall(r"\d+", normalised)]
     if len(parts) != 3:
         return None
     try:
@@ -319,6 +363,16 @@ def _nearest_preceding_label(text, position):
     return "expiry" if expiry_end > issue_end else "issue"
 
 
+def _nearest_following_label(text, position):
+    """Handle RTL PDF text extraction that places the English label after its value."""
+    window = text[position:position + _LABEL_VALUE_WINDOW]
+    expiry_start = min((m.start() for m in _EXPIRY_LABEL_RE.finditer(window)), default=-1)
+    issue_start = min((m.start() for m in _ISSUE_LABEL_RE.finditer(window)), default=-1)
+    if expiry_start < 0 and issue_start < 0:
+        return None
+    return "expiry" if expiry_start >= 0 and (issue_start < 0 or expiry_start < issue_start) else "issue"
+
+
 def _plausible_document_dates(text):
     """(date, source_text, label_kind) for every parseable, plausible date."""
     horizon = datetime.now().year + _MAX_EXPIRY_YEARS_AHEAD
@@ -327,7 +381,10 @@ def _plausible_document_dates(text):
         parsed = _parse_document_date(match.group(0))
         if not parsed or not (2020 <= parsed.year <= horizon):
             continue
-        out.append((parsed, match.group(0), _nearest_preceding_label(text, match.start())))
+        label_kind = _nearest_preceding_label(text, match.start())
+        if label_kind is None:
+            label_kind = _nearest_following_label(text, match.end())
+        out.append((parsed, match.group(0), label_kind))
     return out
 
 
@@ -363,12 +420,28 @@ def extract_trade_license_expiry(raw_text, lines=None):
 
 
 def scan_trade_license_expiry(image_file, ocr_provider=None):
-    """Read trade-licence expiry evidence using bounded multi-pass OCR."""
+    """Read trade-licence expiry evidence using OCR plus PDF text fallback."""
     provider = ocr_provider or get_default_ocr_provider()
     candidates = []
-    for raw_text, lines in _ocr_dealer_variants(image_file, provider):
+    try:
+        ocr_results = _ocr_dealer_variants(image_file, provider)
+    except RuntimeError as exc:
+        # Keep image-only uploads pending during a provider outage, but do not
+        # turn a readable digital PDF into a false 0% result.
+        logger.warning("dealer OCR unavailable; trying embedded PDF text: %s", exc)
+        ocr_results = []
+    for raw_text, lines in ocr_results:
         result = extract_trade_license_expiry(raw_text, lines)
         candidates.append((raw_text, lines, result))
+
+    embedded = _extract_embedded_pdf_text(image_file)
+    if embedded:
+        raw_text, lines = embedded
+        result = extract_trade_license_expiry(raw_text, lines)
+        candidates.append((raw_text, lines, result))
+
+    if not candidates:
+        raise RuntimeError("dealer OCR unavailable")
     raw_text, lines, result = max(
         candidates,
         key=lambda item: (
@@ -857,6 +930,64 @@ def _render_pdf_first_page(image_file):
         raise ValueError("rendered PDF page dimensions are too large")
     bitmap = bitmap.to_pil()
     return bitmap
+
+
+def _extract_embedded_pdf_text(image_file):
+    """Read a PDF text layer when the remote OCR provider is unavailable.
+
+    Digital government licences often contain an accessible text layer. This
+    is deterministic evidence, so it is a safe recovery path for readable PDFs
+    during a provider outage; image-only PDFs still use PaddleOCR.
+    """
+    if not _looks_like_pdf(image_file):
+        return None
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        return None
+
+    original_position = image_file.tell()
+    try:
+        image_file.seek(0)
+        raw_pdf = image_file.read(_max_upload_bytes() + 1)
+        if len(raw_pdf) > _max_upload_bytes():
+            raise ValueError("image upload is too large")
+        pdf = pdfium.PdfDocument(raw_pdf)
+        if len(pdf) < 1:
+            raise ValueError("PDF upload must contain at least one page")
+        max_pages = max(1, _env_int("OCR_MAX_PDF_PAGES", DEFAULT_MAX_PDF_PAGES))
+        if len(pdf) > max_pages:
+            raise ValueError(f"PDF upload must contain at most {max_pages} pages")
+        page = pdf[0]
+        page_width, page_height = page.get_size()
+        max_page_points = max(
+            1, _env_int("OCR_MAX_PDF_PAGE_POINTS", DEFAULT_MAX_PDF_PAGE_POINTS)
+        )
+        max_page_side = max(
+            1, _env_int("OCR_MAX_PDF_PAGE_SIDE", DEFAULT_MAX_PDF_PAGE_SIDE)
+        )
+        if (
+            page_width <= 0
+            or page_height <= 0
+            or page_width > max_page_side
+            or page_height > max_page_side
+            or page_width * page_height > max_page_points
+        ):
+            raise ValueError("PDF page dimensions are too large")
+        text = page.get_textpage().get_text_range() or ""
+        if not text.strip():
+            return None
+        lines = [
+            {"text": line.strip(), "conf": 1.0}
+            for line in text.splitlines()
+            if line.strip()
+        ]
+        return text, lines
+    except (TypeError, ValueError, RuntimeError) as exc:
+        logger.warning("embedded dealer PDF text extraction failed: %s", exc)
+        return None
+    finally:
+        image_file.seek(original_position)
 
 
 def _build_ocr_variants(image):
