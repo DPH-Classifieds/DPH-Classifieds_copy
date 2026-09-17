@@ -137,6 +137,63 @@
   margin-bottom: 18px;
 }
 
+.dvp-guidance {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--dvp-row-border);
+  border-radius: 16px;
+  background: var(--dvp-row-bg);
+}
+
+.dvp-guidance-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-weight: 800;
+  background: rgba(255, 193, 7, 0.16);
+  color: var(--dvp-pending-text);
+}
+
+.dvp-guidance h2 {
+  margin: 0;
+  color: var(--dvp-text-strong);
+  font-size: 0.98rem;
+}
+
+.dvp-guidance p {
+  margin: 4px 0 0;
+  color: var(--dvp-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.dvp-guidance-success {
+  border-color: rgba(143, 230, 148, 0.35);
+  background: rgba(143, 230, 148, 0.08);
+}
+
+.dvp-guidance-success .dvp-guidance-icon {
+  background: rgba(143, 230, 148, 0.18);
+  color: var(--dvp-success-text);
+}
+
+.dvp-guidance-action {
+  border-color: rgba(255, 99, 99, 0.28);
+  background: rgba(255, 99, 99, 0.06);
+}
+
+.dvp-guidance-action .dvp-guidance-icon {
+  background: rgba(255, 99, 99, 0.16);
+  color: var(--dvp-danger-text);
+}
+
 .dvp-section-head {
   display: flex;
   justify-content: space-between;
@@ -151,6 +208,102 @@
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--dvp-text-strong);
+}
+
+.dvp-intake {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 18px;
+  border: 1px solid rgba(143, 230, 148, 0.24);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(143, 230, 148, 0.10), var(--dvp-row-bg));
+}
+
+.dvp-intake-copy {
+  min-width: 0;
+}
+
+.dvp-intake-copy .dvp-kicker {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+}
+
+.dvp-intake-copy h3 {
+  margin: 0;
+  color: var(--dvp-text-strong);
+  font-size: 1rem;
+}
+
+.dvp-intake-copy p {
+  max-width: 620px;
+  margin: 4px 0 0;
+  color: var(--dvp-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.dvp-intake > .dvp-item-hint {
+  grid-column: 2;
+  grid-row: 2;
+  text-align: center;
+}
+
+.dvp-upload-queue {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.dvp-upload-queue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--dvp-row-border);
+  border-radius: 10px;
+  background: var(--dvp-input-bg);
+}
+
+.dvp-upload-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dvp-text);
+  font-size: 0.84rem;
+}
+
+.dvp-upload-type select {
+  min-width: 170px;
+  padding: 7px 9px;
+  border: 1px solid var(--dvp-input-border);
+  border-radius: 8px;
+  background: var(--dvp-card-bg);
+  color: var(--dvp-text-strong);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.dvp-intake-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.dvp-intake-message-error {
+  color: var(--dvp-danger-text);
+}
+
+.dvp-intake-message-success {
+  color: var(--dvp-success-text);
 }
 
 .dvp-section-meta {
@@ -420,6 +573,18 @@
   font: inherit;
   padding: 0;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 /* Document upload controls on the checklist rows. */
 .dvp-item-upload {
   display: flex;
@@ -483,4 +648,44 @@
   flex-direction: column;
   gap: 4px;
   margin: 0;
+}
+
+@media (max-width: 640px) {
+  .dvp-shell {
+    padding: 22px 14px 48px;
+  }
+
+  .dvp-section {
+    padding: 18px 14px;
+    border-radius: 14px;
+  }
+
+  .dvp-header {
+    flex-direction: column;
+    margin-bottom: 18px;
+  }
+
+  .dvp-intake {
+    grid-template-columns: 1fr;
+  }
+
+  .dvp-intake > .dvp-button,
+  .dvp-intake > .dvp-item-hint {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .dvp-intake > .dvp-item-hint {
+    text-align: left;
+  }
+
+  .dvp-upload-queue-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dvp-upload-type,
+  .dvp-upload-type select {
+    width: 100%;
+  }
 }

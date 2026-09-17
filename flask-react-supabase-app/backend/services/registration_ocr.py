@@ -405,7 +405,7 @@ def dealer_document_ocr_status(document, threshold=DEFAULT_ACCEPTANCE_THRESHOLD)
             "status": "not_scanned",
             "confidence": confidence,
             "threshold": threshold,
-            "message": "Automatic document check is still pending.",
+            "message": "Your document is uploaded. The automatic scan is still pending; we will not approve it until the scan completes.",
         }
     if document.get("document_type") == "trade_license" and not document.get("ocr_expires_at"):
         return {

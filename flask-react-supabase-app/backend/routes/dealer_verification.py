@@ -176,7 +176,11 @@ def upload_dealer_document(current_user):
                 )
             except Exception as ocr_error:
                 logger.warning("Trade-license OCR unavailable for %s: %s", current_user, ocr_error)
-                ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
+                # Keep the upload usable during an OCR outage. The document is
+                # still stored as pending and is never auto-approved without a
+                # successful scan, but a transient provider/configuration
+                # failure must not force the dealer to discard a valid file.
+                ocr_payload = {"error": "ocr_unavailable", "raw_text": "", "confidence": 0.0}
         elif document_type == "tax_registration":
             try:
                 from services.registration_ocr import scan_trn_document
@@ -193,7 +197,7 @@ def upload_dealer_document(current_user):
                 )
             except Exception as ocr_error:
                 logger.warning("TRN OCR unavailable for %s: %s", current_user, ocr_error)
-                ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
+                ocr_payload = {"error": "ocr_unavailable", "raw_text": "", "confidence": 0.0}
         if raw_expires_at:
             try:
                 expires_at_dt = datetime.datetime.fromisoformat(raw_expires_at)
@@ -203,7 +207,11 @@ def upload_dealer_document(current_user):
                 expires_at_iso = expires_at_iso or manual_expiry
             except ValueError:
                 return jsonify({"error": "Invalid expiry date"}), 400
-        elif document_type == "trade_license" and not expires_at_iso:
+        elif (
+            document_type == "trade_license"
+            and not expires_at_iso
+            and not (ocr_payload or {}).get("error")
+        ):
             low_quality_ocr = dealer_document_ocr_status(
                 {
                     "document_type": document_type,
@@ -315,7 +323,11 @@ def upload_dealer_document(current_user):
         if ocr_payload is not None:
             insert_payload["ocr_confidence"] = (ocr_payload or {}).get("confidence")
             insert_payload["ocr_raw_text"] = (ocr_payload or {}).get("raw_text") or None
-            insert_payload["ocr_scanned_at"] = _isoformat_utc(_utc_now())
+            # A failed provider call is not a completed scan. Leaving this
+            # unset makes the dealer-facing status say that the check is still
+            # pending instead of falsely reporting a 0% document read.
+            if not (ocr_payload or {}).get("error"):
+                insert_payload["ocr_scanned_at"] = _isoformat_utc(_utc_now())
         if document_type == "trade_license":
             insert_payload["ocr_expires_at"] = (ocr_payload or {}).get("expires_at")
         insert_resp = requests.post(

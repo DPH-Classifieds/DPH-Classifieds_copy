@@ -9,6 +9,7 @@ import './DealerVerificationPage.css';
 
 const DOC_ACCEPT = '.jpg,.jpeg,.png,.pdf';
 const DOC_MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BATCH_DOCUMENTS = 2;
 
 const POLL_INTERVAL_MS = 8000;
 
@@ -29,6 +30,13 @@ function formatDate(value) {
 export function formatConfidence(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(1)}%` : '—';
+}
+
+export function guessDocumentType(filename, remainingTypes = []) {
+  const name = String(filename || '').toLowerCase();
+  if (/(^|[^a-z])(trn|tax|vat)([^a-z]|$)/.test(name)) return 'tax_registration';
+  if (/(^|[^a-z])(trade|license|licence)([^a-z]|$)/.test(name)) return 'trade_license';
+  return remainingTypes[0] || 'trade_license';
 }
 
 function statusChipForDoc(doc) {
@@ -74,6 +82,9 @@ const DealerVerificationPage = () => {
 
   const [uploadingDocType, setUploadingDocType] = useState(null);
   const [uploadError, setUploadError] = useState(null);
+  const [batchFiles, setBatchFiles] = useState([]);
+  const [batchError, setBatchError] = useState(null);
+  const [batchSuccess, setBatchSuccess] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   // The backend rejects a trade licence whose expiry the document checker can't read and
   // tells the dealer to "enter the expiry date manually" — so give them a way.
@@ -161,8 +172,8 @@ const DealerVerificationPage = () => {
 
   // The checklist used to say "Awaiting upload" with nowhere to upload, so a
   // dealer who signed up could never finish verification from this page.
-  const sendDocument = async (documentType, file, expiresAt) => {
-    const token = await getAccessToken();
+  const sendDocument = async (documentType, file, expiresAt, tokenOverride) => {
+    const token = tokenOverride || await getAccessToken();
     const body = new FormData();
     body.append('file', file);
     body.append('document_type', documentType);
@@ -174,6 +185,71 @@ const DealerVerificationPage = () => {
     });
     const data = await response.json().catch(() => ({}));
     return { ok: response.ok, data };
+  };
+
+  const onSelectBatchDocuments = (event) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = '';
+    setBatchError(null);
+    setBatchSuccess(null);
+    if (!selected.length) return;
+    if (selected.length > MAX_BATCH_DOCUMENTS) {
+      setBatchError(`Choose up to ${MAX_BATCH_DOCUMENTS} documents at once: one Trade License and one TRN Certificate.`);
+      return;
+    }
+    const tooLarge = selected.find((file) => file.size > DOC_MAX_BYTES);
+    if (tooLarge) {
+      setBatchError(`${tooLarge.name} is larger than 10MB. Choose a smaller file.`);
+      return;
+    }
+    const remainingTypes = ['trade_license', 'tax_registration'];
+    const next = selected.map((file) => {
+      const guessed = guessDocumentType(file.name, remainingTypes);
+      const index = remainingTypes.indexOf(guessed);
+      if (index >= 0) remainingTypes.splice(index, 1);
+      return { file, documentType: guessed };
+    });
+    setBatchFiles(next);
+  };
+
+  const onUploadBatchDocuments = async () => {
+    if (!batchFiles.length || uploadingDocType === 'batch') return;
+    const types = batchFiles.map((entry) => entry.documentType);
+    if (new Set(types).size !== types.length) {
+      setBatchError('Choose one file for each document type. Replace the duplicate type before uploading.');
+      return;
+    }
+    setUploadingDocType('batch');
+    setBatchError(null);
+    setBatchSuccess(null);
+    try {
+      const token = await getAccessToken();
+      const results = await Promise.all(
+        batchFiles.map(({ file, documentType }) => sendDocument(documentType, file, undefined, token))
+      );
+      const failures = [];
+      results.forEach(({ ok, data }, index) => {
+        if (ok) return;
+        const { file, documentType } = batchFiles[index];
+        if (data.code === 'trade_license_expiry_not_detected') {
+          setExpiryPrompt({ file, message: data.error, ocr: data.ocr });
+        }
+        failures.push(`${DOC_LABELS[documentType]}: ${data.error || 'upload failed'}`);
+      });
+      const uploadedCount = results.filter((result) => result.ok).length;
+      if (uploadedCount) await fetchStatus();
+      if (failures.length) {
+        setBatchError(failures.join(' '));
+        setBatchFiles(batchFiles.filter((_, index) => !results[index].ok));
+      } else {
+        setBatchFiles([]);
+        setBatchSuccess(`${uploadedCount} document${uploadedCount === 1 ? '' : 's'} uploaded. The checklist has been refreshed.`);
+      }
+    } catch (err) {
+      setBatchError(err?.message || 'Could not upload the selected documents. Try again.');
+    } finally {
+      if (isMountedRef.current) setUploadingDocType(null);
+    }
   };
 
   const onUploadDocument = async (documentType, event) => {
@@ -301,6 +377,62 @@ const DealerVerificationPage = () => {
     return items;
   }, [readiness, documents]);
 
+  const applicationGuidance = useMemo(() => {
+    if (!readiness) return null;
+    if (readiness.missing_fields?.length) {
+      return {
+        kind: 'action',
+        title: 'Complete your business details',
+        message: `Add ${readiness.missing_fields.join(', ')} in Account settings, then return here to submit your application.`,
+      };
+    }
+    if (readiness.missing_uploads?.length) {
+      const labels = readiness.missing_uploads.map((type) => DOC_LABELS[type] || type);
+      return {
+        kind: 'action',
+        title: 'Two documents are required',
+        message: `Upload ${labels.join(' and ')}. You can select both files together above.`,
+      };
+    }
+    if (readiness.denied_documents?.length) {
+      const labels = readiness.denied_documents.map((type) => DOC_LABELS[type] || type);
+      return {
+        kind: 'action',
+        title: 'Replace the document marked denied',
+        message: `${labels.join(' and ')} needs a replacement. Follow the explanation on that checklist row, then upload a new file.`,
+      };
+    }
+    if (readiness.expired_documents?.length) {
+      return {
+        kind: 'action',
+        title: 'Your Trade License is expired',
+        message: 'Upload a current license so the admin team can review your application.',
+      };
+    }
+    if (readiness.pending_documents?.length || applicationStatus === 'submitted') {
+      return {
+        kind: 'pending',
+        title: 'Your documents are with the admin team',
+        message: 'We will refresh this page automatically when a reviewer changes the status. No further action is needed unless a row asks you to replace a document.',
+      };
+    }
+    if (readiness.ready_to_approve) {
+      return {
+        kind: 'success',
+        title: 'Your application is ready for approval',
+        message: 'Both documents passed the automatic checks. Submit the application if you have not already done so.',
+      };
+    }
+    if (readiness.ready_to_submit) {
+      return {
+        kind: 'pending',
+        title: 'Your application is ready to submit',
+        message: 'Your business details and documents are complete. Submit the application below to send it to the admin team.',
+      };
+    }
+    return null;
+  }, [applicationStatus, readiness]);
+
   if (loading && !readiness) {
     return (
       <div className="dvp-shell">
@@ -329,6 +461,16 @@ const DealerVerificationPage = () => {
         </div>
       ) : null}
 
+      {applicationGuidance ? (
+        <section className={`dvp-guidance dvp-guidance-${applicationGuidance.kind}`} role="status">
+          <span className="dvp-guidance-icon" aria-hidden="true">{applicationGuidance.kind === 'success' ? '✓' : applicationGuidance.kind === 'pending' ? '…' : '!'}</span>
+          <div>
+            <h2>{applicationGuidance.title}</h2>
+            <p>{applicationGuidance.message}</p>
+          </div>
+        </section>
+      ) : null}
+
       <section className="dvp-section">
         <div className="dvp-section-head">
           <h2>Application checklist</h2>
@@ -336,6 +478,51 @@ const DealerVerificationPage = () => {
             Live • last synced {lastSyncedAt ? formatDate(lastSyncedAt.toISOString()) : '—'}
             {!dealerVerified ? ' • refreshing every 8s' : ''}
           </p>
+        </div>
+        <div className="dvp-intake" data-testid="dealer-document-intake">
+          <div className="dvp-intake-copy">
+            <span className="dvp-kicker">Step 1 · Submit your evidence</span>
+            <h3>Upload both documents together</h3>
+            <p>Select your Trade License and TRN Certificate in one go. We will match them to the right checklist item and show exactly what needs fixing.</p>
+          </div>
+          <input
+            id="dvp-upload-batch"
+            type="file"
+            accept={DOC_ACCEPT}
+            multiple
+            className="dvp-file-input"
+            onChange={onSelectBatchDocuments}
+            disabled={uploadingDocType === 'batch'}
+          />
+          <label htmlFor="dvp-upload-batch" className="dvp-button dvp-button-secondary dvp-button-compact">
+            Choose documents
+          </label>
+          <span className="dvp-item-hint">Up to 2 files · JPG, PNG or PDF · 10MB each</span>
+          {batchFiles.length > 0 ? (
+            <div className="dvp-upload-queue" aria-label="Selected documents">
+              {batchFiles.map(({ file, documentType }, index) => (
+                <div className="dvp-upload-queue-row" key={`${file.name}-${file.lastModified}`}>
+                  <span className="dvp-upload-file-name" title={file.name}>{file.name}</span>
+                  <label className="dvp-upload-type">
+                    <span className="sr-only">Document type for {file.name}</span>
+                    <select
+                      value={documentType}
+                      onChange={(event) => setBatchFiles((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, documentType: event.target.value } : entry))}
+                      disabled={uploadingDocType === 'batch'}
+                    >
+                      <option value="trade_license">Trade License</option>
+                      <option value="tax_registration">TRN Certificate</option>
+                    </select>
+                  </label>
+                </div>
+              ))}
+              <button type="button" className="dvp-button dvp-button-primary dvp-button-compact" onClick={onUploadBatchDocuments} disabled={uploadingDocType === 'batch'}>
+                {uploadingDocType === 'batch' ? 'Scanning documents…' : 'Upload and scan'}
+              </button>
+            </div>
+          ) : null}
+          {batchError ? <p className="dvp-intake-message dvp-intake-message-error" role="alert">{batchError}</p> : null}
+          {batchSuccess ? <p className="dvp-intake-message dvp-intake-message-success" role="status">{batchSuccess}</p> : null}
         </div>
         <ul className="dvp-checklist">
           {checklist.map((item) => (

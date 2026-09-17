@@ -101,6 +101,17 @@ def test_document_ocr_status_explains_low_confidence_next_step():
     assert result["confidence"] == 0.8645
 
 
+def test_document_ocr_status_explains_provider_delay_without_calling_it_a_bad_scan():
+    result = dealer_document_ocr_status({
+        "document_type": "trade_license",
+        "ocr_confidence": 0.0,
+        "ocr_scanned_at": None,
+    }, threshold=0.90)
+    assert result["status"] == "not_scanned"
+    assert "uploaded" in result["message"]
+    assert "still pending" in result["message"]
+
+
 def test_trade_license_ocr_status_identifies_unread_expiry():
     result = dealer_document_ocr_status({
         "document_type": "trade_license",
