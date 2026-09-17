@@ -1,5 +1,10 @@
 import React from 'react';
-import { formatConfidence, guessDocumentType, statusChipForDoc } from './DealerVerificationPage';
+import {
+  dealerStatusChip,
+  formatConfidence,
+  guessDocumentType,
+  statusChipForDoc,
+} from './DealerVerificationPage';
 
 test('dealer verification formats OCR confidence and thresholds for display', () => {
   expect(formatConfidence(0.8645)).toBe('86.5%');
@@ -27,6 +32,13 @@ test('dealer verification marks accepted documents green and removes re-upload g
 test('dealer verification does not call a provider outage a bad scan', () => {
   expect(statusChipForDoc({ status: 'pending', ocr_status: 'not_scanned' })).toEqual({
     label: 'Scan pending — no re-upload needed yet',
+    kind: 'pending',
+  });
+});
+
+test('dealer verification separates accepted documents from final dealer approval', () => {
+  expect(dealerStatusChip({ ready_to_approve: true }, 'submitted', false)).toEqual({
+    label: 'Admin approval pending',
     kind: 'pending',
   });
 });

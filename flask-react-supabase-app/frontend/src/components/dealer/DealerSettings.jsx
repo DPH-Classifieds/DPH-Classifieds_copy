@@ -5,6 +5,7 @@ import { Lock, Check, FileText, Upload, AlertTriangle } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
 import { useDealer } from '../../context/DealerContext';
 import { getBestAccessToken } from '../../utils/supabaseClient';
+import { uploadFormDataWithProgress, uploadProgressLabel } from '../../utils/uploadWithProgress';
 
 const DOC_TYPES = [
   { key: 'trade_license', label: 'Trade license', requiresExpiry: true },
@@ -34,6 +35,7 @@ const DealerDocumentsSection = () => {
   const [readiness, setReadiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploadingKey, setUploadingKey] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [message, setMessage] = useState('');
 
   const load = useCallback(async () => {
@@ -71,14 +73,17 @@ const DealerDocumentsSection = () => {
       form.append('document_type', docType);
       form.append('file', file);
       if (expiresAt) form.append('expires_at', expiresAt);
-      const resp = await fetch(`${API_URL}/api/user/dealer-documents`, {
-        method: 'POST',
+      const resp = await uploadFormDataWithProgress(`${API_URL}/api/user/dealer-documents`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
+        onProgress: (percent) => setUploadProgress({
+          percent,
+          phase: percent >= 100 ? 'scanning' : 'uploading',
+          documentCount: 1,
+        }),
       });
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(body?.error || 'Upload failed');
+        throw new Error(resp.data?.error || 'Upload failed');
       }
       setMessage('Uploaded. Automatic document checks are running.');
       await load();
@@ -86,6 +91,7 @@ const DealerDocumentsSection = () => {
       setMessage(err?.message || 'Upload failed');
     } finally {
       setUploadingKey(null);
+      setUploadProgress(null);
     }
   };
 
@@ -125,6 +131,13 @@ const DealerDocumentsSection = () => {
               : 'bg-white/[0.03] border-white/10 text-white/65'
         }`}>
           <p className="font-medium capitalize">Application: {(readiness.application_status || 'draft').replaceAll('_', ' ')}</p>
+          {['submitted', 'under_review'].includes(readiness.application_status) && (
+            <p className="mt-1 text-xs">
+              {readiness.ready_to_approve
+                ? 'Your documents passed the automatic checks. Final dealer approval is still pending with the admin team.'
+                : 'Your application is submitted. Automatic checks and admin review are still in progress.'}
+            </p>
+          )}
           {readiness.application_status === 'action_required' && (
             <p className="mt-1 text-xs">Replace the denied or requested documents below, then submit the application again.</p>
           )}
@@ -176,6 +189,28 @@ const DealerDocumentsSection = () => {
                   )}
                   {ocrNeedsReplacement(doc) && doc.ocr_message && (
                     <p className="text-[11px] text-rose-300 mt-1">{doc.ocr_message}</p>
+                  )}
+                  {uploadingKey === meta.key && uploadProgress && (
+                    <div className="mt-2" role="status" aria-live="polite">
+                      <div className="flex items-center justify-between text-[11px] text-emerald-200 mb-1">
+                        <span>{uploadProgressLabel(uploadProgress)}</span>
+                        <span>{uploadProgress.percent}%</span>
+                      </div>
+                      <div
+                        className={`h-1.5 overflow-hidden rounded-full bg-white/10 ${uploadProgress.phase === 'scanning' ? 'animate-pulse' : ''}`}
+                        role="progressbar"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow={uploadProgress.percent}
+                        aria-valuetext={uploadProgressLabel(uploadProgress)}
+                      >
+                        <span
+                          className="block h-full rounded-full bg-emerald-400 transition-[width] duration-200"
+                          style={{ width: `${uploadProgress.percent}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-white/40 mt-1">Keep this page open while the automatic check finishes.</p>
+                    </div>
                   )}
                 </div>
                 <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border ${ocrNeedsReplacement(doc) ? 'text-rose-300 bg-rose-500/10 border-rose-500/20' : statusToClass(doc?.status, days)}`}>

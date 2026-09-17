@@ -5,6 +5,7 @@ import { API_BASE_URL as API_URL } from '../utils/apiBase';
 import { getAccessToken } from '../utils/supabaseClient';
 import { getCurrentUser } from '../utils/authService';
 import { useAuth } from '../context/AuthContext';
+import { uploadFormDataWithProgress, uploadProgressLabel } from '../utils/uploadWithProgress';
 import './DealerVerificationPage.css';
 
 const DOC_ACCEPT = '.jpg,.jpeg,.png,.pdf';
@@ -57,12 +58,12 @@ export function statusChipForDoc(doc) {
   return { label: 'Awaiting upload', kind: 'muted' };
 }
 
-function dealerStatusChip(readiness, applicationStatus, dealerVerified) {
+export function dealerStatusChip(readiness, applicationStatus, dealerVerified) {
   if (dealerVerified) return { label: 'Verified Dealer', kind: 'success' };
+  if (applicationStatus === 'submitted' || applicationStatus === 'under_review') {
+    return { label: 'Admin approval pending', kind: 'pending' };
+  }
   if (readiness?.ready_to_approve) return { label: 'Awaiting admin approval', kind: 'pending' };
-  // "submitted" has to win over ready_to_submit, or an application that has
-  // already been sent keeps advertising itself as still needing sending.
-  if (applicationStatus === 'submitted') return { label: 'Under review', kind: 'pending' };
   if (readiness?.ready_to_submit) return { label: 'Ready to submit', kind: 'pending' };
   return { label: 'Action needed', kind: 'muted' };
 }
@@ -92,6 +93,7 @@ const DealerVerificationPage = () => {
   const [batchFiles, setBatchFiles] = useState([]);
   const [batchError, setBatchError] = useState(null);
   const [batchSuccess, setBatchSuccess] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   // The backend rejects a trade licence whose expiry the document checker can't read and
   // tells the dealer to "enter the expiry date manually" — so give them a way.
@@ -179,19 +181,18 @@ const DealerVerificationPage = () => {
 
   // The checklist used to say "Awaiting upload" with nowhere to upload, so a
   // dealer who signed up could never finish verification from this page.
-  const sendDocument = async (documentType, file, expiresAt, tokenOverride) => {
+  const sendDocument = async (documentType, file, expiresAt, tokenOverride, onProgress) => {
     const token = tokenOverride || await getAccessToken();
     const body = new FormData();
     body.append('file', file);
     body.append('document_type', documentType);
     if (expiresAt) body.append('expires_at', expiresAt);
-    const response = await fetch(`${API_URL}/api/user/dealer-documents`, {
-      method: 'POST',
+    const response = await uploadFormDataWithProgress(`${API_URL}/api/user/dealer-documents`, {
       headers: { Authorization: `Bearer ${token}` },
       body,
+      onProgress,
     });
-    const data = await response.json().catch(() => ({}));
-    return { ok: response.ok, data };
+    return { ok: response.ok, data: response.data };
   };
 
   const onSelectBatchDocuments = (event) => {
@@ -227,12 +228,27 @@ const DealerVerificationPage = () => {
       return;
     }
     setUploadingDocType('batch');
+    const totalBytes = batchFiles.reduce((sum, entry) => sum + entry.file.size, 0);
+    const uploadedBytes = batchFiles.map(() => 0);
+    const updateBatchProgress = (index, loaded) => {
+      uploadedBytes[index] = Math.min(loaded, batchFiles[index].file.size);
+      const loadedBytes = uploadedBytes.reduce((sum, value) => sum + value, 0);
+      const percent = totalBytes ? Math.round((loadedBytes / totalBytes) * 100) : 0;
+      setUploadProgress({ percent, phase: percent >= 100 ? 'scanning' : 'uploading', documentCount: batchFiles.length });
+    };
+    setUploadProgress({ percent: 0, phase: 'uploading', documentCount: batchFiles.length });
     setBatchError(null);
     setBatchSuccess(null);
     try {
       const token = await getAccessToken();
       const results = await Promise.all(
-        batchFiles.map(({ file, documentType }) => sendDocument(documentType, file, undefined, token))
+        batchFiles.map(({ file, documentType }, index) => sendDocument(
+          documentType,
+          file,
+          undefined,
+          token,
+          (loaded) => updateBatchProgress(index, loaded),
+        ))
       );
       const failures = [];
       results.forEach(({ ok, data }, index) => {
@@ -255,7 +271,10 @@ const DealerVerificationPage = () => {
     } catch (err) {
       setBatchError(err?.message || 'Could not upload the selected documents. Try again.');
     } finally {
-      if (isMountedRef.current) setUploadingDocType(null);
+      if (isMountedRef.current) {
+        setUploadingDocType(null);
+        setUploadProgress(null);
+      }
     }
   };
 
@@ -270,8 +289,19 @@ const DealerVerificationPage = () => {
       return;
     }
     setUploadingDocType(documentType);
+    setUploadProgress({ percent: 0, phase: 'uploading', documentCount: 1 });
     try {
-      const { ok, data } = await sendDocument(documentType, file);
+      const { ok, data } = await sendDocument(
+        documentType,
+        file,
+        undefined,
+        undefined,
+        (percent) => setUploadProgress({
+          percent,
+          phase: percent >= 100 ? 'scanning' : 'uploading',
+          documentCount: 1,
+        }),
+      );
       if (!ok) {
         if (data.code === 'trade_license_expiry_not_detected') {
           // Keep the file so the retry doesn't make them pick it again.
@@ -284,7 +314,10 @@ const DealerVerificationPage = () => {
     } catch (err) {
       setUploadError(err?.message || 'Failed to upload document');
     } finally {
-      if (isMountedRef.current) setUploadingDocType(null);
+      if (isMountedRef.current) {
+        setUploadingDocType(null);
+        setUploadProgress(null);
+      }
       if (fileInputRefs.current[documentType]) fileInputRefs.current[documentType].value = '';
     }
   };
@@ -293,9 +326,20 @@ const DealerVerificationPage = () => {
     event.preventDefault();
     if (!expiryPrompt?.file || !expiryValue) return;
     setUploadingDocType('trade_license');
+    setUploadProgress({ percent: 0, phase: 'uploading', documentCount: 1 });
     setUploadError(null);
     try {
-      const { ok, data } = await sendDocument('trade_license', expiryPrompt.file, expiryValue);
+      const { ok, data } = await sendDocument(
+        'trade_license',
+        expiryPrompt.file,
+        expiryValue,
+        undefined,
+        (percent) => setUploadProgress({
+          percent,
+          phase: percent >= 100 ? 'scanning' : 'uploading',
+          documentCount: 1,
+        }),
+      );
       if (!ok) throw new Error(data.error || 'Failed to upload document');
       setExpiryPrompt(null);
       setExpiryValue('');
@@ -303,7 +347,10 @@ const DealerVerificationPage = () => {
     } catch (err) {
       setUploadError(err?.message || 'Failed to upload document');
     } finally {
-      if (isMountedRef.current) setUploadingDocType(null);
+      if (isMountedRef.current) {
+        setUploadingDocType(null);
+        setUploadProgress(null);
+      }
     }
   };
 
@@ -416,7 +463,21 @@ const DealerVerificationPage = () => {
         message: 'Upload a current license so the admin team can review your application.',
       };
     }
-    if (readiness.pending_documents?.length || applicationStatus === 'submitted') {
+    if (applicationStatus === 'submitted' || applicationStatus === 'under_review') {
+      if (readiness.ready_to_approve) {
+        return {
+          kind: 'pending',
+          title: 'Documents accepted — admin approval pending',
+          message: 'Your Trade License and TRN passed the automatic checks. An admin still needs to approve your dealer account; you cannot post as a verified dealer until that approval is recorded.',
+        };
+      }
+      return {
+        kind: 'pending',
+        title: 'Application under review',
+        message: 'Your application has been submitted. Automatic checks and admin review are still in progress; we will refresh this page when the dealer decision changes.',
+      };
+    }
+    if (readiness.pending_documents?.length) {
       return {
         kind: 'pending',
         title: 'Your documents are with the admin team',
@@ -426,8 +487,8 @@ const DealerVerificationPage = () => {
     if (readiness.ready_to_approve) {
       return {
         kind: 'success',
-        title: 'Your application is ready for approval',
-        message: 'Both documents passed the automatic checks. Submit the application if you have not already done so.',
+        title: 'Documents accepted — submit for dealer approval',
+        message: 'Both documents passed the automatic checks, but your account is not a verified dealer yet. Submit the application so an admin can approve your dealer status.',
       };
     }
     if (readiness.ready_to_submit) {
@@ -526,6 +587,25 @@ const DealerVerificationPage = () => {
               <button type="button" className="dvp-button dvp-button-primary dvp-button-compact" onClick={onUploadBatchDocuments} disabled={uploadingDocType === 'batch'}>
                 {uploadingDocType === 'batch' ? 'Scanning documents…' : 'Upload and scan'}
               </button>
+            </div>
+          ) : null}
+          {uploadProgress ? (
+            <div className="dvp-upload-progress" role="status" aria-live="polite">
+              <div className="dvp-upload-progress-header">
+                <span>{uploadProgressLabel(uploadProgress)}</span>
+                <span>{uploadProgress.percent}%</span>
+              </div>
+              <div
+                className={`dvp-upload-progress-track ${uploadProgress.phase === 'scanning' ? 'dvp-upload-progress-scanning' : ''}`}
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={uploadProgress.percent}
+                aria-valuetext={uploadProgressLabel(uploadProgress)}
+              >
+                <span style={{ width: `${uploadProgress.percent}%` }} />
+              </div>
+              <p>Keep this page open while we finish the automatic document check.</p>
             </div>
           ) : null}
           {batchError ? <p className="dvp-intake-message dvp-intake-message-error" role="alert">{batchError}</p> : null}
