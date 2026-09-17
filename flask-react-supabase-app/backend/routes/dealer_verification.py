@@ -166,6 +166,14 @@ def upload_dealer_document(current_user):
                 extracted_expiry = ocr_payload.get("expires_at")
                 if extracted_expiry:
                     expires_at_iso = extracted_expiry
+                logger.info(
+                    "dealer OCR result type=%s confidence=%.4f expiry_detected=%s label_matched=%s line_count=%s",
+                    document_type,
+                    float(ocr_payload.get("confidence") or 0.0),
+                    bool(extracted_expiry),
+                    bool(ocr_payload.get("label_matched")),
+                    len(ocr_payload.get("lines") or []),
+                )
             except Exception as ocr_error:
                 logger.warning("Trade-license OCR unavailable for %s: %s", current_user, ocr_error)
                 ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
@@ -175,6 +183,14 @@ def upload_dealer_document(current_user):
                 file.seek(0)
                 ocr_payload = scan_trn_document(file)
                 file.seek(0)
+                logger.info(
+                    "dealer OCR result type=%s confidence=%.4f trn_detected=%s label_matched=%s line_count=%s",
+                    document_type,
+                    float(ocr_payload.get("confidence") or 0.0),
+                    bool(ocr_payload.get("trn_number")),
+                    bool(ocr_payload.get("label_matched")),
+                    len(ocr_payload.get("lines") or []),
+                )
             except Exception as ocr_error:
                 logger.warning("TRN OCR unavailable for %s: %s", current_user, ocr_error)
                 ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}

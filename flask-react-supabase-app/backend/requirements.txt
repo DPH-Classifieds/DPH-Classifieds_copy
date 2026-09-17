@@ -18,8 +18,12 @@ redis==5.1.1
 posthog>=7.0.0
 cryptography>=46,<51
 # Self-hosted image moderation (auto-review worker only; lazy-imported).
-# Pin opencv to 4.x — 5.0 dropped cv2.CascadeClassifier from the top-level module.
+# Pin opencv to the 4.x line the YuNet face thresholds in
+# services/auto_review/vision.py were measured against; re-measure before moving it.
 nudenet==3.4.2
 opencv-python-headless==4.11.0.86
 onnxruntime==1.28.0
 numpy==2.4.6
+# iPhone uploads reach storage as HEIC bytes behind a .jpg name. Without this
+# they decode to nothing and skip image moderation entirely.
+pillow-heif==1.1.0

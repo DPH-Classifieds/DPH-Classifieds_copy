@@ -89,12 +89,30 @@ class GoogleVisionProvider:
         )
 
 
+YUNET_MODEL_PATH = os.path.join(
+    os.path.dirname(__file__), "models", "face_detection_yunet_2023mar.onnx"
+)
+
+
 class LocalVisionProvider:
     """Self-hosted, offline face + NSFW detection — no API keys, no per-image
     network calls. Nudity via NudeNet (ONNX/onnxruntime), faces via OpenCV's
-    bundled Haar cascade. The heavy deps (nudenet, opencv, onnxruntime, numpy)
+    YuNet DNN detector. The heavy deps (nudenet, opencv, onnxruntime, numpy)
     are imported lazily so only the auto-review worker ever loads them — the web
     process never pays the memory cost.
+
+    Faces used to be Haar, which produced no confidence and so — per
+    hard_blockers.evaluate_image_blockers, which only acts on scored faces —
+    could never flag anything: local face detection was inert. Measured over
+    1,464 live car listings and 24 people photos:
+
+        Haar (minNeighbors=8)  449/1464 false positives (30.7%), 87.5% recall
+        YuNet @ 0.80            2/1464 false positives  (0.1%), 79.2% recall
+        YuNet @ 0.85            0/1464 false positives  (0.0%), 75.0% recall
+
+    Haar's "faces" were headlights, grilles and reflections. YuNet is also ~9x
+    faster (4ms vs 36ms median). Drop the threshold to 0.80 to trade 2 extra
+    manual reviews per ~1,500 listings for ~4 points of recall.
     """
 
     # NudeNet detection classes that count as explicit nudity.
@@ -105,15 +123,18 @@ class LocalVisionProvider:
         "BUTTOCKS_EXPOSED",
         "ANUS_EXPOSED",
     })
+    # YuNet's own pre-NMS cutoff. Kept well below the policy threshold so the
+    # caller, not the model, decides what counts as a confirmed face.
+    _DETECTOR_SCORE_FLOOR = 0.3
+    # Faces are found on a downscaled copy: 640px is plenty for a face large
+    # enough to identify someone, and keeps inference at a few milliseconds.
+    _DETECT_MAX_SIDE = 640
 
     def __init__(self, face_confidence_threshold=0.85, nsfw_score_threshold=0.85):
-        # ponytail: Haar gives no per-face confidence, so face_threshold is
-        # unused today — kept for the contract / a future DNN upgrade. Face
-        # sensitivity is tuned via minNeighbors in analyze().
         self._face_threshold = face_confidence_threshold
         self._nsfw_threshold = nsfw_score_threshold
         self._detector = None
-        self._face_cascade = None
+        self._face_detector = None
 
     def _ensure_loaded(self):
         if self._detector is not None:
@@ -122,28 +143,75 @@ class LocalVisionProvider:
         from nudenet import NudeDetector
 
         self._detector = NudeDetector()
-        self._face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        model_path = os.getenv("AUTO_REVIEW_FACE_MODEL_PATH") or YUNET_MODEL_PATH
+        self._face_detector = cv2.FaceDetectorYN.create(
+            model_path, "", (320, 320), score_threshold=self._DETECTOR_SCORE_FLOOR
         )
 
-    def analyze(self, image_bytes):
+    def _decode(self, image_bytes):
+        """Decode to BGR, falling back to Pillow (with HEIF registered).
+
+        cv2.imdecode cannot read HEIC, and iPhone uploads do reach storage as
+        HEIC bytes behind a .jpg/.jpeg name — 9 of 1,473 images sampled from
+        live listings were exactly that. Every one of them decoded to None and
+        so skipped nudity and face moderation entirely, which is a moderation
+        bypass anyone could trigger by renaming a file.
+        """
         import cv2
         import numpy as np
 
+        img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+        if img is not None:
+            return img
+        try:
+            import io
+
+            from PIL import Image, ImageOps
+
+            try:
+                from pillow_heif import register_heif_opener
+
+                register_heif_opener()
+            except ImportError:  # HEIC then stays undecodable -> fails closed
+                pass
+
+            with Image.open(io.BytesIO(image_bytes)) as handle:
+                handle.load()
+                rgb = ImageOps.exif_transpose(handle).convert("RGB")
+            return np.asarray(rgb)[:, :, ::-1].copy()
+        except Exception:  # noqa: BLE001 - genuinely undecodable
+            return None
+
+    def _detect_faces(self, img):
+        import cv2
+
+        height, width = img.shape[:2]
+        scale = min(1.0, self._DETECT_MAX_SIDE / max(height, width))
+        small = (
+            cv2.resize(img, (int(width * scale), int(height * scale)))
+            if scale < 1.0
+            else img
+        )
+        self._face_detector.setInputSize((small.shape[1], small.shape[0]))
+        _, faces = self._face_detector.detect(small)
+        return sorted(
+            (round(float(face[-1]), 4) for face in (faces if faces is not None else [])),
+            reverse=True,
+        )
+
+    def analyze(self, image_bytes):
         self._ensure_loaded()
 
-        img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+        img = self._decode(image_bytes)
         if img is None:
-            # Undecodable image — don't block on it, let other gates decide.
-            return VisionResult(available=True)
+            # Fail closed. An image nothing can decode is an image nothing has
+            # moderated, and available=True here used to wave it straight
+            # through. available=False raises vision_unavailable, which queues
+            # the listing for a human (it is not one of the hard-block labels,
+            # so nothing gets deleted on an unreadable file).
+            return VisionResult(available=False)
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Kept for audit telemetry only. Haar has no calibrated confidence and
-        # must never trigger a rejection or review by itself.
-        faces = self._face_cascade.detectMultiScale(
-            gray, scaleFactor=1.1, minNeighbors=8, minSize=(40, 40)
-        )
-        face_count = len(faces)
+        face_confidences = self._detect_faces(img)
 
         detections = self._detector.detect(img)
         nsfw_likely = any(
@@ -155,8 +223,10 @@ class LocalVisionProvider:
         return VisionResult(
             available=True,
             nsfw_likely=nsfw_likely,
-            face_count=face_count,
-            face_confidences=[],
+            # face_count stays the raw detector count for audit telemetry;
+            # the blocker path only acts on scores above its own threshold.
+            face_count=len(face_confidences),
+            face_confidences=face_confidences,
         )
 
 

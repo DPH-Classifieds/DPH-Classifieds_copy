@@ -193,6 +193,135 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         result = registration_ocr.extract_trade_license_expiry("Trade License\nNo readable date")
         self.assertIsNone(result["expires_at"])
 
+    def test_trade_license_expiry_accepts_dot_and_spaced_date_formats(self):
+        result = registration_ocr.extract_trade_license_expiry(
+            "Trade License Expiry Date: 31. 12. 2027",
+            [
+                {"text": "Trade License Expiry Date", "conf": 0.98},
+                {"text": "31. 12. 2027", "conf": 0.99},
+            ],
+        )
+        self.assertEqual(result["expires_at"], "2027-12-31")
+        self.assertTrue(result["label_matched"])
+        self.assertGreaterEqual(result["confidence"], 0.99)
+
+    def test_trade_license_expiry_scores_date_split_across_ocr_boxes(self):
+        result = registration_ocr.extract_trade_license_expiry(
+            "Expiry Date 31 / 12 / 2027",
+            [
+                {"text": "Expiry Date", "conf": 0.98},
+                {"text": "31", "conf": 0.99},
+                {"text": "/", "conf": 0.99},
+                {"text": "12", "conf": 0.99},
+                {"text": "/", "conf": 0.99},
+                {"text": "2027", "conf": 0.99},
+            ],
+        )
+        self.assertEqual(result["expires_at"], "2027-12-31")
+        self.assertGreaterEqual(result["confidence"], 0.99)
+
+    def test_confidence_does_not_treat_a_tiny_fragment_as_the_whole_value(self):
+        self.assertEqual(
+            registration_ocr._confidence_from_lines(
+                "31/12/2027", [{"text": "2027", "conf": 0.99}]
+            ),
+            0.0,
+        )
+
+    def test_trn_confidence_uses_identifier_evidence_not_all_page_noise(self):
+        trn = "100123456789012"
+        result = registration_ocr.extract_tax_registration_number(
+            "Tax Registration Number\n" + trn + "\nالعربية نص شعار الشركة ختم\nwww.example.com footer",
+            [
+                {"text": "Tax Registration Number", "conf": 0.98},
+                {"text": trn, "conf": 0.99},
+                {"text": "العربية نص شعار الشركة ختم", "conf": 0.22},
+                {"text": "www.example.com footer", "conf": 0.18},
+            ],
+        )
+        self.assertEqual(result["trn_number"], trn)
+        self.assertTrue(result["label_matched"])
+        self.assertGreaterEqual(result["confidence"], 0.95)
+
+    # The four cases below are taken from real UAE trade licences (a DET
+    # licence PDF and a bilingual two-column licence), where the issue date
+    # sits within a few characters of the expiry and a receipt/payment number
+    # is also 15 digits long.
+    METRO_LICENSE_TEXT = (
+        "Trade License License Details License No. 2486159 Register No. 7314628 "
+        "Issue Date 14/02/2026 Legal Type Sole Establishment Expiry Date 13/02/2027 "
+        "Status Active VAT No. 100394827600003 Owner Name FARIS AHMED KHAN "
+        "Receipt No. 56291044 Receipt Date 14/02/2026 Payment Ref 88420173"
+    )
+    DET_LICENSE_TEXT = (
+        "License Details Business Name DUBAIPETROLHEADS Legal Type Sole Establishment "
+        "Expiry Date 19/11/2026 Issue Date 20/11/2025 VAT No. Main License No. 1575308 "
+        "Register No. 1367393 signed on 18/11/2025."
+    )
+
+    def test_expiry_is_not_the_issue_date_when_the_expiry_label_is_misread(self):
+        garbled = self.METRO_LICENSE_TEXT.replace("Expiry Date", "Exp:ry Date")
+        result = registration_ocr.extract_trade_license_expiry(garbled)
+        self.assertEqual(result["expires_at"], "2027-02-13")
+        self.assertFalse(result["label_matched"])
+
+    def test_expiry_is_not_the_issue_date_when_bilingual_columns_interleave(self):
+        interleaved = self.DET_LICENSE_TEXT.replace(
+            "Expiry Date 19/11/2026 Issue Date 20/11/2025",
+            "Expiry Date Issue Date 20/11/2025 19/11/2026",
+        )
+        self.assertEqual(
+            registration_ocr.extract_trade_license_expiry(interleaved)["expires_at"],
+            "2026-11-19",
+        )
+
+    def test_expiry_label_still_wins_over_a_later_unrelated_date(self):
+        result = registration_ocr.extract_trade_license_expiry(self.METRO_LICENSE_TEXT)
+        self.assertEqual(result["expires_at"], "2027-02-13")
+        self.assertTrue(result["label_matched"])
+
+    def test_trn_prefers_the_fta_prefix_over_a_15_digit_receipt_number(self):
+        result = registration_ocr.extract_tax_registration_number(
+            "Receipt 561122334455667 VAT No. 100394827600003"
+        )
+        self.assertEqual(result["trn_number"], "100394827600003")
+        self.assertTrue(result["label_matched"])
+
+    def test_trn_on_a_trade_licence_is_label_matched_via_vat_no(self):
+        result = registration_ocr.extract_tax_registration_number(self.METRO_LICENSE_TEXT)
+        self.assertEqual(result["trn_number"], "100394827600003")
+        self.assertTrue(result["label_matched"])
+
+    def test_trn_confidence_does_not_pass_without_a_readable_identifier(self):
+        result = registration_ocr.scan_trn_document(
+            _jpeg_bytes(),
+            ocr_provider=FakeOCRProvider(
+                "Tax Registration Number\nCompany name\nContact details", conf=0.99
+            ),
+        )
+        self.assertIsNone(result["trn_number"])
+        self.assertLess(result["confidence"], 0.90)
+
+    def test_dealer_ocr_keeps_first_success_when_fallback_pass_fails(self):
+        class FirstPassOnlyProvider:
+            def __init__(self):
+                self.calls = 0
+
+            def extract(self, image):
+                self.calls += 1
+                if self.calls > 1:
+                    raise RuntimeError("fallback unavailable")
+                return "Tax Registration Number 100123456789012", [
+                    {"text": "Tax Registration Number", "conf": 0.98},
+                    {"text": "100123456789012", "conf": 0.99},
+                ]
+
+        provider = FirstPassOnlyProvider()
+        result = registration_ocr.scan_trn_document(_jpeg_bytes(), provider)
+        self.assertEqual(result["trn_number"], "100123456789012")
+        self.assertEqual(result["confidence"], 0.99)
+        self.assertEqual(provider.calls, 2)
+
     def test_vin_repair_skips_speculative_guessing_for_non_na_vins(self):
         # Non-NA WMI prefix (starts with a letter, not 1-5): the checksum
         # can't verify anything for these (real UAE/GCC vehicles), so

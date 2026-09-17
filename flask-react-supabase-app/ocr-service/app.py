@@ -28,7 +28,10 @@ logger = logging.getLogger("ocr-service")
 OCR_LANG = os.getenv("OCR_LANG", "en")
 OCR_ENGINE_VERSION = os.getenv("OCR_ENGINE_VERSION", "paddleocr-2.7.3")
 OCR_SERVICE_KEY = os.getenv("OCR_SERVICE_KEY", "")
-OCR_MIN_CONFIDENCE = float(os.getenv("OCR_MIN_CONFIDENCE", "0.3"))
+# Keep low-confidence detections in the response so the backend can apply
+# field-specific evidence rules (and show a truthful low score) instead of
+# losing a faint but valid TRN/expiry line before parsing.
+OCR_MIN_CONFIDENCE = float(os.getenv("OCR_MIN_CONFIDENCE", "0.1"))
 OCR_MAX_CONCURRENCY = int(os.getenv("OCR_MAX_CONCURRENCY", "2"))
 OCR_QUEUE_TIMEOUT = float(os.getenv("OCR_QUEUE_TIMEOUT_SECONDS", "20"))
 MAX_IMAGE_BYTES = int(os.getenv("OCR_MAX_IMAGE_MB", "20")) * 1024 * 1024
@@ -96,9 +99,9 @@ def _run_ocr(image_bytes):
 
     # PaddleOCR returns [[ [box, (text, conf)], ... ]] (one page). Sort the
     # detected lines top-to-bottom then left-to-right so downstream regexes see
-    # a sensible reading order, and drop low-confidence noise. We keep each
-    # line's recognition confidence so the backend can report REAL per-field
-    # confidence instead of guessing.
+    # a sensible reading order. Keep each detection's recognition confidence
+    # so the backend can score the required identifier/date instead of using a
+    # page-wide average or guessing from field presence.
     rows = []
     for page in (result or []):
         for entry in (page or []):

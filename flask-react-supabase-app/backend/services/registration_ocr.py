@@ -21,11 +21,48 @@ FIELD_ALIASES = {
 VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 YEAR_RE = re.compile(r"\b(19[8-9]\d|20[0-4]\d)\b")
 _EXPIRY_LABEL_RE = re.compile(
-    r"(?:valid\s*(?:until|to|till)|expir(?:y|es|ation)|validity)\D{0,40}",
+    r"(?:valid\s*(?:until|to|till|up\s*to)|expir(?:y|e|es|ation)|"
+    r"date\s*of\s*expir(?:y|e|ation)|license\s*expir(?:y|e|ation)|validity|"
+    r"تاريخ\s*الانتهاء)",
     re.IGNORECASE,
 )
+# Every UAE trade licence carries at least one date that is NOT the expiry —
+# the issue date, and often a receipt/payment date and a beneficiary-consent
+# date. Without this the parser happily reports the issue date as the expiry
+# the moment OCR garbles one character of the word "Expiry".
+_ISSUE_LABEL_RE = re.compile(
+    r"(?:issue(?:d)?\s*(?:date|on)?|date\s*of\s*issue|receipt\s*date|"
+    r"payment\s*date|signed\s*on|"
+    r"تاريخ\s*الإصدار)",
+    re.IGNORECASE,
+)
+# How far after a label its value may sit. A bilingual licence interleaves the
+# Arabic label between the English label and the value, so this is not tight.
+_LABEL_VALUE_WINDOW = 60
+# A licence expiry is never more than a few years out; anything beyond this is
+# a misread, not a date.
+_MAX_EXPIRY_YEARS_AHEAD = 30
 _DATE_RE = re.compile(
-    r"\b(?:\d{1,2}[/-]\d{1,2}[/-](?:20)?\d{2}|20\d{2}[/-]\d{1,2}[/-]\d{1,2})\b"
+    r"(?<!\d)(?:\d{1,4}(?:\s*[./-]\s*|\s+)\d{1,2}(?:\s*[./-]\s*|\s+)\d{1,4})(?!\d)"
+)
+_TRN_RE = re.compile(
+    r"(?<!\d)(?:(?:\d|[٠-٩])[\s-]*){15}(?!\d|[٠-٩])"
+)
+_TRN_LABEL_RE = re.compile(
+    # "VAT No." is how every DET trade licence labels the TRN; without it the
+    # identifier on a licence was never label-confirmed.
+    r"(?:tax\s*registration(?:\s*(?:number|no|certificate))?|trn|"
+    r"vat\s*(?:reg(?:istration)?\s*)?(?:number|no)|registration\s*(?:number|no)|"
+    r"الرقم\s*الضريبي)",
+    re.IGNORECASE,
+)
+# Every UAE TRN issued by the FTA starts 100. Receipt numbers, payment refs and
+# concatenated digit runs do not, so this separates the identifier from decoys
+# that happen to be 15 digits long.
+_TRN_PREFIX = "100"
+_ARABIC_DIGIT_TRANSLATION = str.maketrans(
+    "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+    "01234567890123456789",
 )
 DEFAULT_ACCEPTANCE_THRESHOLD = 0.90
 DEFAULT_MAX_IMAGE_PIXELS = 25000000
@@ -141,23 +178,157 @@ def _ocr_extract(provider, image):
     return (provider.extract_text(image) or "", [])
 
 
+def _normalise_document_digits(value):
+    return str(value or "").translate(_ARABIC_DIGIT_TRANSLATION)
+
+
+def _compact_ocr_text(value):
+    return re.sub(r"[^A-Z0-9]", "", _normalise_document_digits(value).upper())
+
+
+def _line_confidence(line):
+    try:
+        confidence = float((line or {}).get("conf") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    # Paddle returns 0..1. Accepting percentages here makes the boundary safe
+    # for older OCR adapters without allowing a bad value to inflate a score.
+    if 1.0 < confidence <= 100.0:
+        confidence /= 100.0
+    return max(0.0, min(1.0, confidence))
+
+
 def _confidence_from_lines(value, lines):
     """Real OCR confidence for an extracted field value: the max recognition
     confidence among the OCR lines whose (alnum-normalized) text contains, or
     is contained by, the value. 0.0 if none match."""
     if not value or not lines:
         return 0.0
-    target = re.sub(r"[^A-Z0-9]", "", str(value).upper())
+    target = _compact_ocr_text(value)
     if not target:
         return 0.0
     best = 0.0
+    compact_lines = []
     for line in lines:
-        line_text = re.sub(r"[^A-Z0-9]", "", str(line.get("text", "")).upper())
-        if len(line_text) < 2:
+        line_text = _compact_ocr_text(line.get("text", ""))
+        if not line_text:
             continue
         if target in line_text or line_text in target:
-            best = max(best, float(line.get("conf") or 0))
+            # A short fragment such as a year or one VIN chunk must not be
+            # reported as confidence for an entire identifier/date. Direct
+            # containment is valid for a labelled line; reverse containment
+            # is only valid when the OCR line covers most of the target.
+            direct_match = target in line_text
+            substantial_fragment = (
+                len(line_text) >= 4 and len(line_text) / max(len(target), 1) >= 0.6
+            )
+            if direct_match or substantial_fragment:
+                best = max(best, _line_confidence(line))
+        compact_lines.append((line_text, _line_confidence(line)))
+
+    # PaddleOCR can return a date or identifier as adjacent boxes (for
+    # example: ``31`` + ``/`` + ``12`` + ``/`` + ``2027``). Join only a small
+    # contiguous window and use the weakest box score, so the result remains
+    # a conservative real-recognition confidence rather than a guess.
+    window_size = 20 if len(target) >= 10 else 6
+    for start in range(len(compact_lines)):
+        joined = ""
+        window_confidences = []
+        for end in range(start, min(len(compact_lines), start + window_size)):
+            fragment, fragment_confidence = compact_lines[end]
+            joined += fragment
+            window_confidences.append(fragment_confidence)
+            if joined == target:
+                best = max(best, min(window_confidences or [0.0]))
+                break
+            if len(joined) >= len(target) or not target.startswith(joined):
+                break
     return round(best, 4)
+
+
+def _label_confidence(label_pattern, lines):
+    """Return the strongest real OCR score for a document label."""
+    best = 0.0
+    for line in lines or []:
+        if label_pattern.search(str(line.get("text", ""))):
+            best = max(best, _line_confidence(line))
+    return round(best, 4)
+
+
+def _parse_document_date(candidate):
+    parts = [part for part in re.findall(r"\d+", _normalise_document_digits(candidate))]
+    if len(parts) != 3:
+        return None
+    try:
+        if len(parts[0]) == 4:
+            year, month, day = (int(parts[0]), int(parts[1]), int(parts[2]))
+        else:
+            day, month, year = (int(parts[0]), int(parts[1]), int(parts[2]))
+            if year < 100:
+                year += 2000
+        return datetime(year, month, day).date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_dealer_ocr_variants(image_file):
+    """Prepare color and luminance variants for document OCR.
+
+    Dealer documents frequently contain colored security backgrounds and small
+    black expiry/TRN text. The previous path converted every upload to one
+    sharpened grayscale image before PaddleOCR saw it. Keep the original RGB
+    signal for the first pass, then use a controlled luminance pass as a
+    fallback. The pass count is bounded so uploads cannot create unbounded OCR
+    work.
+    """
+    color_image = preprocess_image(image_file, preserve_color=True)
+    grayscale = ImageOps.autocontrast(ImageOps.grayscale(color_image))
+    grayscale = ImageEnhance.Sharpness(grayscale).enhance(1.5)
+    variants = [color_image, grayscale]
+    pass_count = max(1, min(2, _env_int("OCR_DEALER_PASSES", 2)))
+    return variants[:pass_count]
+
+
+def _ocr_dealer_variants(image_file, provider):
+    results = []
+    for index, variant in enumerate(_build_dealer_ocr_variants(image_file)):
+        try:
+            raw_text, lines = _ocr_extract(provider, variant)
+        except Exception as exc:  # noqa: BLE001 - retain a successful pass
+            logger.warning("dealer OCR pass %s failed: %s", index + 1, exc)
+            continue
+        results.append((raw_text or "", lines or []))
+    if not results:
+        raise RuntimeError("dealer OCR unavailable")
+    return results
+
+
+def _nearest_preceding_label(text, position):
+    """Which label (expiry / issue / none) owns the value at `position`.
+
+    Scans backwards a bounded window and returns whichever of the two label
+    kinds ends closest to the value, so a bilingual two-column layout where
+    "Issue Date" and "Expiry Date" sit near each other still attributes each
+    date to its own label.
+    """
+    window = text[max(0, position - _LABEL_VALUE_WINDOW):position]
+    expiry_end = max((m.end() for m in _EXPIRY_LABEL_RE.finditer(window)), default=-1)
+    issue_end = max((m.end() for m in _ISSUE_LABEL_RE.finditer(window)), default=-1)
+    if expiry_end < 0 and issue_end < 0:
+        return None
+    return "expiry" if expiry_end > issue_end else "issue"
+
+
+def _plausible_document_dates(text):
+    """(date, source_text, label_kind) for every parseable, plausible date."""
+    horizon = datetime.now().year + _MAX_EXPIRY_YEARS_AHEAD
+    out = []
+    for match in _DATE_RE.finditer(text):
+        parsed = _parse_document_date(match.group(0))
+        if not parsed or not (2020 <= parsed.year <= horizon):
+            continue
+        out.append((parsed, match.group(0), _nearest_preceding_label(text, match.start())))
+    return out
 
 
 def extract_trade_license_expiry(raw_text, lines=None):
@@ -165,39 +336,48 @@ def extract_trade_license_expiry(raw_text, lines=None):
 
     The result is evidence for an admin, not an automatic approval signal. OCR
     can make date mistakes, so the document remains pending for manual review.
+
+    Selection is deliberately not "the first date on the page": every licence
+    also prints an issue date (and usually a receipt date), and on a real DET
+    licence those sit within a few characters of the expiry. Prefer a date the
+    expiry label actually owns; failing that, take the latest plausible date,
+    which on any licence is the expiry — the issue and receipt dates always
+    precede it.
     """
-    text = raw_text or ""
-    labelled = []
-    for match in _EXPIRY_LABEL_RE.finditer(text):
-        labelled.extend(_DATE_RE.findall(text[match.start():match.end() + 80]))
-    candidates = labelled or _DATE_RE.findall(text)
-    for candidate in candidates:
-        normalized = candidate.replace("-", "/")
-        parsed = None
-        for date_format in ("%d/%m/%Y", "%d/%m/%y", "%Y/%m/%d"):
-            try:
-                parsed = datetime.strptime(normalized, date_format).date()
-                break
-            except ValueError:
-                continue
-        if parsed and parsed.year >= 2020:
-            iso_value = parsed.isoformat()
-            return {
-                "expires_at": iso_value,
-                "source_text": candidate,
-                "confidence": _confidence_from_lines(candidate, lines or []),
-                "label_matched": candidate in labelled,
-            }
-    return {"expires_at": None, "source_text": None, "confidence": 0.0, "label_matched": False}
+    text = _normalise_document_digits(raw_text or "")
+    dated = _plausible_document_dates(text)
+    if not dated:
+        return {"expires_at": None, "source_text": None, "confidence": 0.0, "label_matched": False}
+
+    expiry_labelled = [item for item in dated if item[2] == "expiry"]
+    pool = expiry_labelled or [item for item in dated if item[2] != "issue"] or dated
+    parsed, candidate, label_kind = max(pool, key=lambda item: item[0])
+    return {
+        "expires_at": parsed.isoformat(),
+        "source_text": candidate,
+        # This is the confidence for the date evidence itself, not
+        # the mean confidence of unrelated logos/Arabic copy.
+        "confidence": _confidence_from_lines(candidate, lines or []),
+        "label_matched": label_kind == "expiry",
+    }
 
 
 def scan_trade_license_expiry(image_file, ocr_provider=None):
-    """Run the existing PaddleOCR provider and return only trade-licence expiry evidence."""
+    """Read trade-licence expiry evidence using bounded multi-pass OCR."""
     provider = ocr_provider or get_default_ocr_provider()
-    processed_image = preprocess_image(image_file)
-    raw_text, lines = _ocr_extract(provider, processed_image)
-    result = extract_trade_license_expiry(raw_text or "", lines or [])
-    return {"raw_text": raw_text or "", "lines": lines or [], **result}
+    candidates = []
+    for raw_text, lines in _ocr_dealer_variants(image_file, provider):
+        result = extract_trade_license_expiry(raw_text, lines)
+        candidates.append((raw_text, lines, result))
+    raw_text, lines, result = max(
+        candidates,
+        key=lambda item: (
+            bool(item[2].get("expires_at")),
+            bool(item[2].get("label_matched")),
+            float(item[2].get("confidence") or 0.0),
+        ),
+    )
+    return {"raw_text": raw_text, "lines": lines, **result}
 
 
 # --- Dealer OCR auto-approval (Task 6) ---------------------------------------
@@ -298,7 +478,48 @@ def _overall_text_confidence(lines):
     confidence). Returns 0.0 if there are no lines."""
     if not lines:
         return 0.0
-    return round(sum(float(l.get("conf") or 0) for l in lines) / len(lines), 4)
+    return round(sum(_line_confidence(line) for line in lines) / len(lines), 4)
+
+
+def extract_tax_registration_number(raw_text, lines=None):
+    """Extract the UAE TRN and score only the identifier evidence.
+
+    A page-level average is a poor document-quality signal: a clean TRN
+    certificate can contain low-confidence decorative or bilingual lines. A
+    readable 15-digit TRN is the required evidence, so its Paddle recognition
+    score is used as the primary confidence signal.
+    """
+    text = _normalise_document_digits(raw_text or "")
+    page_label_matched = bool(_TRN_LABEL_RE.search(text))
+    candidates = []
+    for match in _TRN_RE.finditer(text):
+        number = re.sub(r"\D", "", _normalise_document_digits(match.group(0)))
+        if len(number) != 15:
+            continue
+        # Rank on the identifier's own evidence, strongest signal first: the
+        # FTA prefix, then a TRN/VAT label immediately in front of this
+        # candidate (not merely somewhere on the page), then OCR confidence.
+        window = text[max(0, match.start() - _LABEL_VALUE_WINDOW):match.start()]
+        candidates.append((
+            number.startswith(_TRN_PREFIX),
+            bool(_TRN_LABEL_RE.search(window)),
+            _confidence_from_lines(number, lines or []),
+            number,
+        ))
+    if candidates:
+        has_prefix, near_label, confidence, number = max(candidates, key=lambda item: item[:3])
+        return {
+            "trn_number": number,
+            "confidence": confidence,
+            "label_matched": near_label or page_label_matched,
+        }
+    # No identifier means the document is not strong enough for automatic
+    # approval, even if the rest of the page happens to be high quality.
+    return {
+        "trn_number": None,
+        "confidence": min(_overall_text_confidence(lines or []), 0.59),
+        "label_matched": page_label_matched,
+    }
 
 
 def should_auto_approve_dealer(active_docs, threshold=0.90):
@@ -344,12 +565,22 @@ def scan_trn_document(image_file, ocr_provider=None):
     its overall OCR confidence.
     """
     provider = ocr_provider or get_default_ocr_provider()
-    processed_image = preprocess_image(image_file)
-    raw_text, lines = _ocr_extract(provider, processed_image)
+    candidates = []
+    for raw_text, lines in _ocr_dealer_variants(image_file, provider):
+        result = extract_tax_registration_number(raw_text, lines)
+        candidates.append((raw_text, lines, result))
+    raw_text, lines, result = max(
+        candidates,
+        key=lambda item: (
+            bool(item[2].get("trn_number")),
+            bool(item[2].get("label_matched")),
+            float(item[2].get("confidence") or 0.0),
+        ),
+    )
     return {
-        "raw_text": raw_text or "",
-        "lines": lines or [],
-        "confidence": _overall_text_confidence(lines or []),
+        "raw_text": raw_text,
+        "lines": lines,
+        **result,
     }
 
 
@@ -643,6 +874,7 @@ def preprocess_image(
     max_resize_pixels=None,
     max_width=None,
     max_height=None,
+    preserve_color=False,
 ):
     _validate_upload_size(image_file)
     image_file.seek(0)
@@ -673,9 +905,10 @@ def preprocess_image(
     # dominant lever for small printed fields (Chassis No., Veh. Type) on
     # low-res source photos, so the upscale target is raised from 1200px.
     image = ImageOps.exif_transpose(image).convert("RGB")
-    image = ImageOps.grayscale(image)
-    image = ImageOps.autocontrast(image)
-    image = ImageEnhance.Sharpness(image).enhance(1.5)
+    if not preserve_color:
+        image = ImageOps.grayscale(image)
+        image = ImageOps.autocontrast(image)
+        image = ImageEnhance.Sharpness(image).enhance(1.5)
     target_width = _env_int("OCR_TARGET_WIDTH", 2000)
     if image.width < target_width:
         guardrails = _resize_guardrails(max_resize_pixels, max_width, max_height)

@@ -96,6 +96,52 @@ class GoogleVisionProviderTests(unittest.TestCase):
         self.assertFalse(GoogleVisionProvider(api_key="abc").analyze(b"bytes").available)
 
 
+class LocalVisionProviderTests(unittest.TestCase):
+    """The face path is only a gate if it produces scores hard_blockers can act
+    on, and only safe if an image it cannot read stops rather than sails past.
+    """
+
+    @staticmethod
+    def _jpeg(mode="RGB", size=(320, 240)):
+        import io
+
+        from PIL import Image
+
+        buffer = io.BytesIO()
+        Image.new(mode, size, "gray").save(buffer, "JPEG")
+        return buffer.getvalue()
+
+    def test_vendored_face_model_is_present_and_loads(self):
+        import os
+
+        import cv2
+
+        from services.auto_review.vision import YUNET_MODEL_PATH
+
+        self.assertTrue(os.path.exists(YUNET_MODEL_PATH), YUNET_MODEL_PATH)
+        self.assertIsNotNone(cv2.FaceDetectorYN.create(YUNET_MODEL_PATH, "", (320, 320)))
+
+    def test_a_photo_with_no_person_reports_no_confirmed_face(self):
+        result = LocalVisionProvider().analyze(self._jpeg())
+        self.assertTrue(result.available)
+        self.assertFalse(result.nsfw_likely)
+        # Haar routinely claimed faces in flat/patterned car imagery; nothing
+        # here may clear the policy threshold.
+        self.assertFalse([s for s in result.face_confidences if s >= 0.85])
+
+    def test_face_confidences_are_populated_so_the_blocker_can_act(self):
+        # The contract hard_blockers depends on: a list of floats in 0..1,
+        # highest first. Haar returned [] here, making face detection inert.
+        result = LocalVisionProvider().analyze(self._jpeg())
+        self.assertIsInstance(result.face_confidences, list)
+        self.assertEqual(result.face_confidences, sorted(result.face_confidences, reverse=True))
+        self.assertTrue(all(0.0 <= s <= 1.0 for s in result.face_confidences))
+        self.assertEqual(result.face_count, len(result.face_confidences))
+
+    def test_undecodable_image_fails_closed_instead_of_passing_moderation(self):
+        self.assertFalse(LocalVisionProvider().analyze(b"not an image at all").available)
+
+
 class VisionResultTests(unittest.TestCase):
     def test_default_contact_text_is_empty_list_not_shared(self):
         a = VisionResult(available=True)
