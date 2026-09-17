@@ -118,6 +118,35 @@ class VINDecoderTests(unittest.TestCase):
         self.assertEqual(second["decoded"]["make"], "HONDA")
         self.assertEqual(session.get.call_count, 2)
 
+    def test_decoder_error_response_is_not_cached_for_normal_ttl(self):
+        session = Mock()
+        error_response = Mock()
+        error_response.raise_for_status.return_value = None
+        error_response.json.return_value = {
+            "Results": [{
+                "Make": "HONDA",
+                "Model": "",
+                "ModelYear": "1991",
+                "ErrorCode": "8",
+            }]
+        }
+        session.get.side_effect = [error_response, self._decoder_response("HONDA")]
+
+        decoder = VINDecoder(
+            decoder_base_url="https://decoder.example/decodevinvaluesextended",
+            session=session,
+            cache={},
+            cache_ttl_seconds=86400,
+        )
+
+        first = decoder.validate_and_decode(VALID_VIN)
+        second = decoder.validate_and_decode(VALID_VIN)
+
+        self.assertIn("decoder_error", first["errors"])
+        self.assertTrue(second["valid"])
+        self.assertEqual(second["decoded"]["model"], "ACCORD")
+        self.assertEqual(session.get.call_count, 2)
+
     def test_rejects_invalid_checksum_without_remote_lookup(self):
         session = Mock()
         decoder = VINDecoder(

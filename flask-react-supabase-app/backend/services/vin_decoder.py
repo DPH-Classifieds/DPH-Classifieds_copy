@@ -122,7 +122,10 @@ class VINDecoder:
         base_result["errors"].extend(remote["errors"])
         base_result["is_valid"] = not base_result["errors"]
         base_result["valid"] = base_result["is_valid"]
-        if "decoder_unavailable" in base_result["errors"]:
+        # Remote errors are transient or represent a partial upstream result.
+        # Never retain them for the normal 24-hour success cache: one NHTSA
+        # outage/partial response must not poison every later auto-review run.
+        if remote["errors"]:
             return copy.deepcopy(base_result)
         return self._cache(normalized_vin, base_result)
 

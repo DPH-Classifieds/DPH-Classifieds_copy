@@ -46,9 +46,10 @@ def evaluate_vin(vin, *, form_make, form_model, form_year, decoder):
             False, [FailReason("vin_format_invalid", {"vin": vin_clean})], {}
         )
 
-    # The current approval flow treats a valid typed VIN as sufficient. Decoder
-    # lookups are advisory only so a missing upstream service does not block
-    # otherwise valid listings from auto-approving.
+    # A checksum-valid VIN is not enough for automatic approval when the
+    # configured decoder cannot return a trustworthy result. The listing must
+    # be surfaced for manual review so an upstream outage cannot silently turn
+    # an unchecked VIN into an auto-approved listing.
     checksum_valid = True
     if decoder is not None:
         try:
@@ -73,8 +74,21 @@ def evaluate_vin(vin, *, form_make, form_model, form_year, decoder):
         try:
             decode_result = decoder.validate_and_decode(vin_clean) or {}
             decoded = decode_result.get("decoded") or {}
-        except Exception:
-            decoded = {}
+            decode_errors = decode_result.get("errors") or []
+            if decode_errors:
+                reasons.append(
+                    FailReason(
+                        "vin_decoder_unavailable",
+                        {"vin": vin_clean, "errors": list(decode_errors)},
+                    )
+                )
+        except Exception as exc:
+            reasons.append(
+                FailReason(
+                    "vin_decoder_unavailable",
+                    {"vin": vin_clean, "error": type(exc).__name__},
+                )
+            )
 
     # A submitted make/model/year that contradicts what the VIN itself decodes
     # to is a strong fraud signal — force a human look rather than trusting

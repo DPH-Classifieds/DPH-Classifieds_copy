@@ -9,12 +9,11 @@ import unittest
 
 from services.vin_decoder import VINDecoder, decode_vin_year
 
-# Known-good VINs with verified NHTSA responses
+# A stable public NHTSA fixture. Keep live tests small and avoid sample VINs
+# whose upstream records have changed to partial/no-detail responses.
 KNOWN_VINS = [
     # (vin, expected_make, expected_model_contains, expected_year)
     ("1HGCM82633A004352", "HONDA", "ACCORD", "2003"),
-    ("1HGBH41JXMN109186", "HONDA", "ACCORD", "1991"),
-    ("2T1BURHE0JC043821", "TOYOTA", "COROLLA", "2018"),
 ]
 
 

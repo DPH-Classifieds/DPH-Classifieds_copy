@@ -8,15 +8,16 @@ GOOD_VIN = "1HGBH41JXMN109186"
 class FakeDecoder:
     """In-memory decoder that fakes is_checksum_valid + validate_and_decode."""
 
-    def __init__(self, *, decoded, checksum_ok=True):
+    def __init__(self, *, decoded, checksum_ok=True, errors=None):
         self._decoded = decoded
         self._checksum_ok = checksum_ok
+        self._errors = errors or []
 
     def is_checksum_valid(self, vin):
         return self._checksum_ok and len(vin) == 17
 
     def validate_and_decode(self, vin):
-        return {"decoded": dict(self._decoded)}
+        return {"decoded": dict(self._decoded), "errors": list(self._errors)}
 
 
 class VinGateTests(unittest.TestCase):
@@ -85,8 +86,8 @@ class VinGateTests(unittest.TestCase):
         labels = [x.label for x in r.reasons]
         self.assertIn("vin_checksum_invalid", labels)
 
-    def test_decoder_unavailable_when_decoded_empty(self):
-        decoder = FakeDecoder(decoded={})
+    def test_decoder_unavailable_when_decoded_empty_queues_for_manual_review(self):
+        decoder = FakeDecoder(decoded={}, errors=["decoder_unavailable"])
         r = evaluate_vin(
             GOOD_VIN,
             form_make="Honda",
@@ -94,8 +95,24 @@ class VinGateTests(unittest.TestCase):
             form_year=1991,
             decoder=decoder,
         )
-        self.assertTrue(r.ok, msg=r.reasons)
+        self.assertFalse(r.ok, msg=r.reasons)
         self.assertEqual(r.decoded, {})
+        self.assertEqual(r.reasons[0].label, "vin_decoder_unavailable")
+
+    def test_partial_decoder_error_queues_even_when_make_is_present(self):
+        decoder = FakeDecoder(
+            decoded={"make": "Honda", "model_year": 1991},
+            errors=["decoder_error"],
+        )
+        r = evaluate_vin(
+            GOOD_VIN,
+            form_make="Honda",
+            form_model="Accord",
+            form_year=1991,
+            decoder=decoder,
+        )
+        self.assertFalse(r.ok, msg=r.reasons)
+        self.assertEqual(r.reasons[0].label, "vin_decoder_unavailable")
 
     def test_make_mismatch(self):
         # A VIN that decodes to a different make than the submitter typed is a
